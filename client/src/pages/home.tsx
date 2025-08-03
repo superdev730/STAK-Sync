@@ -21,28 +21,28 @@ export default function Home() {
       description: "Find your next business connection",
       icon: Brain,
       href: "/discover",
-      color: "bg-light-blue text-navy",
+      color: "bg-stak-copper/20 text-stak-copper",
     },
     {
       title: "Check Messages",
       description: "3 unread conversations",
       icon: MessageSquare,
       href: "/messages",
-      color: "bg-prof-green text-white",
+      color: "bg-green-600/20 text-green-400",
     },
     {
       title: "Schedule Meetup",
       description: "Coordinate your next meeting",
       icon: Calendar,
       href: "/events",
-      color: "bg-gold text-navy",
+      color: "bg-blue-600/20 text-blue-400",
     },
     {
       title: "Update Profile",
       description: "Enhance your networking profile",
       icon: Award,
       href: "/profile",
-      color: "bg-navy text-white",
+      color: "bg-purple-600/20 text-purple-400",
     },
   ];
 
@@ -70,8 +70,8 @@ export default function Home() {
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-navy to-blue-900 text-white rounded-2xl p-8">
-        <h1 className="text-3xl font-playfair font-bold mb-2">
+      <div className="bg-gradient-to-r from-stak-black to-stak-gray text-stak-white rounded-2xl p-8 border border-stak-copper/20">
+        <h1 className="text-3xl font-bold mb-2">
           Welcome back, {user?.firstName}!
         </h1>
         <p className="text-blue-200 text-lg">

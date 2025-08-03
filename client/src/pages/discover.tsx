@@ -21,7 +21,7 @@ export default function Discover() {
   const { toast } = useToast();
 
   const { data: matches, isLoading, refetch } = useQuery<(Match & { matchedUser: User })[]>({
-    queryKey: ["/api/matches/demo"],
+    queryKey: ["/api/matches"],
   });
 
   const handleConnect = async (matchId: string) => {

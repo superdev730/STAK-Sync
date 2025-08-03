@@ -31,8 +31,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(svg);
   });
 
-  // Seed sample users for demo (no auth required for testing)
-  app.post('/api/seed-users', async (req, res) => {
+  // Seed sample users (authenticated)
+  app.post('/api/seed-users', isAuthenticated, async (req, res) => {
     try {
       const { seedSampleUsers } = await import('./seedData');
       const success = await seedSampleUsers();
@@ -40,48 +40,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error seeding users:", error);
       res.status(500).json({ message: "Failed to seed users" });
-    }
-  });
-
-  // Generate AI matches for demo (no auth required for testing)
-  app.post('/api/matches/generate', async (req, res) => {
-    try {
-      // For demo, use the first user in the database
-      const allUsers = await db.select().from(users).limit(1);
-      if (allUsers.length === 0) {
-        return res.status(400).json({ message: "No users found. Please create sample users first." });
-      }
-
-      const demoUserId = allUsers[0].id;
-      const { generateMatches } = await import('./aiMatching');
-      const newMatches = await generateMatches(demoUserId);
-      
-      res.json({ 
-        success: true, 
-        matchesGenerated: newMatches.length,
-        message: `Generated ${newMatches.length} AI-powered matches` 
-      });
-    } catch (error) {
-      console.error("Error generating matches:", error);
-      res.status(500).json({ message: "Failed to generate matches" });
-    }
-  });
-
-  // Get matches for demo (no auth required for testing)
-  app.get('/api/matches/demo', async (req, res) => {
-    try {
-      // For demo, get matches for the first user
-      const allUsers = await db.select().from(users).limit(1);
-      if (allUsers.length === 0) {
-        return res.json([]);
-      }
-
-      const demoUserId = allUsers[0].id;
-      const matchesData = await storage.getMatches(demoUserId);
-      res.json(matchesData);
-    } catch (error) {
-      console.error("Error fetching demo matches:", error);
-      res.status(500).json({ message: "Failed to fetch matches" });
     }
   });
 
@@ -107,6 +65,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Generate AI matches (authenticated)
+  app.post('/api/matches/generate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { generateMatches } = await import('./aiMatching');
+      const newMatches = await generateMatches(userId);
+      
+      res.json({ 
+        success: true, 
+        matchesGenerated: newMatches.length,
+        message: `Generated ${newMatches.length} AI-powered matches` 
+      });
+    } catch (error) {
+      console.error("Error generating matches:", error);
+      res.status(500).json({ message: "Failed to generate matches" });
     }
   });
 
