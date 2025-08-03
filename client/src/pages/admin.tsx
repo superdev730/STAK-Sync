@@ -99,8 +99,63 @@ interface UserManagementData {
   total: number;
 }
 
+interface PlatformInsights {
+  advertisingMetrics: {
+    totalRevenue: number;
+    totalImpressions: number;
+    totalClicks: number;
+    ctr: number;
+    cpm: number;
+    cpc: number;
+    conversionRate: number;
+    activeAdvertisers: number;
+  };
+  businessMetrics: {
+    totalRevenue: number;
+    monthlyGrowthRate: number;
+    userAcquisitionCost: number;
+    lifetimeValue: number;
+    returnOnAdSpend: number;
+    grossMargin: number;
+    churnRate: number;
+  };
+  engagementMetrics: {
+    dailyActiveUsers: number;
+    weeklyActiveUsers: number;
+    monthlyActiveUsers: number;
+    avgSessionDuration: number;
+  };
+  growthMetrics: {
+    netPromoterScore: number;
+  };
+  marketMetrics: {
+    totalAddressableMarket: number;
+    marketPenetration: number;
+    brandAwareness: number;
+  };
+}
+
+interface AdPerformance {
+  overview: {
+    totalCampaigns: number;
+    activeCampaigns: number;
+    totalBudget: number;
+    spentBudget: number;
+    returnOnInvestment: number;
+  };
+  performance: {
+    qualityScore: number;
+  };
+  audienceInsights: {
+    demographics: {
+      ageGroups: Array<{ range: string; percentage: number }>;
+      industries: Array<{ name: string; percentage: number }>;
+    };
+  };
+}
+
 export default function Admin() {
-  const [selectedTimeRange, setSelectedTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
+  const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -120,22 +175,19 @@ export default function Admin() {
     retry: false,
   });
 
-  const { data: platformInsights, isLoading: insightsLoading } = useQuery({
+  const { data: platformInsights, isLoading: insightsLoading } = useQuery<PlatformInsights>({
     queryKey: ['/api/admin/platform-insights', selectedTimeRange],
     retry: false,
   });
 
-  const { data: adPerformance, isLoading: adLoading } = useQuery({
+  const { data: adPerformance, isLoading: adLoading } = useQuery<AdPerformance>({
     queryKey: ['/api/admin/advertising-performance', selectedTimeRange],
     retry: false,
   });
 
   const userActionMutation = useMutation({
     mutationFn: async ({ userId, status, reason }: { userId: string; status: string; reason: string }) => {
-      return apiRequest(`/api/admin/users/${userId}/status`, {
-        method: 'POST',
-        body: { status, reason },
-      });
+      return apiRequest(`/api/admin/users/${userId}/status`, 'POST', { status, reason });
     },
     onSuccess: () => {
       toast({
@@ -441,10 +493,10 @@ export default function Admin() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-white">
-                        ${platformInsights?.businessMetrics.totalRevenue?.toLocaleString() || '127,451'}
+                        ${platformInsights?.businessMetrics?.totalRevenue?.toLocaleString() || '127,451'}
                       </div>
                       <p className="text-xs text-green-400">
-                        +{platformInsights?.businessMetrics.monthlyGrowthRate || 15.2}% growth
+                        +{platformInsights?.businessMetrics?.monthlyGrowthRate || 15.2}% growth
                       </p>
                     </CardContent>
                   </Card>
@@ -455,10 +507,10 @@ export default function Admin() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-white">
-                        ${platformInsights?.advertisingMetrics.totalRevenue?.toLocaleString() || '45,781'}
+                        ${platformInsights?.advertisingMetrics?.totalRevenue?.toLocaleString() || '45,781'}
                       </div>
                       <p className="text-xs text-gray-400">
-                        {platformInsights?.advertisingMetrics.totalImpressions?.toLocaleString() || '2.8M'} impressions
+                        {platformInsights?.advertisingMetrics?.totalImpressions?.toLocaleString() || '2.8M'} impressions
                       </p>
                     </CardContent>
                   </Card>
@@ -469,10 +521,10 @@ export default function Admin() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-white">
-                        {platformInsights?.engagementMetrics.monthlyActiveUsers?.toLocaleString() || '12,450'}
+                        {platformInsights?.engagementMetrics?.monthlyActiveUsers?.toLocaleString() || '12,450'}
                       </div>
                       <p className="text-xs text-gray-400">
-                        {platformInsights?.engagementMetrics.avgSessionDuration || 23.4}m avg session
+                        {platformInsights?.engagementMetrics?.avgSessionDuration || 23.4}m avg session
                       </p>
                     </CardContent>
                   </Card>
@@ -483,10 +535,10 @@ export default function Admin() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-white">
-                        {platformInsights?.businessMetrics.returnOnAdSpend || 4.2}x
+                        {platformInsights?.businessMetrics?.returnOnAdSpend || 4.2}x
                       </div>
                       <p className="text-xs text-green-400">
-                        {platformInsights?.advertisingMetrics.activeAdvertisers || 12} active advertisers
+                        {platformInsights?.advertisingMetrics?.activeAdvertisers || 12} active advertisers
                       </p>
                     </CardContent>
                   </Card>
@@ -505,19 +557,19 @@ export default function Admin() {
                       <div className="space-y-2">
                         <p className="text-sm text-gray-400">Customer Acquisition Cost</p>
                         <p className="text-2xl font-bold text-white">
-                          ${platformInsights?.businessMetrics.userAcquisitionCost || 45.80}
+                          ${platformInsights?.businessMetrics?.userAcquisitionCost || 45.80}
                         </p>
                       </div>
                       <div className="space-y-2">
                         <p className="text-sm text-gray-400">Lifetime Value</p>
                         <p className="text-2xl font-bold text-white">
-                          ${platformInsights?.businessMetrics.lifetimeValue || 890.25}
+                          ${platformInsights?.businessMetrics?.lifetimeValue || 890.25}
                         </p>
                       </div>
                       <div className="space-y-2">
                         <p className="text-sm text-gray-400">Gross Margin</p>
                         <p className="text-2xl font-bold text-white">
-                          {((platformInsights?.businessMetrics.grossMargin || 0.78) * 100).toFixed(1)}%
+                          {((platformInsights?.businessMetrics?.grossMargin || 0.78) * 100).toFixed(1)}%
                         </p>
                       </div>
                     </div>
@@ -538,7 +590,7 @@ export default function Admin() {
                         <div>
                           <p className="text-sm text-gray-400">Total Addressable Market</p>
                           <p className="text-xl font-bold text-white">
-                            ${(platformInsights?.marketMetrics?.totalAddressableMarket / 1000000000 || 2.4).toFixed(1)}B
+                            ${((platformInsights?.marketMetrics?.totalAddressableMarket || 2400000000) / 1000000000).toFixed(1)}B
                           </p>
                         </div>
                         <div>
@@ -599,7 +651,7 @@ export default function Admin() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-white">
-                        ${platformInsights?.advertisingMetrics.totalRevenue?.toLocaleString() || '45,781'}
+                        ${platformInsights?.advertisingMetrics?.totalRevenue?.toLocaleString() || '45,781'}
                       </div>
                       <p className="text-xs text-gray-400">
                         ${adPerformance?.overview.spentBudget?.toLocaleString() || '67,234'} spent
@@ -613,10 +665,10 @@ export default function Admin() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-white">
-                        {platformInsights?.advertisingMetrics.ctr?.toFixed(2) || '1.21'}%
+                        {platformInsights?.advertisingMetrics?.ctr?.toFixed(2) || '1.21'}%
                       </div>
                       <p className="text-xs text-gray-400">
-                        {platformInsights?.advertisingMetrics.totalClicks?.toLocaleString() || '34,567'} clicks
+                        {platformInsights?.advertisingMetrics?.totalClicks?.toLocaleString() || '34,567'} clicks
                       </p>
                     </CardContent>
                   </Card>
@@ -649,7 +701,7 @@ export default function Admin() {
                       <div>
                         <h4 className="text-sm font-medium text-gray-300 mb-3">Age Groups</h4>
                         <div className="space-y-2">
-                          {adPerformance?.audienceInsights.demographics.ageGroups?.map((group: any, index: number) => (
+                          {adPerformance?.audienceInsights?.demographics?.ageGroups?.map((group: any, index: number) => (
                             <div key={index} className="flex justify-between items-center">
                               <span className="text-sm text-gray-400">{group.range}</span>
                               <div className="flex items-center gap-2">
@@ -668,7 +720,7 @@ export default function Admin() {
                       <div>
                         <h4 className="text-sm font-medium text-gray-300 mb-3">Industries</h4>
                         <div className="space-y-2">
-                          {adPerformance?.audienceInsights.demographics.industries?.map((industry: any, index: number) => (
+                          {adPerformance?.audienceInsights?.demographics?.industries?.map((industry: any, index: number) => (
                             <div key={index} className="flex justify-between items-center">
                               <span className="text-sm text-gray-400">{industry.name}</span>
                               <div className="flex items-center gap-2">
