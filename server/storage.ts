@@ -48,6 +48,10 @@ import {
   platformMetrics,
   adminUsers,
   userAccountStatus,
+  advertisingMetrics,
+  engagementMetrics,
+  businessMetrics,
+  growthMetrics,
   type AdminLog,
   type InsertAdminLog,
   type PlatformMetric,
@@ -56,6 +60,14 @@ import {
   type InsertAdminUser,
   type UserAccountStatus,
   type InsertUserAccountStatus,
+  type AdvertisingMetric,
+  type InsertAdvertisingMetric,
+  type EngagementMetric,
+  type InsertEngagementMetric,
+  type BusinessMetric,
+  type InsertBusinessMetric,
+  type GrowthMetric,
+  type InsertGrowthMetric,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql } from "drizzle-orm";

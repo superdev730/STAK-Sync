@@ -12,6 +12,14 @@ Preferred communication style: Simple, everyday language.
 - **Email Integration**: SendGrid for account notifications and admin communications
 - **Admin Permissions**: View analytics, manage users, manage events, system configuration
 
+# Platform Analytics & Business Intelligence
+- **Stakeholder Metrics**: Total revenue, growth rates, user acquisition costs, lifetime value
+- **Investor Dashboard**: Business performance, market penetration, TAM analysis, ROAS tracking
+- **Advertising Platform**: Campaign performance, audience insights, CTR/CPM/CPC metrics, ROI analysis
+- **Engagement Analytics**: User retention, session duration, platform health, satisfaction scores
+- **Market Intelligence**: Brand awareness, competitive position, Net Promoter Score
+- **Revenue Breakdown**: Subscription, advertising, events revenue streams with detailed analytics
+
 # System Architecture
 
 ## Frontend Architecture

@@ -976,5 +976,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Platform insights for stakeholders, investors, and advertisers
+  app.get('/api/admin/platform-insights', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!await storage.isUserAdmin(user?.id || '')) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const timeRange = req.query.timeRange as string || '30d';
+      
+      // Generate sample platform insights for demonstration
+      const insights = {
+        advertisingMetrics: {
+          totalRevenue: 45780.50,
+          totalImpressions: 2847392,
+          totalClicks: 34567,
+          ctr: 1.214, // 1.21%
+          cpm: 16.08,
+          cpc: 1.32,
+          conversionRate: 2.8,
+          activeAdvertisers: 12,
+          topPerformingAds: [
+            { id: '1', title: 'Professional Services', revenue: 8940.20, ctr: 2.1 },
+            { id: '2', title: 'Investment Opportunities', revenue: 7234.80, ctr: 1.9 },
+            { id: '3', title: 'Tech Startups', revenue: 6128.40, ctr: 1.7 }
+          ]
+        },
+        businessMetrics: {
+          totalRevenue: 127450.75,
+          monthlyGrowthRate: 15.2,
+          userAcquisitionCost: 45.80,
+          lifetimeValue: 890.25,
+          returnOnAdSpend: 4.2,
+          grossMargin: 0.78,
+          churnRate: 0.08,
+          revenueBreakdown: {
+            subscription: 67890.25,
+            advertising: 45780.50,
+            events: 13780.00
+          }
+        },
+        engagementMetrics: {
+          dailyActiveUsers: 1247,
+          weeklyActiveUsers: 4892,
+          monthlyActiveUsers: 12450,
+          avgSessionDuration: 23.4, // minutes
+          userRetention: {
+            day7: 0.73,
+            day30: 0.45,
+            day90: 0.28
+          },
+          platformHealth: {
+            responseTime: 240, // milliseconds
+            uptime: 99.8,
+            errorRate: 0.15
+          }
+        },
+        growthMetrics: {
+          signupConversionRate: 0.087,
+          profileCompletionRate: 0.78,
+          firstMatchRate: 0.62,
+          messageResponseRate: 0.84,
+          eventAttendanceRate: 0.67,
+          userSatisfactionScore: 4.3,
+          netPromoterScore: 67
+        },
+        marketMetrics: {
+          marketPenetration: 2.1, // % of target market
+          brandAwareness: 34.7,
+          competitivePosition: 'Strong',
+          totalAddressableMarket: 2400000000, // $2.4B
+          targetMarketSize: 120000000 // $120M
+        }
+      };
+
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: user!.id,
+        action: 'view_platform_insights',
+        targetType: 'insights',
+        details: { timeRange },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+
+      res.json(insights);
+    } catch (error) {
+      console.error('Error fetching platform insights:', error);
+      res.status(500).json({ message: 'Failed to fetch platform insights' });
+    }
+  });
+
+  // Detailed advertising metrics for advertisers
+  app.get('/api/admin/advertising-performance', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!await storage.isUserAdmin(user?.id || '')) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const timeRange = req.query.timeRange as string || '30d';
+      
+      // Generate advertising performance data
+      const adPerformance = {
+        overview: {
+          totalCampaigns: 23,
+          activeCampaigns: 18,
+          totalBudget: 89450.00,
+          spentBudget: 67234.20,
+          avgCostPerAcquisition: 45.80,
+          returnOnInvestment: 340 // 340%
+        },
+        audienceInsights: {
+          totalReach: 234567,
+          uniqueUsers: 187432,
+          demographics: {
+            ageGroups: [
+              { range: '25-34', percentage: 34.2 },
+              { range: '35-44', percentage: 28.7 },
+              { range: '45-54', percentage: 22.1 },
+              { range: '55+', percentage: 15.0 }
+            ],
+            industries: [
+              { name: 'Technology', percentage: 42.1 },
+              { name: 'Finance', percentage: 28.3 },
+              { name: 'Healthcare', percentage: 15.8 },
+              { name: 'Other', percentage: 13.8 }
+            ]
+          }
+        },
+        performance: {
+          impressions: 2847392,
+          clicks: 34567,
+          conversions: 967,
+          revenue: 45780.50,
+          qualityScore: 8.4,
+          engagementRate: 5.2
+        },
+        trends: [
+          { date: '2025-07-01', impressions: 95247, clicks: 1156, revenue: 1523.40 },
+          { date: '2025-07-08', impressions: 102341, clicks: 1289, revenue: 1678.90 },
+          { date: '2025-07-15', impressions: 108567, clicks: 1345, revenue: 1789.20 },
+          { date: '2025-07-22', impressions: 112890, clicks: 1434, revenue: 1923.80 },
+          { date: '2025-07-29', impressions: 118456, clicks: 1501, revenue: 2045.30 }
+        ]
+      };
+
+      res.json(adPerformance);
+    } catch (error) {
+      console.error('Error fetching advertising performance:', error);
+      res.status(500).json({ message: 'Failed to fetch advertising performance' });
+    }
+  });
+
   return httpServer;
 }

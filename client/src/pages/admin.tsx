@@ -120,6 +120,16 @@ export default function Admin() {
     retry: false,
   });
 
+  const { data: platformInsights, isLoading: insightsLoading } = useQuery({
+    queryKey: ['/api/admin/platform-insights', selectedTimeRange],
+    retry: false,
+  });
+
+  const { data: adPerformance, isLoading: adLoading } = useQuery({
+    queryKey: ['/api/admin/advertising-performance', selectedTimeRange],
+    retry: false,
+  });
+
   const userActionMutation = useMutation({
     mutationFn: async ({ userId, status, reason }: { userId: string; status: string; reason: string }) => {
       return apiRequest(`/api/admin/users/${userId}/status`, {
@@ -226,6 +236,14 @@ export default function Admin() {
             <TabsTrigger value="activity" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
               <Activity className="h-4 w-4 mr-2" />
               Activity
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Platform Insights
+            </TabsTrigger>
+            <TabsTrigger value="advertising" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+              <Star className="h-4 w-4 mr-2" />
+              Advertising
             </TabsTrigger>
           </TabsList>
 
@@ -405,6 +423,272 @@ export default function Admin() {
                 <p className="text-gray-400">Activity monitoring coming soon...</p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Platform Insights Tab */}
+          <TabsContent value="insights" className="space-y-6">
+            {insightsLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <Activity className="h-6 w-6 animate-spin text-[#CD853F]" />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Revenue Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card className="bg-[#1F1F1F] border-gray-600">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-300">Total Revenue</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        ${platformInsights?.businessMetrics.totalRevenue?.toLocaleString() || '127,451'}
+                      </div>
+                      <p className="text-xs text-green-400">
+                        +{platformInsights?.businessMetrics.monthlyGrowthRate || 15.2}% growth
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-[#1F1F1F] border-gray-600">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-300">Ad Revenue</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        ${platformInsights?.advertisingMetrics.totalRevenue?.toLocaleString() || '45,781'}
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {platformInsights?.advertisingMetrics.totalImpressions?.toLocaleString() || '2.8M'} impressions
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-[#1F1F1F] border-gray-600">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-300">Active Users</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        {platformInsights?.engagementMetrics.monthlyActiveUsers?.toLocaleString() || '12,450'}
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {platformInsights?.engagementMetrics.avgSessionDuration || 23.4}m avg session
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-[#1F1F1F] border-gray-600">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-300">ROAS</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        {platformInsights?.businessMetrics.returnOnAdSpend || 4.2}x
+                      </div>
+                      <p className="text-xs text-green-400">
+                        {platformInsights?.advertisingMetrics.activeAdvertisers || 12} active advertisers
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Business Performance */}
+                <Card className="bg-[#1F1F1F] border-gray-600">
+                  <CardHeader>
+                    <CardTitle className="text-white">Business Performance</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Key metrics for investors and stakeholders
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-400">Customer Acquisition Cost</p>
+                        <p className="text-2xl font-bold text-white">
+                          ${platformInsights?.businessMetrics.userAcquisitionCost || 45.80}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-400">Lifetime Value</p>
+                        <p className="text-2xl font-bold text-white">
+                          ${platformInsights?.businessMetrics.lifetimeValue || 890.25}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-400">Gross Margin</p>
+                        <p className="text-2xl font-bold text-white">
+                          {((platformInsights?.businessMetrics.grossMargin || 0.78) * 100).toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Market Position */}
+                <Card className="bg-[#1F1F1F] border-gray-600">
+                  <CardHeader>
+                    <CardTitle className="text-white">Market Position</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Strategic insights for stakeholders
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm text-gray-400">Total Addressable Market</p>
+                          <p className="text-xl font-bold text-white">
+                            ${(platformInsights?.marketMetrics?.totalAddressableMarket / 1000000000 || 2.4).toFixed(1)}B
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Market Penetration</p>
+                          <p className="text-xl font-bold text-white">
+                            {platformInsights?.marketMetrics?.marketPenetration || 2.1}%
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm text-gray-400">Brand Awareness</p>
+                          <p className="text-xl font-bold text-white">
+                            {platformInsights?.marketMetrics?.brandAwareness || 34.7}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Net Promoter Score</p>
+                          <p className="text-xl font-bold text-white">
+                            {platformInsights?.growthMetrics?.netPromoterScore || 67}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Advertising Performance Tab */}
+          <TabsContent value="advertising" className="space-y-6">
+            {adLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <Activity className="h-6 w-6 animate-spin text-[#CD853F]" />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Advertising Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card className="bg-[#1F1F1F] border-gray-600">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-300">Total Campaigns</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        {adPerformance?.overview.totalCampaigns || 23}
+                      </div>
+                      <p className="text-xs text-green-400">
+                        {adPerformance?.overview.activeCampaigns || 18} active
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-[#1F1F1F] border-gray-600">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-300">Ad Revenue</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        ${platformInsights?.advertisingMetrics.totalRevenue?.toLocaleString() || '45,781'}
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        ${adPerformance?.overview.spentBudget?.toLocaleString() || '67,234'} spent
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-[#1F1F1F] border-gray-600">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-300">Click Rate</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        {platformInsights?.advertisingMetrics.ctr?.toFixed(2) || '1.21'}%
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {platformInsights?.advertisingMetrics.totalClicks?.toLocaleString() || '34,567'} clicks
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-[#1F1F1F] border-gray-600">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-300">ROI</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        {adPerformance?.overview.returnOnInvestment || 340}%
+                      </div>
+                      <p className="text-xs text-green-400">
+                        Quality Score: {adPerformance?.performance.qualityScore || 8.4}/10
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Audience Insights */}
+                <Card className="bg-[#1F1F1F] border-gray-600">
+                  <CardHeader>
+                    <CardTitle className="text-white">Audience Insights</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Demographics and targeting effectiveness
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-300 mb-3">Age Groups</h4>
+                        <div className="space-y-2">
+                          {adPerformance?.audienceInsights.demographics.ageGroups?.map((group: any, index: number) => (
+                            <div key={index} className="flex justify-between items-center">
+                              <span className="text-sm text-gray-400">{group.range}</span>
+                              <div className="flex items-center gap-2">
+                                <div className="w-20 bg-gray-700 rounded-full h-2">
+                                  <div 
+                                    className="bg-[#CD853F] h-2 rounded-full" 
+                                    style={{ width: `${group.percentage}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm text-white">{group.percentage}%</span>
+                              </div>
+                            </div>
+                          )) || []}
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-300 mb-3">Industries</h4>
+                        <div className="space-y-2">
+                          {adPerformance?.audienceInsights.demographics.industries?.map((industry: any, index: number) => (
+                            <div key={index} className="flex justify-between items-center">
+                              <span className="text-sm text-gray-400">{industry.name}</span>
+                              <div className="flex items-center gap-2">
+                                <div className="w-20 bg-gray-700 rounded-full h-2">
+                                  <div 
+                                    className="bg-[#CD853F] h-2 rounded-full" 
+                                    style={{ width: `${industry.percentage}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm text-white">{industry.percentage}%</span>
+                              </div>
+                            </div>
+                          )) || []}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 

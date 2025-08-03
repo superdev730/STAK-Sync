@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
   decimal,
+  date,
 } from "drizzle-orm/pg-core";
 import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
@@ -523,6 +524,69 @@ export const platformMetrics = pgTable("platform_metrics", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Advertising and monetization metrics
+export const advertisingMetrics = pgTable("advertising_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: date("date").notNull(),
+  adImpressions: integer("ad_impressions").default(0),
+  adClicks: integer("ad_clicks").default(0),
+  adRevenue: decimal("ad_revenue", { precision: 10, scale: 2 }).default("0.00"),
+  ctr: decimal("ctr", { precision: 5, scale: 4 }).default("0.0000"), // Click-through rate
+  cpm: decimal("cpm", { precision: 10, scale: 2 }).default("0.00"), // Cost per mille
+  cpc: decimal("cpc", { precision: 10, scale: 2 }).default("0.00"), // Cost per click
+  conversionRate: decimal("conversion_rate", { precision: 5, scale: 4 }).default("0.0000"),
+  advertisers: integer("advertisers").default(0), // Number of active advertisers
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User engagement and retention metrics
+export const engagementMetrics = pgTable("engagement_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: date("date").notNull(),
+  dailyActiveUsers: integer("daily_active_users").default(0),
+  weeklyActiveUsers: integer("weekly_active_users").default(0),
+  monthlyActiveUsers: integer("monthly_active_users").default(0),
+  avgSessionDuration: integer("avg_session_duration").default(0), // in minutes
+  pageViews: integer("page_views").default(0),
+  uniquePageViews: integer("unique_page_views").default(0),
+  bounceRate: decimal("bounce_rate", { precision: 5, scale: 4 }).default("0.0000"),
+  userRetentionDay7: decimal("user_retention_day_7", { precision: 5, scale: 4 }).default("0.0000"),
+  userRetentionDay30: decimal("user_retention_day_30", { precision: 5, scale: 4 }).default("0.0000"),
+  churnRate: decimal("churn_rate", { precision: 5, scale: 4 }).default("0.0000"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Business performance metrics
+export const businessMetrics = pgTable("business_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: date("date").notNull(),
+  totalRevenue: decimal("total_revenue", { precision: 12, scale: 2 }).default("0.00"),
+  subscriptionRevenue: decimal("subscription_revenue", { precision: 12, scale: 2 }).default("0.00"),
+  advertisingRevenue: decimal("advertising_revenue", { precision: 12, scale: 2 }).default("0.00"),
+  eventRevenue: decimal("event_revenue", { precision: 12, scale: 2 }).default("0.00"),
+  arpu: decimal("arpu", { precision: 10, scale: 2 }).default("0.00"), // Average revenue per user
+  ltv: decimal("ltv", { precision: 10, scale: 2 }).default("0.00"), // Lifetime value
+  cac: decimal("cac", { precision: 10, scale: 2 }).default("0.00"), // Customer acquisition cost
+  roas: decimal("roas", { precision: 10, scale: 2 }).default("0.00"), // Return on ad spend
+  grossMargin: decimal("gross_margin", { precision: 5, scale: 4 }).default("0.0000"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Platform growth and funnel metrics
+export const growthMetrics = pgTable("growth_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: date("date").notNull(),
+  signupConversionRate: decimal("signup_conversion_rate", { precision: 5, scale: 4 }).default("0.0000"),
+  profileCompletionRate: decimal("profile_completion_rate", { precision: 5, scale: 4 }).default("0.0000"),
+  firstMatchRate: decimal("first_match_rate", { precision: 5, scale: 4 }).default("0.0000"),
+  messageResponseRate: decimal("message_response_rate", { precision: 5, scale: 4 }).default("0.0000"),
+  meetupSchedulingRate: decimal("meetup_scheduling_rate", { precision: 5, scale: 4 }).default("0.0000"),
+  eventAttendanceRate: decimal("event_attendance_rate", { precision: 5, scale: 4 }).default("0.0000"),
+  userSatisfactionScore: decimal("user_satisfaction_score", { precision: 3, scale: 2 }).default("0.00"),
+  netPromoterScore: decimal("net_promoter_score", { precision: 5, scale: 2 }).default("0.00"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export type InsertAdminLog = typeof adminLogs.$inferInsert;
 export type AdminLog = typeof adminLogs.$inferSelect;
 export type InsertPlatformMetric = typeof platformMetrics.$inferInsert;
@@ -556,3 +620,13 @@ export type AdminUser = typeof adminUsers.$inferSelect;
 export type InsertAdminUser = typeof adminUsers.$inferInsert;
 export type UserAccountStatus = typeof userAccountStatus.$inferSelect;
 export type InsertUserAccountStatus = typeof userAccountStatus.$inferInsert;
+
+// Analytics metric types
+export type AdvertisingMetric = typeof advertisingMetrics.$inferSelect;
+export type InsertAdvertisingMetric = typeof advertisingMetrics.$inferInsert;
+export type EngagementMetric = typeof engagementMetrics.$inferSelect;
+export type InsertEngagementMetric = typeof engagementMetrics.$inferInsert;
+export type BusinessMetric = typeof businessMetrics.$inferSelect;
+export type InsertBusinessMetric = typeof businessMetrics.$inferInsert;
+export type GrowthMetric = typeof growthMetrics.$inferSelect;
+export type InsertGrowthMetric = typeof growthMetrics.$inferInsert;
