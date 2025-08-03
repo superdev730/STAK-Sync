@@ -1,24 +1,53 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
-import { Brain, MessageSquare, Calendar, Users, TrendingUp, Award, ExternalLink, BarChart3, Filter, ArrowUpDown } from "lucide-react";
+import { Brain, MessageSquare, Calendar, Users, TrendingUp, Award, ExternalLink, BarChart3, Filter, ArrowUpDown, AlertCircle, Clock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+
+interface UserStats {
+  connections: number;
+  matchScore: string;
+  meetings: number;
+  messages: number;
+  pendingMatches: number;
+  pendingMeetups: number;
+  unreadMessages: number;
+}
 
 export default function Home() {
   const { user } = useAuth();
   const [drillDownDialog, setDrillDownDialog] = useState(false);
   const [drillDownType, setDrillDownType] = useState("");
   const [drillDownData, setDrillDownData] = useState<any[]>([]);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
 
-  const stats = [
-    { label: "Connections", value: "87", icon: Users },
-    { label: "Match Score", value: "94%", icon: TrendingUp },
-    { label: "Meetings", value: "23", icon: Calendar },
-    { label: "Messages", value: "156", icon: MessageSquare },
+  useEffect(() => {
+    const fetchUserStats = async () => {
+      try {
+        const stats = await apiRequest('GET', '/api/user/stats');
+        setUserStats(stats);
+      } catch (error) {
+        console.error('Error fetching user stats:', error);
+      }
+    };
+
+    fetchUserStats();
+  }, []);
+
+  const stats = userStats ? [
+    { label: "Connections", value: userStats.connections.toString(), icon: Users },
+    { label: "Match Score", value: userStats.matchScore, icon: TrendingUp },
+    { label: "Meetings", value: userStats.meetings.toString(), icon: Calendar },
+    { label: "Messages", value: userStats.messages.toString(), icon: MessageSquare },
+  ] : [
+    { label: "Connections", value: "...", icon: Users },
+    { label: "Match Score", value: "...", icon: TrendingUp },
+    { label: "Meetings", value: "...", icon: Calendar },
+    { label: "Messages", value: "...", icon: MessageSquare },
   ];
 
   const handleMetricClick = async (metricType: string) => {
@@ -46,7 +75,7 @@ export default function Home() {
       }
 
       const response = await apiRequest('GET', endpoint);
-      setDrillDownData(response || []);
+      setDrillDownData(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Error fetching detailed data:', error);
       setDrillDownData([]);
@@ -60,20 +89,25 @@ export default function Home() {
       icon: Brain,
       href: "/discover",
       color: "bg-stak-copper/20 text-stak-copper",
+      urgent: false,
     },
     {
       title: "Check Messages",
-      description: "3 unread conversations",
+      description: userStats ? `${userStats.unreadMessages} unread conversations` : "Check your messages",
       icon: MessageSquare,
       href: "/messages",
-      color: "bg-green-600/20 text-green-400",
+      color: "bg-red-600/20 text-red-400",
+      urgent: userStats ? userStats.unreadMessages > 0 : false,
+      badge: userStats?.unreadMessages || 0,
     },
     {
-      title: "Schedule Meetup",
-      description: "Coordinate your next meeting",
+      title: "Review Meetup Requests",
+      description: userStats ? `${userStats.pendingMeetups} pending requests` : "Coordinate your meetings",
       icon: Calendar,
       href: "/events",
-      color: "bg-blue-600/20 text-blue-400",
+      color: "bg-orange-600/20 text-orange-400",
+      urgent: userStats ? userStats.pendingMeetups > 0 : false,
+      badge: userStats?.pendingMeetups || 0,
     },
     {
       title: "Update Profile",
@@ -81,6 +115,7 @@ export default function Home() {
       icon: Award,
       href: "/profile",
       color: "bg-purple-600/20 text-purple-400",
+      urgent: false,
     },
   ];
 
@@ -110,11 +145,39 @@ export default function Home() {
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-stak-black to-stak-gray text-stak-white rounded-2xl p-8 border border-stak-copper/20">
         <h1 className="text-3xl font-bold mb-2">
-          Welcome back, {user?.firstName}!
+          Welcome back, {user?.firstName || 'there'}!
         </h1>
-        <p className="text-blue-200 text-lg">
-          You have 3 new matches and 2 pending meetup requests waiting for you.
-        </p>
+        <div className="space-y-2">
+          {userStats && userStats.pendingMatches > 0 && (
+            <div className="flex items-center space-x-2 text-stak-copper">
+              <AlertCircle className="h-5 w-5" />
+              <span className="text-lg font-medium">
+                You have {userStats.pendingMatches} new matches waiting for review
+              </span>
+            </div>
+          )}
+          {userStats && userStats.pendingMeetups > 0 && (
+            <div className="flex items-center space-x-2 text-orange-400">
+              <Clock className="h-5 w-5" />
+              <span className="text-lg font-medium">
+                {userStats.pendingMeetups} meetup requests need your attention
+              </span>
+            </div>
+          )}
+          {userStats && userStats.unreadMessages > 0 && (
+            <div className="flex items-center space-x-2 text-red-400">
+              <MessageSquare className="h-5 w-5" />
+              <span className="text-lg font-medium">
+                {userStats.unreadMessages} unread messages waiting
+              </span>
+            </div>
+          )}
+          {userStats && userStats.pendingMatches === 0 && userStats.pendingMeetups === 0 && userStats.unreadMessages === 0 && (
+            <p className="text-stak-light-gray text-lg">
+              You're all caught up! Your network is active and engaged.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -126,9 +189,9 @@ export default function Home() {
             onClick={() => handleMetricClick(stat.label)}
           >
             <CardContent className="p-6">
-              <stat.icon className="w-8 h-8 text-navy mx-auto mb-3 group-hover:text-stak-copper transition-colors" />
-              <div className="text-2xl font-bold text-navy mb-1 group-hover:text-stak-copper transition-colors">{stat.value}</div>
-              <div className="text-sm text-gray-600 flex items-center justify-center gap-1">
+              <stat.icon className="w-8 h-8 text-stak-light-gray mx-auto mb-3 group-hover:text-stak-copper transition-colors" />
+              <div className="text-2xl font-bold text-stak-white mb-1 group-hover:text-stak-copper transition-colors">{stat.value}</div>
+              <div className="text-sm text-stak-light-gray flex items-center justify-center gap-1">
                 {stat.label}
                 <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
@@ -138,21 +201,31 @@ export default function Home() {
       </div>
 
       {/* Quick Actions */}
-      <div>
-        <h2 className="text-2xl font-playfair font-bold text-navy mb-6">Quick Actions</h2>
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-stak-white">Quick Actions</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {quickActions.map((action) => (
-            <Link key={action.title} href={action.href}>
-              <Card className="luxury-card hover:shadow-lg transition-all cursor-pointer group">
-                <CardContent className="p-6 text-center">
-                  <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}>
-                    <action.icon className="w-6 h-6" />
+            <Card key={action.title} className={`luxury-card text-center hover:shadow-lg transition-all duration-200 group relative ${action.urgent ? 'ring-2 ring-red-500 animate-pulse' : ''}`}>
+              <Link href={action.href}>
+                <CardContent className="p-6">
+                  {action.badge > 0 && (
+                    <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 text-xs bg-red-500 text-white">
+                      {action.badge}
+                    </Badge>
+                  )}
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${action.color} group-hover:scale-110 transition-transform ${action.urgent ? 'ring-2 ring-current' : ''}`}>
+                    <action.icon className="w-8 h-8" />
                   </div>
-                  <h3 className="font-semibold text-charcoal mb-2">{action.title}</h3>
-                  <p className="text-sm text-gray-600">{action.description}</p>
+                  <h3 className={`text-lg font-semibold mb-2 ${action.urgent ? 'text-red-400' : 'text-stak-white'}`}>
+                    {action.title}
+                    {action.urgent && <span className="ml-2 text-red-500">!</span>}
+                  </h3>
+                  <p className={`text-sm ${action.urgent ? 'text-red-300 font-medium' : 'text-stak-light-gray'}`}>
+                    {action.description}
+                  </p>
                 </CardContent>
-              </Card>
-            </Link>
+              </Link>
+            </Card>
           ))}
         </div>
       </div>

@@ -1137,7 +1137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const users = await storage.getAllUsers();
-      const detailedUsers = users.map(u => ({
+      const detailedUsers = users.users.map((u: any) => ({
         id: u.id,
         name: `${u.firstName} ${u.lastName}`,
         email: u.email,
@@ -1204,8 +1204,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: event.id,
         name: event.title,
         type: 'Networking Event',
-        timestamp: event.startTime,
-        status: new Date(event.startTime) > new Date() ? 'Upcoming' : 'Completed'
+        timestamp: event.startDate,
+        status: new Date(event.startDate) > new Date() ? 'Upcoming' : 'Completed'
       }));
 
       res.json(detailedEvents);
@@ -1253,6 +1253,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching detailed matches:', error);
       res.status(500).json({ message: 'Failed to fetch detailed matches' });
+    }
+  });
+
+  // User stats endpoint for dashboard
+  app.get('/api/user/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get actual counts from database
+      const [userMatches, userMeetups, userMessages] = await Promise.all([
+        storage.getMatches(userId),
+        storage.getUserMeetups(userId),
+        storage.getConversations(userId)
+      ]);
+      
+      const connections = userMatches.filter(match => match.status === 'connected').length;
+      const pendingMatches = userMatches.filter(match => match.status === 'pending').length;
+      const totalMeetups = userMeetups.length;
+      const pendingMeetups = userMeetups.filter(meetup => meetup.status === 'pending').length;
+      const unreadMessages = userMessages.filter(msg => !msg.isRead && msg.receiverId === userId).length;
+      
+      // Calculate match score (average of all matches)
+      const matchScore = userMatches.length > 0 
+        ? Math.round(userMatches.reduce((sum, match) => sum + match.matchScore, 0) / userMatches.length)
+        : 0;
+
+      res.json({
+        connections,
+        matchScore: `${matchScore}%`,
+        meetings: totalMeetups,
+        messages: userMessages.length,
+        pendingMatches,
+        pendingMeetups,
+        unreadMessages
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+      res.status(500).json({ message: 'Failed to fetch user stats' });
     }
   });
 
@@ -1329,7 +1367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const messageThreads = Array.from(conversations.values()).map(conv => {
-        const latestMessage = conv.messages.sort((a, b) => 
+        const latestMessage = conv.messages.sort((a: any, b: any) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         )[0];
         
