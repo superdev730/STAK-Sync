@@ -28,7 +28,7 @@ export default function Home() {
   useEffect(() => {
     const fetchUserStats = async () => {
       try {
-        const stats = await apiRequest('GET', '/api/user/stats');
+        const stats = await apiRequest('GET', '/api/user/stats') as UserStats;
         setUserStats(stats);
       } catch (error) {
         console.error('Error fetching user stats:', error);
@@ -143,191 +143,229 @@ export default function Home() {
   ];
 
   return (
-    <div className="space-y-8">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-stak-black to-stak-gray text-stak-white rounded-2xl p-8 border border-stak-copper/20">
-        <h1 className="text-3xl font-bold mb-2">
-          Welcome back, {user?.firstName || 'there'}!
-        </h1>
-        <div className="space-y-2">
-          {userStats && (userStats.pendingMatches || 0) > 0 && (
-            <div className="flex items-center space-x-2 text-stak-copper">
-              <AlertCircle className="h-5 w-5" />
-              <span className="text-lg font-medium">
-                You have {userStats.pendingMatches || 0} new matches waiting for review
-              </span>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-7xl mx-auto p-6 space-y-8">
+        {/* Welcome Section */}
+        <div className="bg-gradient-to-r from-stak-copper to-stak-dark-copper text-white rounded-2xl p-8 shadow-lg">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">
+                Welcome back, {(user as any)?.firstName || 'there'}!
+              </h1>
+              <p className="text-white/90 text-lg">
+                Your STAK Signal dashboard is ready
+              </p>
             </div>
-          )}
-          {userStats && (userStats.pendingMeetups || 0) > 0 && (
-            <div className="flex items-center space-x-2 text-orange-400">
-              <Clock className="h-5 w-5" />
-              <span className="text-lg font-medium">
-                {userStats.pendingMeetups || 0} meetup requests need your attention
-              </span>
-            </div>
-          )}
-          {userStats && (userStats.unreadMessages || 0) > 0 && (
-            <div className="flex items-center space-x-2 text-red-400">
-              <MessageSquare className="h-5 w-5" />
-              <span className="text-lg font-medium">
-                {userStats.unreadMessages || 0} unread messages waiting
-              </span>
-            </div>
-          )}
-          {userStats && (userStats.pendingMatches || 0) === 0 && (userStats.pendingMeetups || 0) === 0 && (userStats.unreadMessages || 0) === 0 && (
-            <p className="text-stak-light-gray text-lg">
-              You're all caught up! Your network is active and engaged.
-            </p>
-          )}
-          {!userStats && (
-            <p className="text-stak-light-gray text-lg">
-              Loading your networking updates...
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <Card 
-            key={stat.label} 
-            className="luxury-card text-center cursor-pointer hover:shadow-lg transition-all duration-200 group"
-            onClick={() => handleMetricClick(stat.label)}
-          >
-            <CardContent className="p-6">
-              <stat.icon className="w-8 h-8 text-stak-light-gray mx-auto mb-3 group-hover:text-stak-copper transition-colors" />
-              <div className="text-2xl font-bold text-stak-white mb-1 group-hover:text-stak-copper transition-colors">{stat.value}</div>
-              <div className="text-sm text-stak-light-gray flex items-center justify-center gap-1">
-                {stat.label}
-                <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold text-stak-white">Quick Actions</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {quickActions.map((action) => (
-            <Card key={action.title} className={`luxury-card text-center hover:shadow-lg transition-all duration-200 group relative ${action.urgent ? 'ring-2 ring-red-500 animate-pulse' : ''}`}>
-              <Link href={action.href}>
-                <CardContent className="p-6">
-                  {(action.badge || 0) > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 text-xs bg-red-500 text-white">
-                      {action.badge}
-                    </Badge>
-                  )}
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${action.color} group-hover:scale-110 transition-transform ${action.urgent ? 'ring-2 ring-current' : ''}`}>
-                    <action.icon className="w-8 h-8" />
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            <Link href="/messages">
+              <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm h-16 text-left justify-start">
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <MessageSquare className="h-6 w-6" />
+                    {userStats && (userStats.unreadMessages || 0) > 0 && (
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white">
+                        {userStats.unreadMessages}
+                      </Badge>
+                    )}
                   </div>
-                  <h3 className={`text-lg font-semibold mb-2 ${action.urgent ? 'text-red-400' : 'text-stak-white'}`}>
-                    {action.title}
-                    {action.urgent && <span className="ml-2 text-red-500">!</span>}
-                  </h3>
-                  <p className={`text-sm ${action.urgent ? 'text-red-300 font-medium' : 'text-stak-light-gray'}`}>
-                    {action.description}
-                  </p>
-                </CardContent>
-              </Link>
+                  <div>
+                    <div className="font-semibold">Check Messages</div>
+                    <div className="text-sm opacity-90">
+                      {userStats ? (userStats.unreadMessages || 0) > 0 ? `${userStats.unreadMessages} unread` : 'All caught up' : 'Loading...'}
+                    </div>
+                  </div>
+                </div>
+              </Button>
+            </Link>
+            
+            <Link href="/matches">
+              <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm h-16 text-left justify-start">
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <Users className="h-6 w-6" />
+                    {userStats && (userStats.pendingMatches || 0) > 0 && (
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-orange-500 text-white">
+                        {userStats.pendingMatches}
+                      </Badge>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold">Connection Requests</div>
+                    <div className="text-sm opacity-90">
+                      {userStats ? (userStats.pendingMatches || 0) > 0 ? `${userStats.pendingMatches} pending` : 'No new requests' : 'Loading...'}
+                    </div>
+                  </div>
+                </div>
+              </Button>
+            </Link>
+            
+            <Link href="/events">
+              <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm h-16 text-left justify-start">
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <Calendar className="h-6 w-6" />
+                    {userStats && (userStats.pendingMeetups || 0) > 0 && (
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-blue-500 text-white">
+                        {userStats.pendingMeetups}
+                      </Badge>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold">Meetup Requests</div>
+                    <div className="text-sm opacity-90">
+                      {userStats ? (userStats.pendingMeetups || 0) > 0 ? `${userStats.pendingMeetups} pending` : 'No new meetings' : 'Loading...'}
+                    </div>
+                  </div>
+                </div>
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {stats.map((stat) => (
+            <Card 
+              key={stat.label} 
+              className="bg-white shadow-md hover:shadow-lg border border-gray-200 text-center cursor-pointer transition-all duration-200 group"
+              onClick={() => handleMetricClick(stat.label)}
+            >
+              <CardContent className="p-6">
+                <stat.icon className="w-8 h-8 text-gray-600 mx-auto mb-3 group-hover:text-stak-copper transition-colors" />
+                <div className="text-2xl font-bold text-gray-900 mb-1 group-hover:text-stak-copper transition-colors">{stat.value}</div>
+                <div className="text-sm text-gray-600 flex items-center justify-center gap-1">
+                  {stat.label}
+                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </CardContent>
             </Card>
           ))}
         </div>
-      </div>
 
-      {/* Recent Activity */}
-      <div className="grid lg:grid-cols-2 gap-8">
-        <Card className="luxury-card">
-          <CardContent className="p-6">
-            <h3 className="text-xl font-playfair font-semibold text-navy mb-4">Recent Activity</h3>
-            <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="w-8 h-8 bg-light-blue rounded-full flex items-center justify-center">
-                    <activity.icon className="w-4 h-4 text-navy" />
+        {/* Quick Actions */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-gray-900">Quick Actions</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {quickActions.map((action) => (
+              <Card key={action.title} className={`bg-white shadow-md hover:shadow-lg border border-gray-200 text-center transition-all duration-200 group relative ${action.urgent ? 'ring-2 ring-red-500' : ''}`}>
+                <Link href={action.href}>
+                  <CardContent className="p-6">
+                    {(action.badge || 0) > 0 && (
+                      <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 text-xs bg-red-500 text-white">
+                        {action.badge}
+                      </Badge>
+                    )}
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${action.color} group-hover:scale-110 transition-transform ${action.urgent ? 'ring-2 ring-current' : ''}`}>
+                      <action.icon className="w-8 h-8" />
+                    </div>
+                    <h3 className={`text-lg font-semibold mb-2 ${action.urgent ? 'text-red-600' : 'text-gray-900'}`}>
+                      {action.title}
+                      {action.urgent && <span className="ml-2 text-red-500">!</span>}
+                    </h3>
+                    <p className={`text-sm ${action.urgent ? 'text-red-500 font-medium' : 'text-gray-600'}`}>
+                      {action.description}
+                    </p>
+                  </CardContent>
+                </Link>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="grid lg:grid-cols-2 gap-8">
+          <Card className="bg-white shadow-md border border-gray-200">
+            <CardContent className="p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h3>
+              <div className="space-y-4">
+                {recentActivity.map((activity, index) => (
+                  <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="w-8 h-8 bg-stak-copper/20 rounded-full flex items-center justify-center">
+                      <activity.icon className="w-4 h-4 text-stak-copper" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-gray-900">{activity.description}</p>
+                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-charcoal">{activity.description}</p>
-                    <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Insights */}
+          <Card className="bg-white shadow-md border border-gray-200">
+            <CardContent className="p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">AI Insights</h3>
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-900">Profile Optimization</span>
+                    <Badge className="bg-green-600 text-white">94%</Badge>
                   </div>
+                  <p className="text-sm text-gray-600">
+                    Your profile is performing well. Consider adding more industry keywords to improve match quality.
+                  </p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                
+                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-900">Networking Goal</span>
+                    <Badge className="bg-yellow-600 text-white">Active</Badge>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    You're 60% closer to your Series A funding goal. 3 relevant VCs are in your match queue.
+                  </p>
+                </div>
 
-        {/* AI Insights */}
-        <Card className="luxury-card">
-          <CardContent className="p-6">
-            <h3 className="text-xl font-playfair font-semibold text-navy mb-4">AI Insights</h3>
-            <div className="space-y-4">
-              <div className="p-4 bg-light-blue rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-navy">Profile Optimization</span>
-                  <Badge className="bg-prof-green text-white">94%</Badge>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-900">Best Time to Connect</span>
+                    <Badge className="bg-gray-600 text-white">2-4 PM</Badge>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Your connections are most active in the afternoons. Schedule your outreach accordingly.
+                  </p>
                 </div>
-                <p className="text-sm text-gray-600">
-                  Your profile is performing well. Consider adding more industry keywords to improve match quality.
-                </p>
               </div>
-              
-              <div className="p-4 bg-yellow-50 rounded-lg border border-gold">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-navy">Networking Goal</span>
-                  <Badge variant="outline" className="border-gold text-gold">Active</Badge>
-                </div>
-                <p className="text-sm text-gray-600">
-                  You're 60% closer to your Series A funding goal. 3 relevant VCs are in your match queue.
-                </p>
-              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-navy">Best Time to Connect</span>
-                  <Badge variant="secondary">2-4 PM</Badge>
-                </div>
-                <p className="text-sm text-gray-600">
-                  Your connections are most active in the afternoons. Schedule your outreach accordingly.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Drill-Down Dialog */}
-      <Dialog open={drillDownDialog} onOpenChange={setDrillDownDialog}>
-        <DialogContent className="bg-stak-black border-stak-gray max-w-4xl max-h-[80vh] overflow-y-auto">
+        {/* Drill-Down Dialog */}
+        <Dialog open={drillDownDialog} onOpenChange={setDrillDownDialog}>
+        <DialogContent className="bg-white border border-gray-200 max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-stak-white flex items-center gap-2">
+            <DialogTitle className="text-gray-900 flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-stak-copper" />
               {drillDownType} - Detailed Records
             </DialogTitle>
-            <DialogDescription className="text-stak-light-gray">
+            <DialogDescription className="text-gray-600">
               Detailed information about your {drillDownType.toLowerCase()}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-stak-light-gray">{drillDownData.length} records found</p>
+              <p className="text-sm text-gray-600">{drillDownData.length} records found</p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="border-stak-gray text-stak-light-gray">
+                <Button variant="outline" size="sm" className="border-gray-300 text-gray-700">
                   <Filter className="h-4 w-4 mr-2" />
                   Filter
                 </Button>
-                <Button variant="outline" size="sm" className="border-stak-gray text-stak-light-gray">
+                <Button variant="outline" size="sm" className="border-gray-300 text-gray-700">
                   <ArrowUpDown className="h-4 w-4 mr-2" />
                   Sort
                 </Button>
               </div>
             </div>
 
-            <div className="border border-stak-gray rounded-lg overflow-hidden">
-              <div className="bg-stak-gray px-4 py-3 border-b border-stak-gray">
-                <div className="grid grid-cols-4 gap-4 text-sm font-medium text-stak-light-gray">
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <div className="grid grid-cols-4 gap-4 text-sm font-medium text-gray-700">
                   <div>Name/Title</div>
                   <div>Type/Status</div>
                   <div>Date/Time</div>
@@ -338,19 +376,19 @@ export default function Home() {
               <div className="max-h-96 overflow-y-auto">
                 {drillDownData.length > 0 ? (
                   drillDownData.map((record: any, index: number) => (
-                    <div key={record.id || index} className="px-4 py-3 border-b border-stak-gray hover:bg-stak-gray/30 transition-colors">
+                    <div key={record.id || index} className="px-4 py-3 border-b border-gray-200 hover:bg-gray-50 transition-colors">
                       <div className="grid grid-cols-4 gap-4 items-center text-sm">
-                        <div className="text-stak-white font-medium">
+                        <div className="text-gray-900 font-medium">
                           {record.name || record.title || record.email || `Record ${index + 1}`}
                         </div>
-                        <div className="text-stak-light-gray">
+                        <div className="text-gray-600">
                           {record.type || record.status || record.category || 'N/A'}
                         </div>
-                        <div className="text-stak-light-gray">
+                        <div className="text-gray-600">
                           {record.createdAt || record.timestamp || record.date || 'N/A'}
                         </div>
                         <div>
-                          <Button size="sm" variant="outline" className="border-stak-gray text-stak-light-gray hover:bg-stak-gray">
+                          <Button size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
                             View
                           </Button>
                         </div>
@@ -358,7 +396,7 @@ export default function Home() {
                     </div>
                   ))
                 ) : (
-                  <div className="px-4 py-8 text-center text-stak-light-gray">
+                  <div className="px-4 py-8 text-center text-gray-500">
                     No detailed records available for this metric
                   </div>
                 )}
@@ -366,7 +404,8 @@ export default function Home() {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      </div>
     </div>
   );
 }
