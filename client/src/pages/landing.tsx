@@ -28,17 +28,17 @@ export default function Landing() {
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-              Professional Networking <span className="text-stak-copper">Signal</span>
+              Find <span className="text-stak-copper">Signal</span>, Cut the Noise
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-stak-light-gray leading-relaxed">
-              Ecosystems are more valuable than products. Connect with the right people at the right time through intelligent matchmaking within the STAK ecosystem.
+              Your STAK membership opens doors to extraordinary connections. We help you weave stronger interpersonal bonds with fellow innovators, investors, and visionaries who share your ambition.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-8 py-4">
-                <a href="/api/login">Join the Network</a>
+                <a href="/api/login">Access Your Network</a>
               </Button>
               <Button variant="outline" size="lg" className="border-2 border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black px-8 py-4">
-                Learn More
+                Discover STAK
               </Button>
             </div>
           </div>
@@ -50,10 +50,10 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-stak-white mb-4">
-              Intelligent Ecosystem Networking
+              Maximize Your Membership Value
             </h2>
             <p className="text-xl text-stak-light-gray max-w-3xl mx-auto">
-              Built for the STAK ecosystem, our platform weaves individual connections into powerful networks that drive innovation and growth.
+              Your prestigious STAK membership connects you to an exclusive community. We amplify these relationships, helping you forge deeper bonds that create lasting value and meaningful impact.
             </p>
           </div>
 
@@ -64,10 +64,10 @@ export default function Landing() {
                   <Brain className="w-8 h-8 text-stak-copper" />
                 </div>
                 <h3 className="text-xl font-semibold text-stak-white mb-2">
-                  AI Signal Matching
+                  Smart Introductions
                 </h3>
                 <p className="text-stak-light-gray">
-                  Intelligent algorithms identify and strengthen connections within the ecosystem for maximum value creation.
+                  Discover members who complement your vision and goals. Our intelligent matching helps you find your next co-founder, investor, or strategic partner.
                 </p>
               </CardContent>
             </Card>
@@ -78,10 +78,10 @@ export default function Landing() {
                   <MessageSquare className="w-8 h-8 text-stak-copper" />
                 </div>
                 <h3 className="text-xl font-semibold text-stak-white mb-2">
-                  Secure Communication
+                  Meaningful Conversations
                 </h3>
                 <p className="text-stak-light-gray">
-                  Enterprise-grade messaging platform designed for high-value business relationships and deal flow.
+                  Connect directly with fellow members in a trusted environment. Share ideas, explore collaborations, and build relationships that matter.
                 </p>
               </CardContent>
             </Card>
@@ -92,10 +92,10 @@ export default function Landing() {
                   <Calendar className="w-8 h-8 text-stak-copper" />
                 </div>
                 <h3 className="text-xl font-semibold text-stak-white mb-2">
-                  1900 Broadway Meetings
+                  Curated Experiences
                 </h3>
                 <p className="text-stak-light-gray">
-                  Schedule high-impact meetings in premium spaces with intelligent technology and luxury amenities.
+                  Meet in person at 1900 Broadway and exclusive STAK events. Transform digital connections into lasting partnerships in inspiring spaces.
                 </p>
               </CardContent>
             </Card>
@@ -106,10 +106,10 @@ export default function Landing() {
                   <Users className="w-8 h-8 text-stak-copper" />
                 </div>
                 <h3 className="text-xl font-semibold text-stak-white mb-2">
-                  STAK Ecosystem
+                  Elite Community
                 </h3>
                 <p className="text-stak-light-gray">
-                  Exclusive access to STAK's curated network of investors, innovators, and ecosystem partners.
+                  Join a carefully curated group of entrepreneurs, investors, and thought leaders who are shaping the future across industries.
                 </p>
               </CardContent>
             </Card>
@@ -121,13 +121,13 @@ export default function Landing() {
       <section className="py-20 bg-stak-black text-stak-white">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold mb-4">
-            Ready to Join the Ecosystem?
+            Unlock Your Network's Potential
           </h2>
           <p className="text-xl mb-8 text-stak-light-gray">
-            Connect with STAK's network of innovators, investors, and industry leaders building the future.
+            Your membership is your key to extraordinary connections. Let us help you discover the relationships that will define your next chapter.
           </p>
           <Button asChild size="lg" className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-8 py-4">
-            <a href="/api/login">Request Access</a>
+            <a href="/api/login">Activate Signal</a>
           </Button>
         </div>
       </section>
@@ -139,7 +139,7 @@ export default function Landing() {
             <div>
               <h3 className="text-2xl font-bold text-stak-copper mb-4">STAK Signal</h3>
               <p className="text-stak-light-gray leading-relaxed">
-                Professional networking platform built for the STAK ecosystem, connecting innovators and investors to build valuable, high-powered networks.
+                An exclusive platform for STAK members to discover meaningful connections, forge stronger relationships, and unlock the full potential of our prestigious community.
               </p>
             </div>
             <div>
@@ -154,10 +154,10 @@ export default function Landing() {
             <div>
               <h4 className="text-lg font-semibold mb-4 text-stak-copper">Platform</h4>
               <ul className="space-y-2 text-stak-light-gray">
-                <li><a href="#" className="hover:text-stak-copper transition-colors">AI Signal Matching</a></li>
-                <li><a href="#" className="hover:text-stak-copper transition-colors">Secure Messaging</a></li>
-                <li><a href="#" className="hover:text-stak-copper transition-colors">Meeting Spaces</a></li>
-                <li><a href="#" className="hover:text-stak-copper transition-colors">Network Analytics</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Smart Introductions</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Member Conversations</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Exclusive Events</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Relationship Insights</a></li>
               </ul>
             </div>
             <div>
@@ -171,7 +171,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="border-t border-stak-gray mt-12 pt-8 text-center text-stak-light-gray">
-            <p>&copy; 2024 STAK Signal. All rights reserved. Ecosystems are more valuable than products.</p>
+            <p>&copy; 2024 STAK Signal. All rights reserved. Where meaningful connections create lasting impact.</p>
           </div>
         </div>
       </footer>
