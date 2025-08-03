@@ -3,7 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Users, Clock, Sparkles, Plus } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Sparkles, Plus, Upload } from "lucide-react";
+import { CSVImportModal } from "@/components/CSVImportModal";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface Event {
@@ -57,7 +58,7 @@ export default function Events() {
 
   const seedEventsMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('/api/seed-events', { method: 'POST' });
+      return apiRequest('/api/seed-events', 'POST');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
@@ -70,10 +71,7 @@ export default function Events() {
       interests: string[]; 
       networkingGoals: string[] 
     }) => {
-      return apiRequest(`/api/events/${eventId}/register`, {
-        method: "POST",
-        body: { interests, networkingGoals },
-      });
+      return apiRequest(`/api/events/${eventId}/register`, 'POST', { interests, networkingGoals });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
@@ -83,9 +81,7 @@ export default function Events() {
 
   const unregisterMutation = useMutation({
     mutationFn: async (eventId: string) => {
-      return apiRequest(`/api/events/${eventId}/register`, {
-        method: "DELETE",
-      });
+      return apiRequest(`/api/events/${eventId}/register`, 'DELETE');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
@@ -274,8 +270,8 @@ export default function Events() {
                   </div>
                 )}
 
-                {/* Registration Button */}
-                <div className="pt-4">
+                {/* Action Buttons */}
+                <div className="pt-4 space-y-2">
                   {isRegistered(event.id) ? (
                     <Button
                       variant="outline"
@@ -299,6 +295,18 @@ export default function Events() {
                        event.registrationCount >= event.maxAttendees ? "Event Full" : "Register"}
                     </Button>
                   )}
+                  
+                  {/* CSV Import Button for Event Organizers */}
+                  <CSVImportModal eventId={event.id}>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Import Attendees
+                    </Button>
+                  </CSVImportModal>
                 </div>
               </CardContent>
             </Card>

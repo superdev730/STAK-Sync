@@ -9,6 +9,7 @@ import {
   eventRooms,
   roomParticipants,
   eventMatches,
+  eventAttendeeImports,
   type User,
   type UpsertUser,
   type Match,
@@ -29,6 +30,8 @@ import {
   type InsertRoomParticipant,
   type EventMatch,
   type InsertEventMatch,
+  type EventAttendeeImport,
+  type InsertEventAttendeeImport,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql } from "drizzle-orm";
@@ -552,6 +555,39 @@ export class DatabaseStorage implements IStorage {
       .where(eq(eventMatches.id, matchId))
       .returning();
     return updatedMatch;
+  }
+
+  // CSV import operations
+  async createAttendeeImport(importData: InsertEventAttendeeImport): Promise<EventAttendeeImport> {
+    const [attendeeImport] = await db.insert(eventAttendeeImports).values(importData).returning();
+    return attendeeImport;
+  }
+
+  async updateAttendeeImport(importId: string, updateData: Partial<EventAttendeeImport>): Promise<EventAttendeeImport> {
+    const [attendeeImport] = await db.update(eventAttendeeImports)
+      .set(updateData)
+      .where(eq(eventAttendeeImports.id, importId))
+      .returning();
+    return attendeeImport;
+  }
+
+  async getAttendeeImport(importId: string): Promise<EventAttendeeImport | undefined> {
+    return db.query.eventAttendeeImports.findFirst({
+      where: eq(eventAttendeeImports.id, importId),
+    });
+  }
+
+  async getEventAttendeeImports(eventId: string): Promise<EventAttendeeImport[]> {
+    return db.query.eventAttendeeImports.findMany({
+      where: eq(eventAttendeeImports.eventId, eventId),
+      orderBy: desc(eventAttendeeImports.createdAt),
+    });
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
   }
 }
 

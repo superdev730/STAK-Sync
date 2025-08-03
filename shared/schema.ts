@@ -357,6 +357,27 @@ export const insertEventMatchSchema = createInsertSchema(eventMatches).omit({
   updatedAt: true,
 });
 
+// Event attendee imports table for CSV uploads
+export const eventAttendeeImports = pgTable("event_attendee_imports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  fileName: varchar("file_name").notNull(),
+  importedBy: varchar("imported_by").notNull().references(() => users.id),
+  totalRows: integer("total_rows").notNull(),
+  successfulImports: integer("successful_imports").notNull().default(0),
+  failedImports: integer("failed_imports").notNull().default(0),
+  status: varchar("status").notNull().default("processing"), // processing, completed, failed
+  errorLog: text("error_log"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertEventAttendeeImportSchema = createInsertSchema(eventAttendeeImports).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
@@ -380,3 +401,5 @@ export type RoomParticipant = typeof roomParticipants.$inferSelect;
 export type InsertRoomParticipant = z.infer<typeof insertRoomParticipantSchema>;
 export type EventMatch = typeof eventMatches.$inferSelect;
 export type InsertEventMatch = z.infer<typeof insertEventMatchSchema>;
+export type EventAttendeeImport = typeof eventAttendeeImports.$inferSelect;
+export type InsertEventAttendeeImport = z.infer<typeof insertEventAttendeeImportSchema>;

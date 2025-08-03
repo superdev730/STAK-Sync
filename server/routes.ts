@@ -14,6 +14,7 @@ import {
   matches, 
   users 
 } from "@shared/schema";
+import { csvImportService } from "./csvImportService";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 
@@ -577,6 +578,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching user events:', error);
       res.status(500).json({ error: 'Failed to fetch user events' });
+    }
+  });
+
+  // CSV Import API endpoints
+  app.post('/api/events/:eventId/import-csv', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      const { csvContent, fileName } = req.body;
+
+      if (!csvContent || !fileName) {
+        return res.status(400).json({ error: 'CSV content and file name are required' });
+      }
+
+      // Parse CSV content
+      const csvData = csvImportService.parseCSV(csvContent);
+      
+      // Start the import process
+      const importId = await csvImportService.processCSVImport(
+        eventId,
+        userId,
+        fileName,
+        csvData
+      );
+
+      res.json({ 
+        importId, 
+        message: 'CSV import started successfully',
+        totalRows: csvData.length 
+      });
+    } catch (error) {
+      console.error('Error importing CSV:', error);
+      res.status(500).json({ error: (error as any).message || 'Failed to import CSV' });
+    }
+  });
+
+  app.get('/api/events/:eventId/imports', isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const imports = await storage.getEventAttendeeImports(eventId);
+      res.json(imports);
+    } catch (error) {
+      console.error('Error fetching imports:', error);
+      res.status(500).json({ error: 'Failed to fetch imports' });
+    }
+  });
+
+  app.get('/api/imports/:importId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { importId } = req.params;
+      const importData = await storage.getAttendeeImport(importId);
+      
+      if (!importData) {
+        return res.status(404).json({ error: 'Import not found' });
+      }
+      
+      res.json(importData);
+    } catch (error) {
+      console.error('Error fetching import:', error);
+      res.status(500).json({ error: 'Failed to fetch import' });
     }
   });
 
