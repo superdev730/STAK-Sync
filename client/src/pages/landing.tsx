@@ -30,6 +30,9 @@ export default function Landing() {
             <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
               Find <span className="text-stak-copper">Signal</span>, Cut the Noise
             </h1>
+            <p className="text-lg md:text-xl mb-4 text-stak-copper font-medium">
+              An AI-powered networking and matchmaking system built to unlock the full power of relationships—before, during, and after every STAK event.
+            </p>
             <p className="text-xl md:text-2xl mb-8 text-stak-light-gray leading-relaxed">
               Your STAK membership opens doors to extraordinary connections. We help you weave stronger interpersonal bonds with fellow innovators, investors, and visionaries who share your ambition.
             </p>
