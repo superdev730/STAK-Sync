@@ -1,6 +1,6 @@
 # Overview
 
-STAK Signal is a professional networking platform built for the STAK ecosystem that uses AI-powered matching algorithms to connect venture capitalists, startup founders, and industry leaders. The application facilitates meaningful professional relationships through intelligent matchmaking, real-time messaging, and meeting coordination features within STAK's curated network of innovators and investors.
+STAK Signal is a professional networking platform built for the STAK ecosystem that uses AI-powered matching algorithms to connect venture capitalists, startup founders, and industry leaders. The application facilitates meaningful professional relationships through intelligent matchmaking, real-time messaging, meeting coordination features, and comprehensive admin analytics within STAK's curated network of innovators and investors.
 
 # User Preferences
 
@@ -17,7 +17,7 @@ The client is built using React with TypeScript and uses Vite as the build tool.
 - **Styling**: Tailwind CSS with custom CSS variables for theming
 - **Real-time Communication**: WebSocket integration for live messaging
 
-The frontend is structured with pages for landing, home dashboard, discover matches, messaging, events/meetups, profile management, and questionnaire onboarding.
+The frontend is structured with pages for landing, home dashboard, discover matches, messaging, events/meetups, live event dashboard, admin analytics panel, profile management, and questionnaire onboarding.
 
 ## Backend Architecture
 The server is built with Express.js and TypeScript, following a REST API design pattern. Key architectural decisions include:
@@ -39,6 +39,8 @@ PostgreSQL database with the following core entities:
 - **Meetups**: Scheduled meetings and events between users
 - **Questionnaire Responses**: User onboarding data for AI matching algorithms
 - **Sessions**: Secure session storage for authentication
+- **Live Event Features**: Real-time presence tracking, live matching, and event interactions
+- **Admin Analytics**: Platform metrics, user engagement data, and administrative logs
 
 The schema uses Drizzle ORM with TypeScript for type safety and includes proper indexing for performance.
 

@@ -11,6 +11,7 @@ import Matches from "@/pages/matches";
 import Messages from "@/pages/messages";
 import Events from "@/pages/events";
 import LiveDashboard from "@/pages/live-dashboard";
+import Admin from "@/pages/admin";
 import Profile from "@/pages/profile";
 import Questionnaire from "@/pages/questionnaire";
 import NotFound from "@/pages/not-found";
@@ -31,6 +32,7 @@ function Router() {
           <Route path="/messages" component={Messages} />
           <Route path="/events" component={Events} />
           <Route path="/live-dashboard" component={LiveDashboard} />
+          <Route path="/admin" component={Admin} />
           <Route path="/profile" component={Profile} />
           <Route path="/questionnaire" component={Questionnaire} />
         </Layout>

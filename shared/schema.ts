@@ -500,4 +500,31 @@ export type InsertLiveMatchRequest = z.infer<typeof insertLiveMatchRequestSchema
 export type LiveMatchSuggestion = typeof liveMatchSuggestions.$inferSelect;
 export type InsertLiveMatchSuggestion = z.infer<typeof insertLiveMatchSuggestionSchema>;
 export type LiveInteraction = typeof liveInteractions.$inferSelect;
+
+// Admin analytics tables
+export const adminLogs = pgTable("admin_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminUserId: varchar("admin_user_id").notNull().references(() => users.id),
+  action: text("action").notNull(), // 'user_created', 'event_managed', 'system_config', etc.
+  targetType: text("target_type"), // 'user', 'event', 'system', etc.
+  targetId: varchar("target_id"),
+  details: jsonb("details"), // Additional context about the action
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const platformMetrics = pgTable("platform_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  metricType: text("metric_type").notNull(), // 'daily_active_users', 'event_attendance', etc.
+  metricValue: decimal("metric_value", { precision: 10, scale: 2 }).notNull(),
+  metricDate: timestamp("metric_date").notNull(),
+  additionalData: jsonb("additional_data"), // Extra context for the metric
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type InsertAdminLog = typeof adminLogs.$inferInsert;
+export type AdminLog = typeof adminLogs.$inferSelect;
+export type InsertPlatformMetric = typeof platformMetrics.$inferInsert;
+export type PlatformMetric = typeof platformMetrics.$inferSelect;
 export type InsertLiveInteraction = z.infer<typeof insertLiveInteractionSchema>;

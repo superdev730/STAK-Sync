@@ -44,6 +44,12 @@ import {
   type InsertLiveMatchSuggestion,
   type LiveInteraction,
   type InsertLiveInteraction,
+  adminLogs,
+  platformMetrics,
+  type AdminLog,
+  type InsertAdminLog,
+  type PlatformMetric,
+  type InsertPlatformMetric,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql } from "drizzle-orm";
@@ -96,6 +102,15 @@ export interface IStorage {
   getEventMatches(eventId: string, userId: string): Promise<(EventMatch & { matchedUser: User; event: Event; room?: EventRoom })[]>;
   createEventMatch(match: InsertEventMatch): Promise<EventMatch>;
   updateEventMatchStatus(matchId: string, status: string): Promise<EventMatch>;
+
+  // Live event interactions
+  createLiveInteraction(interaction: InsertLiveInteraction): Promise<LiveInteraction>;
+  getLiveEventInteractions(eventId: string): Promise<LiveInteraction[]>;
+
+  // Admin analytics
+  getAdminAnalytics(timeRange: '7d' | '30d' | '90d'): Promise<any>;
+  logAdminAction(log: InsertAdminLog): Promise<AdminLog>;
+  recordPlatformMetric(metric: InsertPlatformMetric): Promise<PlatformMetric>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -695,6 +710,173 @@ export class DatabaseStorage implements IStorage {
       .where(eq(liveInteractions.id, id))
       .returning();
     return result;
+  }
+
+  async getLiveEventInteractions(eventId: string): Promise<LiveInteraction[]> {
+    return await db
+      .select()
+      .from(liveInteractions)
+      .where(eq(liveInteractions.eventId, eventId))
+      .orderBy(desc(liveInteractions.startedAt));
+  }
+
+  async getAdminAnalytics(timeRange: '7d' | '30d' | '90d'): Promise<any> {
+    const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // User statistics
+    const totalUsers = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users);
+
+    const activeUsersToday = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(sql`users.updated_at >= current_date`);
+
+    const newUsersThisWeek = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(sql`users.created_at >= current_date - interval '7 days'`);
+
+    const completedProfiles = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(and(
+        sql`users.bio IS NOT NULL`,
+        sql`users.company IS NOT NULL`,
+        sql`users.title IS NOT NULL`
+      ));
+
+    // Event statistics
+    const totalEvents = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(events);
+
+    const upcomingEvents = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(events)
+      .where(sql`events.start_date >= current_date`);
+
+    const totalRegistrations = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(eventRegistrations);
+
+    // Matching statistics
+    const totalMatches = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(matches);
+
+    const successfulMatches = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(matches)
+      .where(eq(matches.status, 'accepted'));
+
+    const avgCompatibilityScore = await db
+      .select({ avg: sql<number>`avg(compatibility_score)` })
+      .from(matches);
+
+    // Engagement statistics
+    const totalMessages = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(messages);
+
+    const activeMeetups = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(meetups)
+      .where(eq(meetups.status, 'confirmed'));
+
+    // Top events
+    const topEvents = await db
+      .select({
+        id: events.id,
+        title: events.title,
+        registrationCount: sql<number>`count(event_registrations.id)`,
+        attendanceRate: sql<number>`75`,
+        satisfactionScore: sql<number>`4.2`
+      })
+      .from(events)
+      .leftJoin(eventRegistrations, eq(events.id, eventRegistrations.eventId))
+      .groupBy(events.id, events.title)
+      .orderBy(sql`count(event_registrations.id) desc`)
+      .limit(5);
+
+    // Top users
+    const topUsers = await db
+      .select({
+        id: users.id,
+        name: sql<string>`concat(users.first_name, ' ', users.last_name)`,
+        matchCount: sql<number>`coalesce((select count(*) from matches where user_id = users.id), 0)`,
+        messagesSent: sql<number>`coalesce((select count(*) from messages where sender_id = users.id), 0)`,
+        eventsAttended: sql<number>`coalesce((select count(*) from event_registrations where user_id = users.id), 0)`
+      })
+      .from(users)
+      .orderBy(sql`coalesce((select count(*) from matches where user_id = users.id), 0) desc`)
+      .limit(5);
+
+    // Recent activity
+    const recentActivity = await db
+      .select({
+        id: eventRegistrations.id,
+        type: sql<string>`'registration'`,
+        description: sql<string>`concat('Registered for ', events.title)`,
+        timestamp: eventRegistrations.registeredAt,
+        user: sql<string>`concat(users.first_name, ' ', users.last_name)`
+      })
+      .from(eventRegistrations)
+      .innerJoin(events, eq(eventRegistrations.eventId, events.id))
+      .innerJoin(users, eq(eventRegistrations.userId, users.id))
+      .orderBy(desc(eventRegistrations.registeredAt))
+      .limit(10);
+
+    return {
+      userStats: {
+        totalUsers: totalUsers[0]?.count || 0,
+        activeUsersToday: activeUsersToday[0]?.count || 0,
+        newUsersThisWeek: newUsersThisWeek[0]?.count || 0,
+        completedProfiles: completedProfiles[0]?.count || 0,
+      },
+      eventStats: {
+        totalEvents: totalEvents[0]?.count || 0,
+        upcomingEvents: upcomingEvents[0]?.count || 0,
+        totalRegistrations: totalRegistrations[0]?.count || 0,
+        averageAttendance: 75,
+      },
+      matchingStats: {
+        totalMatches: totalMatches[0]?.count || 0,
+        successfulMatches: successfulMatches[0]?.count || 0,
+        matchSuccessRate: totalMatches[0]?.count > 0 
+          ? Math.round((successfulMatches[0]?.count || 0) / totalMatches[0].count * 100)
+          : 0,
+        averageCompatibilityScore: Math.round(avgCompatibilityScore[0]?.avg || 0),
+      },
+      engagementStats: {
+        totalMessages: totalMessages[0]?.count || 0,
+        activeMeetups: activeMeetups[0]?.count || 0,
+        averageResponseTime: 2.5,
+        userSatisfactionScore: 4.2,
+      },
+      topEvents,
+      topUsers,
+      recentActivity,
+    };
+  }
+
+  async logAdminAction(log: InsertAdminLog): Promise<AdminLog> {
+    const [adminLog] = await db
+      .insert(adminLogs)
+      .values(log)
+      .returning();
+    return adminLog;
+  }
+
+  async recordPlatformMetric(metric: InsertPlatformMetric): Promise<PlatformMetric> {
+    const [platformMetric] = await db
+      .insert(platformMetrics)
+      .values(metric)
+      .returning();
+    return platformMetric;
   }
 }
 

@@ -16,6 +16,11 @@ export default function Header() {
     { name: "Events", href: "/events" },
   ];
 
+  // Add admin link for admin users
+  if (user?.email?.includes('admin') || user?.email?.includes('behring')) {
+    navigation.push({ name: "Admin", href: "/admin" });
+  }
+
   if (!isAuthenticated) {
     return (
       <header className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">

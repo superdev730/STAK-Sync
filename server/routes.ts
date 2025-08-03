@@ -830,5 +830,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Admin analytics endpoints
+  app.get('/api/admin/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      // Simple admin check - in production, implement proper role-based access
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.email?.includes('admin') && !user?.email?.includes('behring')) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const timeRange = req.query.timeRange as '7d' | '30d' | '90d' || '30d';
+      const analytics = await storage.getAdminAnalytics(timeRange);
+      
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: user.id,
+        action: 'view_analytics',
+        targetType: 'analytics',
+        details: { timeRange },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+
+      res.json(analytics);
+    } catch (error) {
+      console.error('Error fetching admin analytics:', error);
+      res.status(500).json({ message: 'Failed to fetch analytics' });
+    }
+  });
+
   return httpServer;
 }
