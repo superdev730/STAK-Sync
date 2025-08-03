@@ -3,7 +3,9 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertMessageSchema, insertMeetupSchema, insertQuestionnaireResponseSchema } from "@shared/schema";
+import { insertMessageSchema, insertMeetupSchema, insertQuestionnaireResponseSchema, matches, users } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -27,6 +29,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     `;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.send(svg);
+  });
+
+  // Seed sample users for demo
+  app.post('/api/seed-users', async (req, res) => {
+    try {
+      const { seedSampleUsers } = await import('./seedData');
+      const success = await seedSampleUsers();
+      res.json({ success, message: success ? "Sample users created successfully" : "Failed to create sample users" });
+    } catch (error) {
+      console.error("Error seeding users:", error);
+      res.status(500).json({ message: "Failed to seed users" });
+    }
   });
 
   // Auth routes
@@ -78,43 +92,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate mock matches (AI simulation)
+  // Generate AI-powered matches
   app.post('/api/matches/generate', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      
-      // Mock AI matching algorithm - in production this would be more sophisticated
-      const mockMatches = [
-        {
-          userId,
-          matchedUserId: "mock-user-1",
-          matchScore: 96,
-          status: "pending"
-        },
-        {
-          userId,
-          matchedUserId: "mock-user-2", 
-          matchScore: 92,
-          status: "pending"
-        },
-        {
-          userId,
-          matchedUserId: "mock-user-3",
-          matchScore: 89,
-          status: "pending"
-        }
-      ];
-
-      const createdMatches = [];
-      for (const matchData of mockMatches) {
-        const match = await storage.createMatch(matchData);
-        createdMatches.push(match);
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
       }
 
-      res.json(createdMatches);
+      // Get all users for matching analysis
+      const allUsers = await storage.getAllUsers();
+      
+      // Import AI matching service
+      const { aiMatchingService } = await import('./aiMatching');
+      
+      // Find optimal matches using AI
+      const optimalMatches = await aiMatchingService.findOptimalMatches(userId, allUsers, 10);
+      
+      const matches = [];
+      for (const matchedUser of optimalMatches) {
+        // Generate detailed AI analysis for this match
+        const analysis = await aiMatchingService.generateMatchAnalysis(currentUser, matchedUser);
+        
+        const matchData = {
+          userId,
+          matchedUserId: matchedUser.id,
+          matchScore: analysis.overallScore,
+          status: "pending",
+          aiAnalysis: analysis.aiReasoning,
+          compatibilityFactors: analysis.compatibilityFactors,
+          recommendedTopics: analysis.recommendedTopics,
+          mutualGoals: analysis.mutualGoals,
+          collaborationPotential: analysis.collaborationPotential,
+          meetingSuggestions: analysis.meetingSuggestions
+        };
+
+        const match = await storage.createMatch(matchData);
+        matches.push(match);
+      }
+
+      res.json(matches);
     } catch (error) {
-      console.error("Error generating matches:", error);
-      res.status(500).json({ message: "Failed to generate matches" });
+      console.error("Error generating AI matches:", error);
+      res.status(500).json({ message: "Failed to generate AI matches" });
+    }
+  });
+
+  // AI Profile Analysis routes
+  app.post('/api/profile/analyze', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Import AI matching service
+      const { aiMatchingService } = await import('./aiMatching');
+      
+      // Generate AI profile analysis
+      const aiProfile = await aiMatchingService.updateUserAIProfile(user);
+      
+      // Update user with AI analysis
+      await storage.updateUser(userId, {
+        personalityProfile: aiProfile.personalityProfile,
+        goalAnalysis: aiProfile.goalAnalysis,
+      });
+
+      res.json(aiProfile);
+    } catch (error) {
+      console.error("Error analyzing profile:", error);
+      res.status(500).json({ message: "Failed to analyze profile" });
+    }
+  });
+
+  app.get('/api/matches/:matchId/analysis', isAuthenticated, async (req: any, res) => {
+    try {
+      const { matchId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Get match details with AI analysis
+      const result = await db
+        .select({
+          match: matches,
+          matchedUser: users,
+        })
+        .from(matches)
+        .innerJoin(users, eq(matches.matchedUserId, users.id))
+        .where(and(eq(matches.id, matchId), eq(matches.userId, userId)))
+        .limit(1);
+
+      if (result.length === 0) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+
+      const { match, matchedUser } = result[0];
+      
+      res.json({
+        match,
+        matchedUser,
+        aiAnalysis: match.aiAnalysis,
+        compatibilityFactors: match.compatibilityFactors,
+        recommendedTopics: match.recommendedTopics,
+        mutualGoals: match.mutualGoals,
+        collaborationPotential: match.collaborationPotential,
+        meetingSuggestions: match.meetingSuggestions,
+      });
+    } catch (error) {
+      console.error("Error fetching match analysis:", error);
+      res.status(500).json({ message: "Failed to fetch match analysis" });
     }
   });
 

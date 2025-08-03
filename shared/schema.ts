@@ -42,6 +42,18 @@ export const users = pgTable("users", {
   industries: text("industries").array(),
   skills: text("skills").array(),
   meetingPreference: text("meeting_preference"),
+  // AI/ML Profile Enhancement
+  personalityProfile: jsonb("personality_profile"), // Big Five, communication style, work style
+  goalAnalysis: jsonb("goal_analysis"), // Career goals, business objectives, networking motivations
+  communicationStyle: text("communication_style"), // direct, collaborative, analytical, etc.
+  meetingStyle: text("meeting_style"), // virtual, in-person, hybrid
+  availabilityTimezone: text("availability_timezone"),
+  preferredMeetingTimes: text("preferred_meeting_times").array(),
+  investmentInterests: text("investment_interests").array(),
+  fundingStage: text("funding_stage"), // pre-seed, seed, series-a, etc.
+  dealSizeRange: text("deal_size_range"),
+  geographicFocus: text("geographic_focus").array(),
+  aiMatchingConsent: boolean("ai_matching_consent").default(true),
   profileVisible: boolean("profile_visible").default(true),
   showOnlineStatus: boolean("show_online_status").default(true),
   emailNotifications: boolean("email_notifications").default(true),
@@ -56,6 +68,13 @@ export const matches = pgTable("matches", {
   matchedUserId: varchar("matched_user_id").notNull().references(() => users.id),
   matchScore: integer("match_score").notNull(),
   status: varchar("status").notNull().default("pending"), // pending, connected, passed
+  // AI Matching Analytics
+  aiAnalysis: jsonb("ai_analysis"), // Detailed AI reasoning for the match
+  compatibilityFactors: jsonb("compatibility_factors"), // Breakdown of matching factors
+  recommendedTopics: text("recommended_topics").array(), // Conversation starters
+  mutualGoals: text("mutual_goals").array(), // Aligned objectives
+  collaborationPotential: text("collaboration_potential"), // Investment, partnership, mentorship, etc.
+  meetingSuggestions: jsonb("meeting_suggestions"), // AI-generated meeting ideas
   createdAt: timestamp("created_at").defaultNow(),
 });
 
