@@ -51,6 +51,13 @@ export default {
           "4": "var(--chart-4)",
           "5": "var(--chart-5)",
         },
+        // Custom colors for luxury networking theme
+        navy: "hsl(207, 85%, 21%)",
+        gold: "hsl(45, 80%, 55%)",
+        'soft-white': "hsl(0, 0%, 98%)",
+        charcoal: "hsl(210, 40%, 15%)",
+        'light-blue': "hsl(207, 90%, 95%)",
+        'prof-green': "hsl(145, 63%, 42%)",
         sidebar: {
           DEFAULT: "var(--sidebar-background)",
           foreground: "var(--sidebar-foreground)",
@@ -61,6 +68,10 @@ export default {
           border: "var(--sidebar-border)",
           ring: "var(--sidebar-ring)",
         },
+      },
+      fontFamily: {
+        'playfair': ['Playfair Display', 'serif'],
+        'inter': ['Inter', 'sans-serif'],
       },
       keyframes: {
         "accordion-down": {
