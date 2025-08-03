@@ -8,6 +8,7 @@ import {
   text,
   integer,
   boolean,
+  decimal,
 } from "drizzle-orm/pg-core";
 import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
@@ -403,3 +404,100 @@ export type EventMatch = typeof eventMatches.$inferSelect;
 export type InsertEventMatch = z.infer<typeof insertEventMatchSchema>;
 export type EventAttendeeImport = typeof eventAttendeeImports.$inferSelect;
 export type InsertEventAttendeeImport = z.infer<typeof insertEventAttendeeImportSchema>;
+
+// Live event presence tracking
+export const eventPresence = pgTable("event_presence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  status: varchar("status").notNull().default("online"), // online, away, busy, offline
+  location: varchar("location"), // physical location or "virtual"
+  lastSeen: timestamp("last_seen").defaultNow(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  isLive: boolean("is_live").default(true),
+  deviceInfo: jsonb("device_info"), // browser, mobile, etc.
+  metadata: jsonb("metadata"), // additional presence data
+});
+
+// Live matchmaking requests
+export const liveMatchRequests = pgTable("live_match_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  roomId: varchar("room_id").references(() => eventRooms.id),
+  matchingCriteria: jsonb("matching_criteria"), // interests, goals, availability
+  urgency: varchar("urgency").default("normal"), // low, normal, high, urgent
+  maxMatches: integer("max_matches").default(5),
+  status: varchar("status").default("active"), // active, paused, completed, expired
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Live match suggestions (real-time AI suggestions)
+export const liveMatchSuggestions = pgTable("live_match_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestId: varchar("request_id").notNull().references(() => liveMatchRequests.id),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  suggestedUserId: varchar("suggested_user_id").notNull().references(() => users.id),
+  roomId: varchar("room_id").references(() => eventRooms.id),
+  matchScore: decimal("match_score", { precision: 5, scale: 2 }), // 0.00 to 100.00
+  matchReasons: jsonb("match_reasons"), // AI-generated reasons for the match
+  suggestedLocation: varchar("suggested_location"), // room or meeting spot
+  suggestedTime: timestamp("suggested_time"),
+  status: varchar("status").default("pending"), // pending, accepted, declined, expired
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at").default(sql`NOW() + INTERVAL '30 minutes'`),
+});
+
+// Live interaction tracking
+export const liveInteractions = pgTable("live_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  initiatorId: varchar("initiator_id").notNull().references(() => users.id),
+  recipientId: varchar("recipient_id").notNull().references(() => users.id),
+  roomId: varchar("room_id").references(() => eventRooms.id),
+  interactionType: varchar("interaction_type").notNull(), // chat, video_call, meeting_request, handshake
+  duration: integer("duration"), // in seconds
+  rating: integer("rating"), // 1-5 stars
+  feedback: text("feedback"),
+  metadata: jsonb("metadata"), // interaction-specific data
+  startedAt: timestamp("started_at").defaultNow(),
+  endedAt: timestamp("ended_at"),
+});
+
+// Insert schemas for live features
+export const insertEventPresenceSchema = createInsertSchema(eventPresence).omit({
+  id: true,
+  joinedAt: true,
+  lastSeen: true,
+});
+
+export const insertLiveMatchRequestSchema = createInsertSchema(liveMatchRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLiveMatchSuggestionSchema = createInsertSchema(liveMatchSuggestions).omit({
+  id: true,
+  createdAt: true,
+  expiresAt: true,
+});
+
+export const insertLiveInteractionSchema = createInsertSchema(liveInteractions).omit({
+  id: true,
+  startedAt: true,
+});
+
+// Types for live features
+export type EventPresence = typeof eventPresence.$inferSelect;
+export type InsertEventPresence = z.infer<typeof insertEventPresenceSchema>;
+export type LiveMatchRequest = typeof liveMatchRequests.$inferSelect;
+export type InsertLiveMatchRequest = z.infer<typeof insertLiveMatchRequestSchema>;
+export type LiveMatchSuggestion = typeof liveMatchSuggestions.$inferSelect;
+export type InsertLiveMatchSuggestion = z.infer<typeof insertLiveMatchSuggestionSchema>;
+export type LiveInteraction = typeof liveInteractions.$inferSelect;
+export type InsertLiveInteraction = z.infer<typeof insertLiveInteractionSchema>;

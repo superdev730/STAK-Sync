@@ -10,6 +10,7 @@ import Discover from "@/pages/discover";
 import Matches from "@/pages/matches";
 import Messages from "@/pages/messages";
 import Events from "@/pages/events";
+import LiveDashboard from "@/pages/live-dashboard";
 import Profile from "@/pages/profile";
 import Questionnaire from "@/pages/questionnaire";
 import NotFound from "@/pages/not-found";
@@ -29,6 +30,7 @@ function Router() {
           <Route path="/matches" component={Matches} />
           <Route path="/messages" component={Messages} />
           <Route path="/events" component={Events} />
+          <Route path="/live-dashboard" component={LiveDashboard} />
           <Route path="/profile" component={Profile} />
           <Route path="/questionnaire" component={Questionnaire} />
         </Layout>

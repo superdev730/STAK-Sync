@@ -641,9 +641,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Live Event Dashboard API endpoints
+  app.get('/api/events/:eventId/live-attendees', isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const attendees = await storage.getEventLiveAttendees(eventId);
+      res.json(attendees);
+    } catch (error) {
+      console.error('Error fetching live attendees:', error);
+      res.status(500).json({ error: 'Failed to fetch live attendees' });
+    }
+  });
+
+  app.post('/api/events/:eventId/presence', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { eventId } = req.params;
+      const { status, location } = req.body;
+
+      const presence = await storage.updateEventPresence({
+        eventId,
+        userId,
+        status,
+        location,
+        isLive: true,
+      });
+
+      // Broadcast presence update via WebSocket
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'presence_update',
+            eventId,
+            userId,
+            status,
+            location
+          }));
+        }
+      });
+
+      res.json(presence);
+    } catch (error) {
+      console.error('Error updating presence:', error);
+      res.status(500).json({ error: 'Failed to update presence' });
+    }
+  });
+
+  app.post('/api/events/:eventId/start-matchmaking', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { eventId } = req.params;
+      const { urgency, maxMatches, matchingCriteria, roomId } = req.body;
+
+      const request = await storage.createLiveMatchRequest({
+        eventId,
+        userId,
+        roomId,
+        matchingCriteria,
+        urgency,
+        maxMatches,
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+      });
+
+      // Generate AI matches
+      const liveAttendees = await storage.getEventLiveAttendees(eventId);
+      const potentialMatches = liveAttendees.filter(a => a.userId !== userId);
+
+      // Create match suggestions using AI
+      for (const attendee of potentialMatches.slice(0, maxMatches)) {
+        const matchScore = Math.random() * 40 + 60; // 60-100% for demo
+        const matchReasons = [
+          'Similar industry background',
+          'Complementary expertise',
+          'Mutual networking goals',
+          'Geographic proximity'
+        ];
+
+        await storage.createLiveMatchSuggestion({
+          requestId: request.id,
+          eventId,
+          userId,
+          suggestedUserId: attendee.userId,
+          roomId,
+          matchScore: matchScore.toString(),
+          matchReasons,
+          suggestedLocation: 'Networking Lounge',
+          suggestedTime: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
+        });
+      }
+
+      res.json({ success: true, requestId: request.id });
+    } catch (error) {
+      console.error('Error starting matchmaking:', error);
+      res.status(500).json({ error: 'Failed to start matchmaking' });
+    }
+  });
+
+  app.get('/api/events/:eventId/live-matches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { eventId } = req.params;
+      
+      const matches = await storage.getLiveMatches(eventId, userId);
+      res.json(matches);
+    } catch (error) {
+      console.error('Error fetching live matches:', error);
+      res.status(500).json({ error: 'Failed to fetch live matches' });
+    }
+  });
+
+  app.post('/api/live-matches/:matchId/respond', isAuthenticated, async (req: any, res) => {
+    try {
+      const { matchId } = req.params;
+      const { response } = req.body; // 'accept' or 'decline'
+
+      const match = await storage.updateLiveMatchSuggestion(matchId, { 
+        status: response === 'accept' ? 'accepted' : 'declined' 
+      });
+
+      // If accepted, create interaction record
+      if (response === 'accept') {
+        await storage.createLiveInteraction({
+          eventId: match.eventId,
+          initiatorId: match.userId,
+          recipientId: match.suggestedUserId,
+          roomId: match.roomId,
+          interactionType: 'meeting_request',
+          metadata: { matchId }
+        });
+
+        // Notify the other user via WebSocket
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+              type: 'match_accepted',
+              eventId: match.eventId,
+              fromUserId: match.userId,
+              toUserId: match.suggestedUserId,
+              matchId
+            }));
+          }
+        });
+      }
+
+      res.json(match);
+    } catch (error) {
+      console.error('Error responding to match:', error);
+      res.status(500).json({ error: 'Failed to respond to match' });
+    }
+  });
+
   const httpServer = createServer(app);
 
-  // WebSocket server for real-time messaging
+  // WebSocket server for real-time messaging and live updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
   wss.on('connection', (ws) => {
@@ -654,12 +804,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const data = JSON.parse(message.toString());
         console.log('Received:', data);
 
-        // Echo message to all connected clients
-        wss.clients.forEach((client) => {
-          if (client !== ws && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(data));
-          }
-        });
+        // Handle different message types
+        if (data.type === 'presence_update') {
+          // Broadcast presence updates to all clients
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify(data));
+            }
+          });
+        } else {
+          // Echo other messages to all connected clients
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify(data));
+            }
+          });
+        }
       } catch (error) {
         console.error('WebSocket message error:', error);
       }

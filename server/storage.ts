@@ -10,6 +10,10 @@ import {
   roomParticipants,
   eventMatches,
   eventAttendeeImports,
+  eventPresence,
+  liveMatchRequests,
+  liveMatchSuggestions,
+  liveInteractions,
   type User,
   type UpsertUser,
   type Match,
@@ -32,6 +36,14 @@ import {
   type InsertEventMatch,
   type EventAttendeeImport,
   type InsertEventAttendeeImport,
+  type EventPresence,
+  type InsertEventPresence,
+  type LiveMatchRequest,
+  type InsertLiveMatchRequest,
+  type LiveMatchSuggestion,
+  type InsertLiveMatchSuggestion,
+  type LiveInteraction,
+  type InsertLiveInteraction,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql } from "drizzle-orm";
@@ -588,6 +600,101 @@ export class DatabaseStorage implements IStorage {
     return db.query.users.findFirst({
       where: eq(users.email, email),
     });
+  }
+
+  // Live Event Presence operations
+  async updateEventPresence(presenceData: InsertEventPresence): Promise<EventPresence> {
+    // First, deactivate any existing presence for this user/event
+    await db
+      .update(eventPresence)
+      .set({ isLive: false })
+      .where(and(
+        eq(eventPresence.eventId, presenceData.eventId),
+        eq(eventPresence.userId, presenceData.userId)
+      ));
+
+    // Then create new presence record
+    const [result] = await db.insert(eventPresence).values({
+      ...presenceData,
+      lastSeen: new Date(),
+    }).returning();
+    return result;
+  }
+
+  async getEventLiveAttendees(eventId: string): Promise<(EventPresence & { user: User })[]> {
+    const results = await db
+      .select({
+        presence: eventPresence,
+        user: users
+      })
+      .from(eventPresence)
+      .leftJoin(users, eq(eventPresence.userId, users.id))
+      .where(and(
+        eq(eventPresence.eventId, eventId),
+        eq(eventPresence.isLive, true)
+      ))
+      .orderBy(desc(eventPresence.lastSeen));
+
+    return results.map(r => ({
+      ...r.presence,
+      user: r.user!
+    }));
+  }
+
+  // Live Matchmaking operations
+  async createLiveMatchRequest(requestData: InsertLiveMatchRequest): Promise<LiveMatchRequest> {
+    const [result] = await db.insert(liveMatchRequests).values(requestData).returning();
+    return result;
+  }
+
+  async createLiveMatchSuggestion(suggestionData: InsertLiveMatchSuggestion): Promise<LiveMatchSuggestion> {
+    const [result] = await db.insert(liveMatchSuggestions).values(suggestionData).returning();
+    return result;
+  }
+
+  async getLiveMatches(eventId: string, userId: string): Promise<(LiveMatchSuggestion & { user: User })[]> {
+    const results = await db
+      .select({
+        suggestion: liveMatchSuggestions,
+        user: users
+      })
+      .from(liveMatchSuggestions)
+      .leftJoin(users, eq(liveMatchSuggestions.suggestedUserId, users.id))
+      .where(and(
+        eq(liveMatchSuggestions.eventId, eventId),
+        eq(liveMatchSuggestions.userId, userId),
+        eq(liveMatchSuggestions.status, 'pending')
+      ))
+      .orderBy(desc(liveMatchSuggestions.matchScore));
+
+    return results.map(r => ({
+      ...r.suggestion,
+      user: r.user!
+    }));
+  }
+
+  async updateLiveMatchSuggestion(id: string, updates: Partial<LiveMatchSuggestion>): Promise<LiveMatchSuggestion> {
+    const [result] = await db
+      .update(liveMatchSuggestions)
+      .set({ ...updates, respondedAt: new Date() })
+      .where(eq(liveMatchSuggestions.id, id))
+      .returning();
+    return result;
+  }
+
+  // Live Interactions
+  async createLiveInteraction(interactionData: InsertLiveInteraction): Promise<LiveInteraction> {
+    const [result] = await db.insert(liveInteractions).values(interactionData).returning();
+    return result;
+  }
+
+  async updateLiveInteraction(id: string, updates: Partial<LiveInteraction>): Promise<LiveInteraction> {
+    const [result] = await db
+      .update(liveInteractions)
+      .set(updates)
+      .where(eq(liveInteractions.id, id))
+      .returning();
+    return result;
   }
 }
 

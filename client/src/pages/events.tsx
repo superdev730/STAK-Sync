@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Users, Clock, Sparkles, Plus, Upload } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Sparkles, Plus, Upload, Activity } from "lucide-react";
 import { CSVImportModal } from "@/components/CSVImportModal";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -293,6 +293,18 @@ export default function Events() {
                     >
                       {registerMutation.isPending ? "Registering..." : 
                        event.registrationCount >= event.maxAttendees ? "Event Full" : "Register"}
+                    </Button>
+                  )}
+                  
+                  {/* Live Dashboard Button - for registered attendees */}
+                  {isRegistered(event.id) && (
+                    <Button
+                      variant="outline"
+                      className="w-full border-primary text-primary hover:bg-primary/10"
+                      onClick={() => window.location.href = `/live-dashboard?eventId=${event.id}`}
+                    >
+                      <Activity className="h-4 w-4 mr-2" />
+                      Live Dashboard
                     </Button>
                   )}
                   
