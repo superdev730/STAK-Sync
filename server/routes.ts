@@ -1261,32 +1261,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
-      const connections = [
-        {
-          id: '1',
-          name: 'Sarah Chen',
-          type: 'Direct Connection',
-          status: 'Active',
-          createdAt: '2025-07-15 14:30:00',
-          company: 'Sequoia Capital'
-        },
-        {
-          id: '2',
-          name: 'David Park',
-          type: 'Direct Connection', 
-          status: 'Active',
-          createdAt: '2025-07-10 09:15:00',
-          company: 'TechCorp Ventures'
-        },
-        {
-          id: '3',
-          name: 'Emily Zhang',
+      // Get matches where user is connected
+      const userMatches = await storage.getMatches(userId);
+      const connections = userMatches
+        .filter(match => match.status === 'connected')
+        .map(match => ({
+          id: match.id,
+          name: match.matchedUser ? `${match.matchedUser.firstName} ${match.matchedUser.lastName}` : 'Unknown User',
           type: 'AI Match Connection',
-          status: 'Pending',
-          createdAt: '2025-08-01 16:20:00',
-          company: 'Innovation Labs'
-        }
-      ];
+          status: 'Connected',
+          createdAt: match.createdAt?.toISOString() || new Date().toISOString(),
+          company: match.matchedUser?.company || 'N/A',
+          email: match.matchedUser?.email || 'N/A'
+        }));
 
       res.json(connections);
     } catch (error) {
@@ -1299,32 +1286,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
-      const meetings = [
-        {
-          id: '1',
-          title: 'Investment Discussion with Sarah Chen',
-          type: 'Video Call',
-          status: 'Completed',
-          timestamp: '2025-07-20 10:00:00',
-          duration: '45 minutes'
-        },
-        {
-          id: '2',
-          title: 'STAK Venture Pitch Night',
-          type: 'In-Person Event',
-          status: 'Upcoming',
-          timestamp: '2025-08-05 18:00:00',
-          location: '1900 Broadway, Oakland'
-        },
-        {
-          id: '3',
-          title: 'Coffee Chat with David Park',
-          type: 'In-Person Meeting',
-          status: 'Completed',
-          timestamp: '2025-07-12 14:30:00',
-          location: 'Blue Bottle Coffee, SOMA'
-        }
-      ];
+      // Get meetups where user is organizer or attendee
+      const userMeetups = await storage.getUserMeetups(userId);
+      const meetings = userMeetups.map(meetup => ({
+        id: meetup.id,
+        title: meetup.title,
+        type: meetup.location?.includes('http') ? 'Video Call' : 'In-Person Meeting',
+        status: meetup.status === 'confirmed' ? 'Confirmed' : 
+                meetup.status === 'cancelled' ? 'Cancelled' : 'Pending',
+        timestamp: meetup.scheduledAt?.toISOString() || new Date().toISOString(),
+        location: meetup.location || 'TBD',
+        description: meetup.description || ''
+      }));
 
       res.json(meetings);
     } catch (error) {
@@ -1337,34 +1310,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
-      const messages = [
-        {
-          id: '1',
-          title: 'Thread with Sarah Chen',
-          type: 'Direct Message',
-          status: 'Active',
-          timestamp: '2025-08-03 16:45:00',
-          lastMessage: 'Looking forward to our meeting tomorrow!'
-        },
-        {
-          id: '2',
-          title: 'Investment Opportunity Discussion',
-          type: 'Direct Message',
-          status: 'Unread',
-          timestamp: '2025-08-03 14:20:00',
-          lastMessage: 'I have some exciting updates to share...'
-        },
-        {
-          id: '3',
-          title: 'Event Planning Committee',
-          type: 'Group Chat',
-          status: 'Active',
-          timestamp: '2025-08-03 11:15:00',
-          lastMessage: 'Great work on the agenda, everyone!'
+      // Get messages where user is sender or receiver
+      const userMessages = await storage.getConversations(userId);
+      
+      // Group messages by conversation (unique pairs of users)
+      const conversations = new Map();
+      userMessages.forEach(message => {
+        const otherUserId = message.senderId === userId ? message.receiverId : message.senderId;
+        const key = [userId, otherUserId].sort().join('-');
+        
+        if (!conversations.has(key)) {
+          conversations.set(key, {
+            messages: [],
+            otherUser: message.senderId === userId ? message.receiver : message.sender
+          });
         }
-      ];
+        conversations.get(key).messages.push(message);
+      });
 
-      res.json(messages);
+      const messageThreads = Array.from(conversations.values()).map(conv => {
+        const latestMessage = conv.messages.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0];
+        
+        return {
+          id: latestMessage.id,
+          title: conv.otherUser ? 
+            `Thread with ${conv.otherUser.firstName} ${conv.otherUser.lastName}` : 
+            'Unknown Contact',
+          type: 'Direct Message',
+          status: latestMessage.isRead ? 'Read' : 'Unread',
+          timestamp: latestMessage.createdAt?.toISOString() || new Date().toISOString(),
+          lastMessage: latestMessage.content.substring(0, 50) + (latestMessage.content.length > 50 ? '...' : '')
+        };
+      });
+
+      res.json(messageThreads);
     } catch (error) {
       console.error('Error fetching user messages:', error);
       res.status(500).json({ message: 'Failed to fetch user messages' });
@@ -1375,32 +1356,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
-      const matches = [
-        {
-          id: '1',
-          title: 'AI Match: Sarah Chen',
-          type: 'High Compatibility',
-          status: 'Connected',
-          timestamp: '2025-07-15 10:30:00',
-          score: '94% match - Shared interests in fintech and sustainability'
-        },
-        {
-          id: '2',
-          title: 'AI Match: Michael Rodriguez',
-          type: 'Medium Compatibility',
-          status: 'Pending',
-          timestamp: '2025-08-01 08:15:00',
-          score: '87% match - Similar investment focus and geographic proximity'
-        },
-        {
-          id: '3',
-          title: 'AI Match: Jennifer Liu',
-          type: 'High Compatibility',
-          status: 'Connected',
-          timestamp: '2025-07-28 15:45:00',
-          score: '91% match - Complementary expertise in AI and healthcare'
-        }
-      ];
+      // Get all matches for the user
+      const userMatches = await storage.getMatches(userId);
+      const matches = userMatches.map(match => {
+        const compatibilityLevel = match.matchScore >= 90 ? 'High Compatibility' : 
+                                  match.matchScore >= 70 ? 'Medium Compatibility' : 
+                                  'Low Compatibility';
+        
+        return {
+          id: match.id,
+          title: match.matchedUser ? 
+            `AI Match: ${match.matchedUser.firstName} ${match.matchedUser.lastName}` : 
+            'AI Match: Unknown User',
+          type: compatibilityLevel,
+          status: match.status === 'connected' ? 'Connected' : 
+                  match.status === 'passed' ? 'Passed' : 'Pending',
+          timestamp: match.createdAt?.toISOString() || new Date().toISOString(),
+          score: `${match.matchScore}% compatibility`,
+          company: match.matchedUser?.company || 'N/A'
+        };
+      });
 
       res.json(matches);
     } catch (error) {
