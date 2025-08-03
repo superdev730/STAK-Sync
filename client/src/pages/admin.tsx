@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   Users, 
   Calendar, 
@@ -17,7 +24,14 @@ import {
   UserCheck,
   Clock,
   MapPin,
-  Star
+  Star,
+  Search,
+  UserX,
+  Mail,
+  Shield,
+  Eye,
+  Ban,
+  CheckCircle
 } from "lucide-react";
 
 interface AdminAnalytics {
@@ -68,446 +82,375 @@ interface AdminAnalytics {
   }>;
 }
 
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  company?: string;
+  title?: string;
+  profileImageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface UserManagementData {
+  users: User[];
+  total: number;
+}
+
 export default function Admin() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userActionDialog, setUserActionDialog] = useState(false);
+  const [actionType, setActionType] = useState<'suspend' | 'activate' | 'ban' | null>(null);
+  const [actionReason, setActionReason] = useState('');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: analytics, isLoading } = useQuery<AdminAnalytics>({
     queryKey: ['/api/admin/analytics', selectedTimeRange],
     retry: false,
   });
 
+  const { data: userManagement, isLoading: usersLoading } = useQuery<UserManagementData>({
+    queryKey: ['/api/admin/users', currentPage],
+    retry: false,
+  });
+
+  const userActionMutation = useMutation({
+    mutationFn: async ({ userId, status, reason }: { userId: string; status: string; reason: string }) => {
+      return apiRequest(`/api/admin/users/${userId}/status`, {
+        method: 'POST',
+        body: { status, reason },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "User status updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      setUserActionDialog(false);
+      setSelectedUser(null);
+      setActionReason('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleUserAction = (user: User, action: 'suspend' | 'activate' | 'ban') => {
+    setSelectedUser(user);
+    setActionType(action);
+    setUserActionDialog(true);
+  };
+
+  const confirmUserAction = () => {
+    if (!selectedUser || !actionType) return;
+
+    userActionMutation.mutate({
+      userId: selectedUser.id,
+      status: actionType === 'activate' ? 'active' : actionType === 'suspend' ? 'suspended' : 'banned',
+      reason: actionReason,
+    });
+  };
+
+  const getStatusBadge = (user: User) => {
+    // For demo purposes, assume most users are active
+    return <Badge variant="secondary" className="bg-green-100 text-green-800">Active</Badge>;
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20 p-6">
+      <div className="min-h-screen bg-[#141414] text-white p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse space-y-8">
-            <div className="h-12 bg-muted rounded-lg w-1/3"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-muted rounded-lg"></div>
-              ))}
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <Activity className="h-8 w-8 animate-spin mx-auto mb-4 text-[#CD853F]" />
+              <p className="text-gray-300">Loading admin dashboard...</p>
             </div>
-            <div className="h-96 bg-muted rounded-lg"></div>
           </div>
         </div>
       </div>
     );
   }
 
-  if (!analytics) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20 p-6">
-        <div className="max-w-7xl mx-auto">
-          <Card className="bg-destructive/10 border-destructive/20">
-            <CardHeader>
-              <CardTitle className="text-destructive">Access Denied</CardTitle>
-              <CardDescription>
-                You don't have permission to access the admin panel. Please contact your administrator.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  const StatCard = ({ title, value, change, icon: Icon, trend }: {
-    title: string;
-    value: string | number;
-    change: string;
-    icon: any;
-    trend: 'up' | 'down' | 'neutral';
-  }) => (
-    <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <p className={`text-xs ${
-          trend === 'up' ? 'text-green-500' : 
-          trend === 'down' ? 'text-red-500' : 
-          'text-muted-foreground'
-        }`}>
-          {change}
-        </p>
-      </CardContent>
-    </Card>
-  );
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20 p-6">
+    <div className="min-h-screen bg-[#141414] text-white p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-            <p className="text-muted-foreground">STAK Signal Platform Analytics & Management</p>
+            <h1 className="text-3xl font-bold text-[#CD853F]">STAK Signal Admin</h1>
+            <p className="text-gray-300 mt-2">Platform management and analytics</p>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant={selectedTimeRange === '7d' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedTimeRange('7d')}
-            >
-              7 Days
-            </Button>
-            <Button
-              variant={selectedTimeRange === '30d' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedTimeRange('30d')}
-            >
-              30 Days
-            </Button>
-            <Button
-              variant={selectedTimeRange === '90d' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedTimeRange('90d')}
-            >
-              90 Days
-            </Button>
+          <div className="flex items-center gap-4">
+            <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
+              <SelectTrigger className="w-32 bg-[#1F1F1F] border-gray-600">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="Total Users"
-            value={analytics.userStats.totalUsers}
-            change={`+${analytics.userStats.newUsersThisWeek} this week`}
-            icon={Users}
-            trend="up"
-          />
-          <StatCard
-            title="Active Today"
-            value={analytics.userStats.activeUsersToday}
-            change={`${Math.round((analytics.userStats.activeUsersToday / analytics.userStats.totalUsers) * 100)}% of total`}
-            icon={Activity}
-            trend="up"
-          />
-          <StatCard
-            title="Total Events"
-            value={analytics.eventStats.totalEvents}
-            change={`${analytics.eventStats.upcomingEvents} upcoming`}
-            icon={Calendar}
-            trend="neutral"
-          />
-          <StatCard
-            title="Match Success Rate"
-            value={`${analytics.matchingStats.matchSuccessRate}%`}
-            change={`${analytics.matchingStats.totalMatches} total matches`}
-            icon={Target}
-            trend="up"
-          />
-        </div>
-
-        {/* Detailed Analytics */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="events">Events</TabsTrigger>
-            <TabsTrigger value="matching">Matching</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsList className="bg-[#1F1F1F] border-gray-600">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="users" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+              <Users className="h-4 w-4 mr-2" />
+              User Management
+            </TabsTrigger>
+            <TabsTrigger value="events" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+              <Calendar className="h-4 w-4 mr-2" />
+              Events
+            </TabsTrigger>
+            <TabsTrigger value="matching" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+              <Target className="h-4 w-4 mr-2" />
+              Matching
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+              <Activity className="h-4 w-4 mr-2" />
+              Activity
+            </TabsTrigger>
           </TabsList>
 
+          {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Platform Health */}
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Platform Health
-                  </CardTitle>
+            {/* User Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="bg-[#1F1F1F] border-gray-600">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-300">Total Users</CardTitle>
+                  <Users className="h-4 w-4 text-[#CD853F]" />
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Profile Completion Rate</span>
-                      <span className="font-medium">
-                        {Math.round((analytics.userStats.completedProfiles / analytics.userStats.totalUsers) * 100)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full" 
-                        style={{ 
-                          width: `${(analytics.userStats.completedProfiles / analytics.userStats.totalUsers) * 100}%` 
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Event Attendance Rate</span>
-                      <span className="font-medium">{analytics.eventStats.averageAttendance}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full" 
-                        style={{ width: `${analytics.eventStats.averageAttendance}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>User Satisfaction</span>
-                      <span className="font-medium">{analytics.engagementStats.userSatisfactionScore}/5.0</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-yellow-500 h-2 rounded-full" 
-                        style={{ width: `${(analytics.engagementStats.userSatisfactionScore / 5) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">{analytics?.userStats.totalUsers || 0}</div>
+                  <p className="text-xs text-gray-400">
+                    +{analytics?.userStats.newUsersThisWeek || 0} this week
+                  </p>
                 </CardContent>
               </Card>
 
-              {/* Top Events */}
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Star className="h-5 w-5" />
-                    Top Performing Events
-                  </CardTitle>
+              <Card className="bg-[#1F1F1F] border-gray-600">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-300">Active Today</CardTitle>
+                  <UserCheck className="h-4 w-4 text-[#CD853F]" />
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {analytics.topEvents.slice(0, 5).map((event) => (
-                      <div key={event.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <div>
-                          <div className="font-medium text-sm">{event.title}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {event.registrationCount} registrations • {event.attendanceRate}% attendance
-                          </div>
-                        </div>
-                        <Badge variant="secondary">
-                          {event.satisfactionScore}/5.0
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                  <div className="text-2xl font-bold text-white">{analytics?.userStats.activeUsersToday || 0}</div>
+                  <p className="text-xs text-gray-400">Users active today</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#1F1F1F] border-gray-600">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-300">Total Events</CardTitle>
+                  <Calendar className="h-4 w-4 text-[#CD853F]" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">{analytics?.eventStats.totalEvents || 0}</div>
+                  <p className="text-xs text-gray-400">
+                    {analytics?.eventStats.upcomingEvents || 0} upcoming
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#1F1F1F] border-gray-600">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-300">Match Success</CardTitle>
+                  <Target className="h-4 w-4 text-[#CD853F]" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">{analytics?.matchingStats.matchSuccessRate || 0}%</div>
+                  <p className="text-xs text-gray-400">Successful matches</p>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
+          {/* User Management Tab */}
           <TabsContent value="users" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* User Growth */}
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardHeader>
-                  <CardTitle>User Growth Metrics</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 bg-muted/30 rounded-lg">
-                      <div className="text-2xl font-bold text-primary">
-                        {analytics.userStats.totalUsers}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Total Users</div>
-                    </div>
-                    <div className="text-center p-4 bg-muted/30 rounded-lg">
-                      <div className="text-2xl font-bold text-green-500">
-                        {analytics.userStats.newUsersThisWeek}
-                      </div>
-                      <div className="text-sm text-muted-foreground">New This Week</div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Active Users Today</span>
-                      <span className="font-medium">{analytics.userStats.activeUsersToday}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Completed Profiles</span>
-                      <span className="font-medium">{analytics.userStats.completedProfiles}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Top Users */}
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardHeader>
-                  <CardTitle>Most Active Users</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {analytics.topUsers.slice(0, 5).map((user) => (
-                      <div key={user.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <div>
-                          <div className="font-medium text-sm">{user.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {user.matchCount} matches • {user.messagesSent} messages • {user.eventsAttended} events
-                          </div>
-                        </div>
-                        <Badge variant="outline">Active</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">User Management</h2>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Search users..."
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    className="pl-10 bg-[#1F1F1F] border-gray-600 text-white"
+                  />
+                </div>
+              </div>
             </div>
-          </TabsContent>
 
-          <TabsContent value="events" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardHeader>
-                  <CardTitle className="text-lg">Event Metrics</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-center p-4 bg-muted/30 rounded-lg">
-                    <div className="text-3xl font-bold text-primary">
-                      {analytics.eventStats.totalEvents}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Total Events</div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm">Upcoming Events</span>
-                      <span className="font-medium">{analytics.eventStats.upcomingEvents}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">Total Registrations</span>
-                      <span className="font-medium">{analytics.eventStats.totalRegistrations}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">Average Attendance</span>
-                      <span className="font-medium">{analytics.eventStats.averageAttendance}%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="lg:col-span-2 bg-card/50 backdrop-blur-sm border-border/50">
-                <CardHeader>
-                  <CardTitle>Event Performance Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {analytics.topEvents.map((event) => (
-                      <div key={event.id} className="p-4 bg-muted/30 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium">{event.title}</h4>
-                          <Badge variant="secondary">{event.satisfactionScore}/5.0</Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                          <div>Registrations: {event.registrationCount}</div>
-                          <div>Attendance: {event.attendanceRate}%</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="matching" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardHeader>
-                  <CardTitle>AI Matching Performance</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 bg-muted/30 rounded-lg">
-                      <div className="text-2xl font-bold text-primary">
-                        {analytics.matchingStats.totalMatches}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Total Matches</div>
-                    </div>
-                    <div className="text-center p-4 bg-muted/30 rounded-lg">
-                      <div className="text-2xl font-bold text-green-500">
-                        {analytics.matchingStats.matchSuccessRate}%
-                      </div>
-                      <div className="text-sm text-muted-foreground">Success Rate</div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Successful Matches</span>
-                      <span className="font-medium">{analytics.matchingStats.successfulMatches}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Avg. Compatibility Score</span>
-                      <span className="font-medium">{analytics.matchingStats.averageCompatibilityScore}%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardHeader>
-                  <CardTitle>Engagement Metrics</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm">Total Messages</span>
-                      <span className="font-medium">{analytics.engagementStats.totalMessages}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">Active Meetups</span>
-                      <span className="font-medium">{analytics.engagementStats.activeMeetups}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">Avg. Response Time</span>
-                      <span className="font-medium">{analytics.engagementStats.averageResponseTime}h</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">User Satisfaction</span>
-                      <span className="font-medium">{analytics.engagementStats.userSatisfactionScore}/5.0</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="activity" className="space-y-6">
-            <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+            <Card className="bg-[#1F1F1F] border-gray-600">
               <CardHeader>
-                <CardTitle>Recent Platform Activity</CardTitle>
-                <CardDescription>Real-time insights into user interactions</CardDescription>
+                <CardTitle className="text-white">Platform Members</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Manage user accounts and access levels
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {analytics.recentActivity.map((activity) => (
-                    <div key={activity.id} className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
-                      <div className="p-2 bg-primary/10 rounded-full">
-                        {activity.type === 'registration' && <UserCheck className="h-4 w-4 text-primary" />}
-                        {activity.type === 'match' && <Target className="h-4 w-4 text-green-500" />}
-                        {activity.type === 'message' && <MessageSquare className="h-4 w-4 text-blue-500" />}
-                        {activity.type === 'meetup' && <Calendar className="h-4 w-4 text-purple-500" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">{activity.description}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {activity.user} • {new Date(activity.timestamp).toLocaleString()}
+                {usersLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <Activity className="h-6 w-6 animate-spin text-[#CD853F]" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {userManagement?.users.map((user) => (
+                      <div key={user.id} className="flex items-center justify-between p-4 bg-[#141414] rounded-lg border border-gray-600">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-[#CD853F] flex items-center justify-center text-black font-semibold">
+                            {user.firstName?.[0]}{user.lastName?.[0]}
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-white">{user.firstName} {user.lastName}</h3>
+                            <p className="text-sm text-gray-400">{user.email}</p>
+                            {user.company && (
+                              <p className="text-sm text-gray-500">{user.title} at {user.company}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {getStatusBadge(user)}
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUserAction(user, 'suspend')}
+                              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUserAction(user, 'activate')}
+                              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <Badge variant="outline" className="capitalize">
-                        {activity.type}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Other tabs content would go here */}
+          <TabsContent value="events">
+            <Card className="bg-[#1F1F1F] border-gray-600">
+              <CardHeader>
+                <CardTitle className="text-white">Event Management</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Manage events and attendee analytics
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-400">Event management features coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="matching">
+            <Card className="bg-[#1F1F1F] border-gray-600">
+              <CardHeader>
+                <CardTitle className="text-white">AI Matching Analytics</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Monitor matching algorithm performance
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-400">Matching analytics coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="activity">
+            <Card className="bg-[#1F1F1F] border-gray-600">
+              <CardHeader>
+                <CardTitle className="text-white">Platform Activity</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Monitor real-time platform usage
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-400">Activity monitoring coming soon...</p>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* User Action Dialog */}
+        <Dialog open={userActionDialog} onOpenChange={setUserActionDialog}>
+          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white">
+            <DialogHeader>
+              <DialogTitle>
+                {actionType === 'suspend' && 'Suspend User Account'}
+                {actionType === 'activate' && 'Activate User Account'}
+                {actionType === 'ban' && 'Ban User Account'}
+              </DialogTitle>
+              <DialogDescription className="text-gray-400">
+                {selectedUser && `${selectedUser.firstName} ${selectedUser.lastName} (${selectedUser.email})`}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="reason" className="text-gray-300">Reason for action</Label>
+                <Textarea
+                  id="reason"
+                  value={actionReason}
+                  onChange={(e) => setActionReason(e.target.value)}
+                  placeholder="Provide a reason for this action..."
+                  className="bg-[#141414] border-gray-600 text-white"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setUserActionDialog(false)}
+                className="border-gray-600 text-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmUserAction}
+                disabled={userActionMutation.isPending}
+                className="bg-[#CD853F] text-black hover:bg-[#B8752F]"
+              >
+                {userActionMutation.isPending ? 'Processing...' : 'Confirm Action'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

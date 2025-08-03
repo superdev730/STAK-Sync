@@ -528,3 +528,31 @@ export type AdminLog = typeof adminLogs.$inferSelect;
 export type InsertPlatformMetric = typeof platformMetrics.$inferInsert;
 export type PlatformMetric = typeof platformMetrics.$inferSelect;
 export type InsertLiveInteraction = z.infer<typeof insertLiveInteractionSchema>;
+
+// Admin user management tables
+export const adminUsers = pgTable("admin_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  role: varchar("role").notNull().default("admin"), // admin, super_admin
+  permissions: jsonb("permissions").default(sql`'["view_analytics", "manage_users", "manage_events"]'`),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+});
+
+export const userAccountStatus = pgTable("user_account_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  status: varchar("status").notNull().default("active"), // active, suspended, banned, pending
+  reason: text("reason"),
+  suspendedAt: timestamp("suspended_at"),
+  suspendedBy: varchar("suspended_by").references(() => users.id),
+  reactivatedAt: timestamp("reactivated_at"),
+  reactivatedBy: varchar("reactivated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type AdminUser = typeof adminUsers.$inferSelect;
+export type InsertAdminUser = typeof adminUsers.$inferInsert;
+export type UserAccountStatus = typeof userAccountStatus.$inferSelect;
+export type InsertUserAccountStatus = typeof userAccountStatus.$inferInsert;

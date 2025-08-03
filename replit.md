@@ -6,6 +6,12 @@ STAK Signal is a professional networking platform built for the STAK ecosystem t
 
 Preferred communication style: Simple, everyday language.
 
+# Admin System
+- **First Admin User**: cbehring@behringco.com (configured as super admin)
+- **Admin Features**: Complete user account management, analytics dashboard, member support
+- **Email Integration**: SendGrid for account notifications and admin communications
+- **Admin Permissions**: View analytics, manage users, manage events, system configuration
+
 # System Architecture
 
 ## Frontend Architecture

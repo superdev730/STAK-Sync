@@ -46,10 +46,16 @@ import {
   type InsertLiveInteraction,
   adminLogs,
   platformMetrics,
+  adminUsers,
+  userAccountStatus,
   type AdminLog,
   type InsertAdminLog,
   type PlatformMetric,
   type InsertPlatformMetric,
+  type AdminUser,
+  type InsertAdminUser,
+  type UserAccountStatus,
+  type InsertUserAccountStatus,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql } from "drizzle-orm";
@@ -57,6 +63,7 @@ import { eq, desc, and, or, sql } from "drizzle-orm";
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
   
@@ -111,11 +118,24 @@ export interface IStorage {
   getAdminAnalytics(timeRange: '7d' | '30d' | '90d'): Promise<any>;
   logAdminAction(log: InsertAdminLog): Promise<AdminLog>;
   recordPlatformMetric(metric: InsertPlatformMetric): Promise<PlatformMetric>;
+
+  // Admin user management
+  createAdminUser(admin: InsertAdminUser): Promise<AdminUser>;
+  isUserAdmin(userId: string): Promise<boolean>;
+  getAllUsers(page?: number, limit?: number): Promise<{ users: User[], total: number }>;
+  updateUserAccountStatus(userId: string, status: InsertUserAccountStatus): Promise<UserAccountStatus>;
+  getUserAccountStatus(userId: string): Promise<UserAccountStatus | undefined>;
+  searchUsers(query: string): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
@@ -877,6 +897,90 @@ export class DatabaseStorage implements IStorage {
       .values(metric)
       .returning();
     return platformMetric;
+  }
+
+  async createAdminUser(adminData: InsertAdminUser): Promise<AdminUser> {
+    const [admin] = await db
+      .insert(adminUsers)
+      .values(adminData)
+      .returning();
+    return admin;
+  }
+
+  async isUserAdmin(userId: string): Promise<boolean> {
+    const [admin] = await db
+      .select()
+      .from(adminUsers)
+      .where(eq(adminUsers.userId, userId))
+      .limit(1);
+    return !!admin;
+  }
+
+  async getAllUsers(page: number = 1, limit: number = 50): Promise<{ users: User[], total: number }> {
+    const offset = (page - 1) * limit;
+    
+    const [usersData, totalCount] = await Promise.all([
+      db
+        .select()
+        .from(users)
+        .orderBy(desc(users.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+    ]);
+
+    return {
+      users: usersData,
+      total: totalCount[0]?.count || 0
+    };
+  }
+
+  async updateUserAccountStatus(userId: string, statusData: InsertUserAccountStatus): Promise<UserAccountStatus> {
+    // First check if status record exists
+    const [existingStatus] = await db
+      .select()
+      .from(userAccountStatus)
+      .where(eq(userAccountStatus.userId, userId))
+      .limit(1);
+
+    if (existingStatus) {
+      const [updated] = await db
+        .update(userAccountStatus)
+        .set({ ...statusData, updatedAt: new Date() })
+        .where(eq(userAccountStatus.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(userAccountStatus)
+        .values(statusData)
+        .returning();
+      return created;
+    }
+  }
+
+  async getUserAccountStatus(userId: string): Promise<UserAccountStatus | undefined> {
+    const [status] = await db
+      .select()
+      .from(userAccountStatus)
+      .where(eq(userAccountStatus.userId, userId))
+      .limit(1);
+    return status;
+  }
+
+  async searchUsers(query: string): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(or(
+        sql`${users.firstName} ILIKE ${`%${query}%`}`,
+        sql`${users.lastName} ILIKE ${`%${query}%`}`,
+        sql`${users.email} ILIKE ${`%${query}%`}`,
+        sql`${users.company} ILIKE ${`%${query}%`}`
+      ))
+      .limit(20);
   }
 }
 
