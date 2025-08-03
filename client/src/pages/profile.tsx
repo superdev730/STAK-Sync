@@ -26,7 +26,9 @@ import {
   Calendar,
   MessageSquare,
   Users,
-  TrendingUp
+  TrendingUp,
+  Brain,
+  RefreshCw
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -153,6 +155,35 @@ export default function Profile() {
     },
   });
 
+  const analyzeProfileMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/profile/analyze", {}),
+    onSuccess: () => {
+      toast({
+        title: "Profile Analyzed!",
+        description: "AI analysis completed. Your matching algorithm has been enhanced.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to analyze profile. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: ProfileFormData) => {
     updateProfileMutation.mutate(data);
   };
@@ -227,38 +258,38 @@ export default function Profile() {
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-4xl font-playfair font-bold text-navy mb-4">Your Professional Profile</h1>
-        <p className="text-xl text-charcoal">Enhance your profile to attract better matches</p>
+        <h1 className="text-4xl font-bold text-stak-white mb-4">Your Professional Profile</h1>
+        <p className="text-xl text-stak-light-gray">Enhance your profile to attract better matches</p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Main Profile Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Profile Preview */}
-          <Card className="luxury-card">
+          <Card className="bg-stak-black border border-stak-gray">
             <CardHeader>
-              <CardTitle className="text-2xl font-playfair font-semibold text-navy">Profile Preview</CardTitle>
+              <CardTitle className="text-2xl font-semibold text-stak-white">Profile Preview</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-start space-x-6 mb-8">
                 <Avatar className="w-24 h-24 rounded-2xl">
                   <AvatarImage src={user.profileImageUrl || ""} alt={user.firstName || ""} />
-                  <AvatarFallback className="bg-navy text-white text-xl rounded-2xl">
+                  <AvatarFallback className="bg-stak-copper text-stak-black text-xl rounded-2xl">
                     {user.firstName?.[0]}{user.lastName?.[0]}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <h3 className="text-2xl font-playfair font-bold text-navy mb-2">
+                  <h3 className="text-2xl font-bold text-stak-white mb-2">
                     {user.firstName} {user.lastName}
                   </h3>
-                  <p className="text-gold font-semibold mb-3">{user.title || "Professional Title"}</p>
+                  <p className="text-stak-copper font-semibold mb-3">{user.title || "Professional Title"}</p>
                   {user.company && (
-                    <p className="text-charcoal mb-3">at {user.company}</p>
+                    <p className="text-stak-light-gray mb-3">at {user.company}</p>
                   )}
-                  <p className="text-charcoal leading-relaxed mb-4">
+                  <p className="text-stak-light-gray leading-relaxed mb-4">
                     {user.bio || "Add a compelling bio to tell your professional story and attract the right connections."}
                   </p>
-                  <div className="flex items-center space-x-4 text-sm text-gray-600">
+                  <div className="flex items-center space-x-4 text-sm text-stak-light-gray">
                     {user.location && (
                       <span className="flex items-center">
                         <MapPin className="w-4 h-4 mr-1" />
@@ -266,25 +297,25 @@ export default function Profile() {
                       </span>
                     )}
                     {user.linkedinUrl && (
-                      <span className="flex items-center text-blue-600">
+                      <span className="flex items-center text-stak-copper">
                         <LinkIcon className="w-4 h-4 mr-1" />
                         LinkedIn
                       </span>
                     )}
                   </div>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-stak-copper text-stak-copper hover:bg-stak-copper/10">
                   <Upload className="w-4 h-4 mr-2" />
                   Change Photo
                 </Button>
               </div>
 
               {/* Profile Stats */}
-              <div className="grid grid-cols-4 gap-6 p-6 bg-light-blue rounded-xl">
+              <div className="grid grid-cols-4 gap-6 p-6 bg-stak-gray rounded-xl">
                 {profileStats.map((stat) => (
                   <div key={stat.label} className="text-center">
-                    <div className="text-2xl font-bold text-navy">{stat.value}</div>
-                    <div className="text-sm text-gray-600">{stat.label}</div>
+                    <div className="text-2xl font-bold text-stak-copper">{stat.value}</div>
+                    <div className="text-sm text-stak-light-gray">{stat.label}</div>
                   </div>
                 ))}
               </div>
@@ -292,20 +323,20 @@ export default function Profile() {
           </Card>
 
           {/* Profile Form */}
-          <Card className="luxury-card">
+          <Card className="bg-stak-black border border-stak-gray">
             <CardHeader>
-              <div className="flex space-x-4 border-b">
+              <div className="flex space-x-4 border-b border-stak-gray">
                 <Button
                   variant={activeTab === "profile" ? "default" : "ghost"}
                   onClick={() => setActiveTab("profile")}
-                  className={activeTab === "profile" ? "bg-navy" : ""}
+                  className={activeTab === "profile" ? "bg-stak-copper text-stak-black" : "text-stak-light-gray hover:text-stak-white"}
                 >
                   Profile Information
                 </Button>
                 <Button
                   variant={activeTab === "privacy" ? "default" : "ghost"}
                   onClick={() => setActiveTab("privacy")}
-                  className={activeTab === "privacy" ? "bg-navy" : ""}
+                  className={activeTab === "privacy" ? "bg-stak-copper text-stak-black" : "text-stak-light-gray hover:text-stak-white"}
                 >
                   Privacy & Settings
                 </Button>
@@ -557,12 +588,12 @@ export default function Profile() {
                   )}
 
                   <div className="flex justify-end space-x-4 pt-6">
-                    <Button type="button" variant="outline">
+                    <Button type="button" variant="outline" className="border-stak-gray text-stak-light-gray hover:bg-stak-gray">
                       Cancel
                     </Button>
                     <Button 
                       type="submit" 
-                      className="bg-navy hover:bg-blue-800"
+                      className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
                       disabled={updateProfileMutation.isPending}
                     >
                       {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
@@ -574,20 +605,20 @@ export default function Profile() {
           </Card>
 
           {/* Recent Activity */}
-          <Card className="luxury-card">
+          <Card className="bg-stak-black border border-stak-gray">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-charcoal">Recent Activity</CardTitle>
+              <CardTitle className="text-lg font-semibold text-stak-white">Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="w-8 h-8 bg-light-blue rounded-full flex items-center justify-center">
-                      <activity.icon className="w-4 h-4 text-navy" />
+                  <div key={index} className="flex items-center space-x-3 p-3 bg-stak-gray rounded-lg">
+                    <div className="w-8 h-8 bg-stak-copper rounded-full flex items-center justify-center">
+                      <activity.icon className="w-4 h-4 text-stak-black" />
                     </div>
                     <div className="flex-1">
-                      <span className="text-charcoal">{activity.description}</span>
-                      <span className="text-xs text-gray-500 ml-auto block">{activity.time}</span>
+                      <span className="text-stak-white">{activity.description}</span>
+                      <span className="text-xs text-stak-light-gray ml-auto block">{activity.time}</span>
                     </div>
                   </div>
                 ))}
@@ -599,70 +630,99 @@ export default function Profile() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Profile Completion */}
-          <Card className="luxury-card">
+          <Card className="bg-stak-black border border-stak-gray">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-charcoal">Profile Completion</CardTitle>
+              <CardTitle className="text-lg font-semibold text-stak-white">Profile Completion</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Basic Info</span>
-                  <CheckCircle className="w-5 h-5 text-prof-green" />
+                  <span className="text-sm text-stak-light-gray">Basic Info</span>
+                  <CheckCircle className="w-5 h-5 text-green-400" />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Professional Photo</span>
+                  <span className="text-sm text-stak-light-gray">Professional Photo</span>
                   {user.profileImageUrl ? (
-                    <CheckCircle className="w-5 h-5 text-prof-green" />
+                    <CheckCircle className="w-5 h-5 text-green-400" />
                   ) : (
-                    <XCircle className="w-5 h-5 text-red-500" />
+                    <XCircle className="w-5 h-5 text-red-400" />
                   )}
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">LinkedIn Integration</span>
+                  <span className="text-sm text-stak-light-gray">LinkedIn Integration</span>
                   {user.linkedinUrl ? (
-                    <CheckCircle className="w-5 h-5 text-prof-green" />
+                    <CheckCircle className="w-5 h-5 text-green-400" />
                   ) : (
-                    <XCircle className="w-5 h-5 text-red-500" />
+                    <XCircle className="w-5 h-5 text-red-400" />
                   )}
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Networking Goals</span>
+                  <span className="text-sm text-stak-light-gray">Networking Goals</span>
                   {user.networkingGoal ? (
-                    <CheckCircle className="w-5 h-5 text-prof-green" />
+                    <CheckCircle className="w-5 h-5 text-green-400" />
                   ) : (
-                    <CircleAlert className="w-5 h-5 text-gold" />
+                    <CircleAlert className="w-5 h-5 text-stak-copper" />
                   )}
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Industry Preferences</span>
+                  <span className="text-sm text-stak-light-gray">Industry Preferences</span>
                   {user.industries?.length ? (
-                    <CheckCircle className="w-5 h-5 text-prof-green" />
+                    <CheckCircle className="w-5 h-5 text-green-400" />
                   ) : (
-                    <XCircle className="w-5 h-5 text-red-500" />
+                    <XCircle className="w-5 h-5 text-red-400" />
                   )}
                 </div>
               </div>
               <div className="mt-4">
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-stak-gray rounded-full h-2">
                   <div 
-                    className="bg-prof-green h-2 rounded-full transition-all" 
+                    className="bg-stak-copper h-2 rounded-full transition-all" 
                     style={{ width: `${getProfileCompletion()}%` }}
                   ></div>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">{getProfileCompletion()}% Complete</p>
+                <p className="text-sm text-stak-light-gray mt-2">{getProfileCompletion()}% Complete</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Account Actions */}
-          <Card className="luxury-card">
+          {/* AI Profile Analysis */}
+          <Card className="bg-stak-black border border-stak-gray">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-charcoal">Account</CardTitle>
+              <CardTitle className="text-lg font-semibold text-stak-white">AI Profile Enhancement</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-stak-light-gray">
+                Analyze your profile with AI to improve match quality and discover networking opportunities.
+              </p>
+              <Button 
+                onClick={() => analyzeProfileMutation.mutate()}
+                disabled={analyzeProfileMutation.isPending}
+                className="w-full bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
+              >
+                {analyzeProfileMutation.isPending ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-4 h-4 mr-2" />
+                    Analyze My Profile
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Account Actions */}
+          <Card className="bg-stak-black border border-stak-gray">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-stak-white">Account</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button 
                 variant="outline" 
-                className="w-full justify-start"
+                className="w-full justify-start border-stak-gray text-stak-light-gray hover:bg-stak-gray"
                 onClick={() => window.location.href = "/api/logout"}
               >
                 Sign Out

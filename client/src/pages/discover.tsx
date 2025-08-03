@@ -234,7 +234,10 @@ export default function Discover() {
                 <div className="text-4xl font-bold mb-2">{matches?.length || 0}</div>
                 <p className="text-stak-black/80">Active Matches</p>
               </div>
-              <Button className="w-full mt-4 bg-stak-black text-stak-copper hover:bg-stak-gray">
+              <Button 
+                className="w-full mt-4 bg-stak-black text-stak-copper hover:bg-stak-gray"
+                onClick={() => window.open('/api/matches/analytics', '_blank')}
+              >
                 <Brain className="w-4 h-4 mr-2" />
                 View Analytics
               </Button>

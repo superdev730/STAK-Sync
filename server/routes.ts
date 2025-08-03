@@ -55,6 +55,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profile analysis endpoint
+  app.post('/api/profile/analyze', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { aiMatchingService } = await import('./aiMatching');
+      const analysis = await aiMatchingService.updateUserAIProfile(user);
+      
+      // Update user with AI analysis
+      await storage.updateUser(userId, {
+        personalityProfile: analysis.personalityProfile,
+        goalAnalysis: analysis.goalAnalysis,
+      });
+
+      res.json({
+        success: true,
+        analysis,
+        message: "Profile analysis completed successfully"
+      });
+    } catch (error) {
+      console.error("Error analyzing profile:", error);
+      res.status(500).json({ message: "Failed to analyze profile" });
+    }
+  });
+
+  // Match analytics endpoint
+  app.get('/api/matches/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userMatches = await storage.getMatches(userId);
+      
+      // Calculate analytics
+      const totalMatches = userMatches.length;
+      const connectedMatches = userMatches.filter(m => m.status === 'connected').length;
+      const pendingMatches = userMatches.filter(m => m.status === 'pending').length;
+      const passedMatches = userMatches.filter(m => m.status === 'passed').length;
+      
+      const avgMatchScore = totalMatches > 0 
+        ? Math.round(userMatches.reduce((sum, m) => sum + m.matchScore, 0) / totalMatches)
+        : 0;
+
+      const topIndustries = userMatches
+        .filter(m => m.matchedUser?.industries)
+        .flatMap(m => m.matchedUser.industries || [])
+        .reduce((acc: Record<string, number>, industry: string) => {
+          acc[industry] = (acc[industry] || 0) + 1;
+          return acc;
+        }, {});
+
+      const analytics = {
+        totalMatches,
+        connectedMatches,
+        pendingMatches,
+        passedMatches,
+        connectionRate: totalMatches > 0 ? Math.round((connectedMatches / totalMatches) * 100) : 0,
+        avgMatchScore,
+        topIndustries: Object.entries(topIndustries)
+          .sort(([,a], [,b]) => (b as number) - (a as number))
+          .slice(0, 5)
+          .map(([industry, count]) => ({ industry, count })),
+        recentActivity: userMatches
+          .filter(m => m.createdAt)
+          .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+          .slice(0, 5)
+          .map(m => ({
+            type: 'match',
+            description: `${m.status === 'connected' ? 'Connected with' : 'New match:'} ${m.matchedUser?.firstName} ${m.matchedUser?.lastName}`,
+            score: m.matchScore,
+            date: m.createdAt
+          }))
+      };
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching match analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
   // Profile routes
   app.put('/api/profile', isAuthenticated, async (req: any, res) => {
     try {
