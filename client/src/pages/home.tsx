@@ -39,15 +39,15 @@ export default function Home() {
   }, []);
 
   const stats = userStats ? [
-    { label: "Connections", value: userStats.connections.toString(), icon: Users },
-    { label: "Match Score", value: userStats.matchScore, icon: TrendingUp },
-    { label: "Meetings", value: userStats.meetings.toString(), icon: Calendar },
-    { label: "Messages", value: userStats.messages.toString(), icon: MessageSquare },
+    { label: "Connections", value: (userStats.connections || 0).toString(), icon: Users },
+    { label: "Match Score", value: userStats.matchScore || "0%", icon: TrendingUp },
+    { label: "Meetings", value: (userStats.meetings || 0).toString(), icon: Calendar },
+    { label: "Messages", value: (userStats.messages || 0).toString(), icon: MessageSquare },
   ] : [
-    { label: "Connections", value: "...", icon: Users },
-    { label: "Match Score", value: "...", icon: TrendingUp },
-    { label: "Meetings", value: "...", icon: Calendar },
-    { label: "Messages", value: "...", icon: MessageSquare },
+    { label: "Connections", value: "0", icon: Users },
+    { label: "Match Score", value: "0%", icon: TrendingUp },
+    { label: "Meetings", value: "0", icon: Calendar },
+    { label: "Messages", value: "0", icon: MessageSquare },
   ];
 
   const handleMetricClick = async (metricType: string) => {
@@ -90,23 +90,24 @@ export default function Home() {
       href: "/discover",
       color: "bg-stak-copper/20 text-stak-copper",
       urgent: false,
+      badge: 0,
     },
     {
       title: "Check Messages",
-      description: userStats ? `${userStats.unreadMessages} unread conversations` : "Check your messages",
+      description: userStats ? `${userStats.unreadMessages || 0} unread conversations` : "Check your messages",
       icon: MessageSquare,
       href: "/messages",
       color: "bg-red-600/20 text-red-400",
-      urgent: userStats ? userStats.unreadMessages > 0 : false,
+      urgent: userStats ? (userStats.unreadMessages || 0) > 0 : false,
       badge: userStats?.unreadMessages || 0,
     },
     {
       title: "Review Meetup Requests",
-      description: userStats ? `${userStats.pendingMeetups} pending requests` : "Coordinate your meetings",
+      description: userStats ? `${userStats.pendingMeetups || 0} pending requests` : "Coordinate your meetings",
       icon: Calendar,
       href: "/events",
       color: "bg-orange-600/20 text-orange-400",
-      urgent: userStats ? userStats.pendingMeetups > 0 : false,
+      urgent: userStats ? (userStats.pendingMeetups || 0) > 0 : false,
       badge: userStats?.pendingMeetups || 0,
     },
     {
@@ -116,6 +117,7 @@ export default function Home() {
       href: "/profile",
       color: "bg-purple-600/20 text-purple-400",
       urgent: false,
+      badge: 0,
     },
   ];
 
@@ -148,33 +150,38 @@ export default function Home() {
           Welcome back, {user?.firstName || 'there'}!
         </h1>
         <div className="space-y-2">
-          {userStats && userStats.pendingMatches > 0 && (
+          {userStats && (userStats.pendingMatches || 0) > 0 && (
             <div className="flex items-center space-x-2 text-stak-copper">
               <AlertCircle className="h-5 w-5" />
               <span className="text-lg font-medium">
-                You have {userStats.pendingMatches} new matches waiting for review
+                You have {userStats.pendingMatches || 0} new matches waiting for review
               </span>
             </div>
           )}
-          {userStats && userStats.pendingMeetups > 0 && (
+          {userStats && (userStats.pendingMeetups || 0) > 0 && (
             <div className="flex items-center space-x-2 text-orange-400">
               <Clock className="h-5 w-5" />
               <span className="text-lg font-medium">
-                {userStats.pendingMeetups} meetup requests need your attention
+                {userStats.pendingMeetups || 0} meetup requests need your attention
               </span>
             </div>
           )}
-          {userStats && userStats.unreadMessages > 0 && (
+          {userStats && (userStats.unreadMessages || 0) > 0 && (
             <div className="flex items-center space-x-2 text-red-400">
               <MessageSquare className="h-5 w-5" />
               <span className="text-lg font-medium">
-                {userStats.unreadMessages} unread messages waiting
+                {userStats.unreadMessages || 0} unread messages waiting
               </span>
             </div>
           )}
-          {userStats && userStats.pendingMatches === 0 && userStats.pendingMeetups === 0 && userStats.unreadMessages === 0 && (
+          {userStats && (userStats.pendingMatches || 0) === 0 && (userStats.pendingMeetups || 0) === 0 && (userStats.unreadMessages || 0) === 0 && (
             <p className="text-stak-light-gray text-lg">
               You're all caught up! Your network is active and engaged.
+            </p>
+          )}
+          {!userStats && (
+            <p className="text-stak-light-gray text-lg">
+              Loading your networking updates...
             </p>
           )}
         </div>
@@ -208,7 +215,7 @@ export default function Home() {
             <Card key={action.title} className={`luxury-card text-center hover:shadow-lg transition-all duration-200 group relative ${action.urgent ? 'ring-2 ring-red-500 animate-pulse' : ''}`}>
               <Link href={action.href}>
                 <CardContent className="p-6">
-                  {action.badge > 0 && (
+                  {(action.badge || 0) > 0 && (
                     <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 text-xs bg-red-500 text-white">
                       {action.badge}
                     </Badge>
