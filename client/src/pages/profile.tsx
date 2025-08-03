@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   User, 
   MapPin, 
@@ -28,7 +29,12 @@ import {
   Users,
   TrendingUp,
   Brain,
-  RefreshCw
+  RefreshCw,
+  ExternalLink,
+  Eye,
+  Filter,
+  ArrowUpDown,
+  BarChart3
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +68,9 @@ export default function Profile() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"profile" | "privacy">("profile");
+  const [drillDownDialog, setDrillDownDialog] = useState(false);
+  const [drillDownType, setDrillDownType] = useState("");
+  const [drillDownData, setDrillDownData] = useState<any[]>([]);
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -186,6 +195,38 @@ export default function Profile() {
 
   const onSubmit = (data: ProfileFormData) => {
     updateProfileMutation.mutate(data);
+  };
+
+  const handleMetricClick = async (metricType: string) => {
+    setDrillDownType(metricType);
+    setDrillDownDialog(true);
+
+    // Fetch detailed data based on metric type
+    try {
+      let endpoint = '';
+      switch (metricType) {
+        case 'Connections':
+          endpoint = '/api/user/connections-detailed';
+          break;
+        case 'Meetings':
+          endpoint = '/api/user/meetings-detailed';
+          break;
+        case 'Messages':
+          endpoint = '/api/user/messages-detailed';
+          break;
+        case 'Match Score':
+          endpoint = '/api/user/matches-detailed';
+          break;
+        default:
+          return;
+      }
+
+      const response = await apiRequest('GET', endpoint);
+      setDrillDownData(response || []);
+    } catch (error) {
+      console.error('Error fetching detailed data:', error);
+      setDrillDownData([]);
+    }
   };
 
   if (authLoading) {
@@ -313,9 +354,18 @@ export default function Profile() {
               {/* Profile Stats */}
               <div className="grid grid-cols-4 gap-6 p-6 bg-stak-gray rounded-xl">
                 {profileStats.map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <div className="text-2xl font-bold text-stak-copper">{stat.value}</div>
-                    <div className="text-sm text-stak-light-gray">{stat.label}</div>
+                  <div 
+                    key={stat.label} 
+                    className="text-center cursor-pointer hover:bg-stak-black/50 p-3 rounded-lg transition-all duration-200 group"
+                    onClick={() => handleMetricClick(stat.label)}
+                  >
+                    <div className="text-2xl font-bold text-stak-copper group-hover:text-stak-white transition-colors">
+                      {stat.value}
+                    </div>
+                    <div className="text-sm text-stak-light-gray flex items-center justify-center gap-1">
+                      {stat.label}
+                      <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -731,6 +781,77 @@ export default function Profile() {
           </Card>
         </div>
       </div>
+
+      {/* Drill-Down Dialog */}
+      <Dialog open={drillDownDialog} onOpenChange={setDrillDownDialog}>
+        <DialogContent className="bg-stak-black border-stak-gray max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-stak-white flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-stak-copper" />
+              {drillDownType} - Detailed Records
+            </DialogTitle>
+            <DialogDescription className="text-stak-light-gray">
+              Detailed information about your {drillDownType.toLowerCase()}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-stak-light-gray">{drillDownData.length} records found</p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="border-stak-gray text-stak-light-gray">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filter
+                </Button>
+                <Button variant="outline" size="sm" className="border-stak-gray text-stak-light-gray">
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  Sort
+                </Button>
+              </div>
+            </div>
+
+            <div className="border border-stak-gray rounded-lg overflow-hidden">
+              <div className="bg-stak-gray px-4 py-3 border-b border-stak-gray">
+                <div className="grid grid-cols-4 gap-4 text-sm font-medium text-stak-light-gray">
+                  <div>Name/Title</div>
+                  <div>Type/Status</div>
+                  <div>Date/Time</div>
+                  <div>Action</div>
+                </div>
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto">
+                {drillDownData.length > 0 ? (
+                  drillDownData.map((record: any, index: number) => (
+                    <div key={record.id || index} className="px-4 py-3 border-b border-stak-gray hover:bg-stak-gray/30 transition-colors">
+                      <div className="grid grid-cols-4 gap-4 items-center text-sm">
+                        <div className="text-stak-white font-medium">
+                          {record.name || record.title || record.email || `Record ${index + 1}`}
+                        </div>
+                        <div className="text-stak-light-gray">
+                          {record.type || record.status || record.category || 'N/A'}
+                        </div>
+                        <div className="text-stak-light-gray">
+                          {record.createdAt || record.timestamp || record.date || 'N/A'}
+                        </div>
+                        <div>
+                          <Button size="sm" variant="outline" className="border-stak-gray text-stak-light-gray hover:bg-stak-gray">
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-8 text-center text-stak-light-gray">
+                    No detailed records available for this metric
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

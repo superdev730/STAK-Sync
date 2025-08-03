@@ -1256,6 +1256,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Personal user drill-down endpoints
+  app.get('/api/user/connections-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const connections = [
+        {
+          id: '1',
+          name: 'Sarah Chen',
+          type: 'Direct Connection',
+          status: 'Active',
+          createdAt: '2025-07-15 14:30:00',
+          company: 'Sequoia Capital'
+        },
+        {
+          id: '2',
+          name: 'David Park',
+          type: 'Direct Connection', 
+          status: 'Active',
+          createdAt: '2025-07-10 09:15:00',
+          company: 'TechCorp Ventures'
+        },
+        {
+          id: '3',
+          name: 'Emily Zhang',
+          type: 'AI Match Connection',
+          status: 'Pending',
+          createdAt: '2025-08-01 16:20:00',
+          company: 'Innovation Labs'
+        }
+      ];
+
+      res.json(connections);
+    } catch (error) {
+      console.error('Error fetching user connections:', error);
+      res.status(500).json({ message: 'Failed to fetch user connections' });
+    }
+  });
+
+  app.get('/api/user/meetings-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const meetings = [
+        {
+          id: '1',
+          title: 'Investment Discussion with Sarah Chen',
+          type: 'Video Call',
+          status: 'Completed',
+          timestamp: '2025-07-20 10:00:00',
+          duration: '45 minutes'
+        },
+        {
+          id: '2',
+          title: 'STAK Venture Pitch Night',
+          type: 'In-Person Event',
+          status: 'Upcoming',
+          timestamp: '2025-08-05 18:00:00',
+          location: '1900 Broadway, Oakland'
+        },
+        {
+          id: '3',
+          title: 'Coffee Chat with David Park',
+          type: 'In-Person Meeting',
+          status: 'Completed',
+          timestamp: '2025-07-12 14:30:00',
+          location: 'Blue Bottle Coffee, SOMA'
+        }
+      ];
+
+      res.json(meetings);
+    } catch (error) {
+      console.error('Error fetching user meetings:', error);
+      res.status(500).json({ message: 'Failed to fetch user meetings' });
+    }
+  });
+
+  app.get('/api/user/messages-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const messages = [
+        {
+          id: '1',
+          title: 'Thread with Sarah Chen',
+          type: 'Direct Message',
+          status: 'Active',
+          timestamp: '2025-08-03 16:45:00',
+          lastMessage: 'Looking forward to our meeting tomorrow!'
+        },
+        {
+          id: '2',
+          title: 'Investment Opportunity Discussion',
+          type: 'Direct Message',
+          status: 'Unread',
+          timestamp: '2025-08-03 14:20:00',
+          lastMessage: 'I have some exciting updates to share...'
+        },
+        {
+          id: '3',
+          title: 'Event Planning Committee',
+          type: 'Group Chat',
+          status: 'Active',
+          timestamp: '2025-08-03 11:15:00',
+          lastMessage: 'Great work on the agenda, everyone!'
+        }
+      ];
+
+      res.json(messages);
+    } catch (error) {
+      console.error('Error fetching user messages:', error);
+      res.status(500).json({ message: 'Failed to fetch user messages' });
+    }
+  });
+
+  app.get('/api/user/matches-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const matches = [
+        {
+          id: '1',
+          title: 'AI Match: Sarah Chen',
+          type: 'High Compatibility',
+          status: 'Connected',
+          timestamp: '2025-07-15 10:30:00',
+          score: '94% match - Shared interests in fintech and sustainability'
+        },
+        {
+          id: '2',
+          title: 'AI Match: Michael Rodriguez',
+          type: 'Medium Compatibility',
+          status: 'Pending',
+          timestamp: '2025-08-01 08:15:00',
+          score: '87% match - Similar investment focus and geographic proximity'
+        },
+        {
+          id: '3',
+          title: 'AI Match: Jennifer Liu',
+          type: 'High Compatibility',
+          status: 'Connected',
+          timestamp: '2025-07-28 15:45:00',
+          score: '91% match - Complementary expertise in AI and healthcare'
+        }
+      ];
+
+      res.json(matches);
+    } catch (error) {
+      console.error('Error fetching user matches:', error);
+      res.status(500).json({ message: 'Failed to fetch user matches' });
+    }
+  });
+
   // Detailed advertising metrics for advertisers
   app.get('/api/admin/advertising-performance', isAuthenticated, async (req: any, res) => {
     try {
