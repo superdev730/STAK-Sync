@@ -51,13 +51,13 @@ export default {
           "4": "var(--chart-4)",
           "5": "var(--chart-5)",
         },
-        // Custom colors for luxury networking theme
-        navy: "hsl(207, 85%, 21%)",
-        gold: "hsl(45, 80%, 55%)",
-        'soft-white': "hsl(0, 0%, 98%)",
-        charcoal: "hsl(210, 40%, 15%)",
-        'light-blue': "hsl(207, 90%, 95%)",
-        'prof-green': "hsl(145, 63%, 42%)",
+        // Custom colors for STAK Signal theme
+        'stak-black': "hsl(0, 0%, 8%)",
+        'stak-copper': "hsl(25, 65%, 65%)",
+        'stak-dark-copper': "hsl(25, 45%, 45%)",
+        'stak-white': "hsl(0, 0%, 98%)",
+        'stak-gray': "hsl(0, 0%, 20%)",
+        'stak-light-gray': "hsl(0, 0%, 85%)",
         sidebar: {
           DEFAULT: "var(--sidebar-background)",
           foreground: "var(--sidebar-foreground)",

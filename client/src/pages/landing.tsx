@@ -4,13 +4,16 @@ import { CheckCircle, Users, MessageSquare, Calendar, Brain } from "lucide-react
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-stak-black">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-100">
+      <header className="bg-stak-black border-b border-stak-gray">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-blue-900">ConnectAI</h1>
-            <Button asChild className="bg-blue-900 hover:bg-blue-800 text-white">
+            <div className="flex items-center space-x-3">
+              <img src="/api/logo" alt="STAK" className="h-8 w-8" />
+              <h1 className="text-2xl font-bold text-stak-white">STAK Signal</h1>
+            </div>
+            <Button asChild className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium">
               <a href="/api/login">Sign In</a>
             </Button>
           </div>
@@ -18,23 +21,23 @@ export default function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative py-20 bg-gradient-to-br from-blue-900 to-blue-800 text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="w-full h-full bg-gradient-to-br from-blue-900 to-blue-800" />
+      <section className="relative py-20 bg-stak-black text-stak-white overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="w-full h-full bg-gradient-to-br from-stak-black via-stak-gray to-stak-black opacity-80" />
         </div>
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-              AI-Powered Professional <span className="text-yellow-400">Networking</span>
+              Professional Networking <span className="text-stak-copper">Signal</span>
             </h1>
-            <p className="text-xl md:text-2xl mb-8 text-gray-200 leading-relaxed">
-              Connect with venture capitalists, founders, and industry leaders through intelligent matchmaking designed for meaningful professional relationships.
+            <p className="text-xl md:text-2xl mb-8 text-stak-light-gray leading-relaxed">
+              Ecosystems are more valuable than products. Connect with the right people at the right time through intelligent matchmaking within the STAK ecosystem.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-blue-900 font-semibold px-8 py-4">
-                <a href="/api/login">Start Networking</a>
+              <Button asChild size="lg" className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-8 py-4">
+                <a href="/api/login">Join the Network</a>
               </Button>
-              <Button variant="outline" size="lg" className="border-2 border-white text-white hover:bg-white hover:text-blue-900 px-8 py-4">
+              <Button variant="outline" size="lg" className="border-2 border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black px-8 py-4">
                 Learn More
               </Button>
             </div>
@@ -43,70 +46,70 @@ export default function Landing() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20">
+      <section className="py-20 bg-stak-gray">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-blue-900 mb-4">
-              Intelligent Professional Networking
+            <h2 className="text-4xl font-bold text-stak-white mb-4">
+              Intelligent Ecosystem Networking
             </h2>
-            <p className="text-xl text-gray-700 max-w-3xl mx-auto">
-              Our AI-powered platform connects you with the right people at the right time, making every conversation count.
+            <p className="text-xl text-stak-light-gray max-w-3xl mx-auto">
+              Built for the STAK ecosystem, our platform weaves individual connections into powerful networks that drive innovation and growth.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <Card className="luxury-card text-center">
+            <Card className="bg-stak-black border border-stak-gray text-center hover:border-stak-copper transition-colors">
               <CardContent className="p-8">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Brain className="w-8 h-8 text-blue-900" />
+                <div className="w-16 h-16 bg-stak-copper/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Brain className="w-8 h-8 text-stak-copper" />
                 </div>
-                <h3 className="text-xl font-semibold text-blue-900 mb-2">
-                  AI Matching
+                <h3 className="text-xl font-semibold text-stak-white mb-2">
+                  AI Signal Matching
                 </h3>
-                <p className="text-gray-600">
-                  Smart algorithms analyze your profile and goals to find perfect professional matches.
+                <p className="text-stak-light-gray">
+                  Intelligent algorithms identify and strengthen connections within the ecosystem for maximum value creation.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="luxury-card text-center">
+            <Card className="bg-stak-black border border-stak-gray text-center hover:border-stak-copper transition-colors">
               <CardContent className="p-8">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MessageSquare className="w-8 h-8 text-blue-900" />
+                <div className="w-16 h-16 bg-stak-copper/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="w-8 h-8 text-stak-copper" />
                 </div>
-                <h3 className="text-xl font-semibold text-blue-900 mb-2">
-                  Secure Messaging
+                <h3 className="text-xl font-semibold text-stak-white mb-2">
+                  Secure Communication
                 </h3>
-                <p className="text-gray-600">
-                  Professional messaging platform designed for meaningful business conversations.
+                <p className="text-stak-light-gray">
+                  Enterprise-grade messaging platform designed for high-value business relationships and deal flow.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="luxury-card text-center">
+            <Card className="bg-stak-black border border-stak-gray text-center hover:border-stak-copper transition-colors">
               <CardContent className="p-8">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="w-8 h-8 text-blue-900" />
+                <div className="w-16 h-16 bg-stak-copper/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="w-8 h-8 text-stak-copper" />
                 </div>
-                <h3 className="text-xl font-semibold text-blue-900 mb-2">
-                  Meetup Scheduling
+                <h3 className="text-xl font-semibold text-stak-white mb-2">
+                  1900 Broadway Meetings
                 </h3>
-                <p className="text-gray-600">
-                  Coordinate in-person meetings at events and private clubs with ease.
+                <p className="text-stak-light-gray">
+                  Schedule high-impact meetings in premium spaces with intelligent technology and luxury amenities.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="luxury-card text-center">
+            <Card className="bg-stak-black border border-stak-gray text-center hover:border-stak-copper transition-colors">
               <CardContent className="p-8">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-8 h-8 text-blue-900" />
+                <div className="w-16 h-16 bg-stak-copper/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-stak-copper" />
                 </div>
-                <h3 className="text-xl font-semibold text-blue-900 mb-2">
-                  Premium Network
+                <h3 className="text-xl font-semibold text-stak-white mb-2">
+                  STAK Ecosystem
                 </h3>
-                <p className="text-gray-600">
-                  Connect with verified VCs, founders, and industry professionals.
+                <p className="text-stak-light-gray">
+                  Exclusive access to STAK's curated network of investors, innovators, and ecosystem partners.
                 </p>
               </CardContent>
             </Card>
@@ -115,60 +118,60 @@ export default function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-blue-900 text-white">
+      <section className="py-20 bg-stak-black text-stak-white">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold mb-4">
-            Ready to Transform Your Network?
+            Ready to Join the Ecosystem?
           </h2>
-          <p className="text-xl mb-8 text-gray-200">
-            Join thousands of professionals already making meaningful connections.
+          <p className="text-xl mb-8 text-stak-light-gray">
+            Connect with STAK's network of innovators, investors, and industry leaders building the future.
           </p>
-          <Button asChild size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-blue-900 font-semibold px-8 py-4">
-            <a href="/api/login">Get Started Today</a>
+          <Button asChild size="lg" className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-8 py-4">
+            <a href="/api/login">Request Access</a>
           </Button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-blue-900 text-white py-16">
+      <footer className="bg-stak-black border-t border-stak-gray text-stak-white py-16">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-2xl font-bold text-yellow-400 mb-4">ConnectAI</h3>
-              <p className="text-gray-300 leading-relaxed">
-                AI-powered professional networking platform connecting venture capitalists, founders, and industry leaders for meaningful business relationships.
+              <h3 className="text-2xl font-bold text-stak-copper mb-4">STAK Signal</h3>
+              <p className="text-stak-light-gray leading-relaxed">
+                Professional networking platform built for the STAK ecosystem, connecting innovators and investors to build valuable, high-powered networks.
               </p>
             </div>
             <div>
-              <h4 className="text-lg font-semibold mb-4">Platform</h4>
-              <ul className="space-y-2 text-gray-300">
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">AI Matching</a></li>
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Messaging</a></li>
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Event Networking</a></li>
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Private Clubs</a></li>
+              <h4 className="text-lg font-semibold mb-4 text-stak-copper">Ecosystem</h4>
+              <ul className="space-y-2 text-stak-light-gray">
+                <li><a href="https://stakventures.com" className="hover:text-stak-copper transition-colors">STAK Ventures</a></li>
+                <li><a href="https://live1900.com" className="hover:text-stak-copper transition-colors">1900 Broadway</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">STAK Space</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Tech Solutions</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-lg font-semibold mb-4">Resources</h4>
-              <ul className="space-y-2 text-gray-300">
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Safety Guidelines</a></li>
+              <h4 className="text-lg font-semibold mb-4 text-stak-copper">Platform</h4>
+              <ul className="space-y-2 text-stak-light-gray">
+                <li><a href="#" className="hover:text-stak-copper transition-colors">AI Signal Matching</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Secure Messaging</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Meeting Spaces</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Network Analytics</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-lg font-semibold mb-4">Connect</h4>
-              <ul className="space-y-2 text-gray-300">
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Contact Us</a></li>
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">LinkedIn</a></li>
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Twitter</a></li>
-                <li><a href="#" className="hover:text-yellow-400 transition-colors">Blog</a></li>
+              <h4 className="text-lg font-semibold mb-4 text-stak-copper">Support</h4>
+              <ul className="space-y-2 text-stak-light-gray">
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Contact Us</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-stak-copper transition-colors">System Status</a></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-600 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 ConnectAI. All rights reserved. Professional networking redefined.</p>
+          <div className="border-t border-stak-gray mt-12 pt-8 text-center text-stak-light-gray">
+            <p>&copy; 2024 STAK Signal. All rights reserved. Ecosystems are more valuable than products.</p>
           </div>
         </div>
       </footer>

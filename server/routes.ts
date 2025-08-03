@@ -9,6 +9,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // Simple logo route
+  app.get('/api/logo', (req, res) => {
+    // Return a simple SVG of the STAK logo
+    const svg = `
+      <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="stakGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#D2691E;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#CD853F;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#A0522D;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <polygon points="20,25 45,25 35,45 60,45 50,65 25,65 35,45 10,45" fill="url(#stakGradient)" />
+        <polygon points="40,15 65,15 55,35 80,35 70,55 45,55 55,35 30,35" fill="url(#stakGradient)" opacity="0.8" />
+      </svg>
+    `;
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.send(svg);
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {

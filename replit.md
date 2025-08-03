@@ -1,6 +1,6 @@
 # Overview
 
-ConnectAI is a professional networking platform that uses AI-powered matching algorithms to connect venture capitalists, startup founders, and industry leaders. The application facilitates meaningful professional relationships through intelligent matchmaking, real-time messaging, and meeting coordination features.
+STAK Signal is a professional networking platform built for the STAK ecosystem that uses AI-powered matching algorithms to connect venture capitalists, startup founders, and industry leaders. The application facilitates meaningful professional relationships through intelligent matchmaking, real-time messaging, and meeting coordination features within STAK's curated network of innovators and investors.
 
 # User Preferences
 
@@ -57,6 +57,13 @@ The application implements an intelligent matching algorithm that considers:
 - CSRF protection through session management
 - Database-backed session storage for scalability
 - Proper authorization checks on all API endpoints
+
+## Design & Branding
+- STAK Signal branding with black background and copper accents
+- Inspired by STAK Ventures and 1900 Broadway aesthetic
+- Uses sophisticated color palette: black (#141414), copper (#CD853F), white (#FAFAFA)
+- Professional typography with clean, modern layout
+- Emphasizes "Ecosystems are more valuable than products" philosophy
 
 # External Dependencies
 
