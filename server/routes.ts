@@ -3,7 +3,17 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertMessageSchema, insertMeetupSchema, insertQuestionnaireResponseSchema, matches, users } from "@shared/schema";
+import { 
+  insertMessageSchema, 
+  insertMeetupSchema, 
+  insertQuestionnaireResponseSchema, 
+  insertEventSchema,
+  insertEventRegistrationSchema,
+  insertEventRoomSchema,
+  insertRoomParticipantSchema,
+  matches, 
+  users 
+} from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 
@@ -40,6 +50,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error seeding users:", error);
       res.status(500).json({ message: "Failed to seed users" });
+    }
+  });
+
+  // Seed sample events (authenticated)
+  app.post('/api/seed-events', isAuthenticated, async (req, res) => {
+    try {
+      const { seedSampleEvents } = await import('./seedEvents');
+      const success = await seedSampleEvents();
+      res.json({ success, message: success ? "Sample events created successfully" : "Failed to create sample events" });
+    } catch (error) {
+      console.error("Error seeding events:", error);
+      res.status(500).json({ message: "Failed to seed events" });
     }
   });
 
@@ -434,6 +456,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching questionnaire response:", error);
       res.status(500).json({ message: "Failed to fetch questionnaire response" });
+    }
+  });
+
+  // Event API endpoints
+  app.get('/api/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const events = await storage.getEvents();
+      res.json(events);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      res.status(500).json({ error: 'Failed to fetch events' });
+    }
+  });
+
+  app.get('/api/events/:eventId', isAuthenticated, async (req: any, res) => {
+    try {
+      const event = await storage.getEvent(req.params.eventId);
+      if (!event) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error('Error fetching event:', error);
+      res.status(500).json({ error: 'Failed to fetch event' });
+    }
+  });
+
+  app.post('/api/events/:eventId/register', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { eventId } = req.params;
+      const { interests, networkingGoals } = req.body;
+
+      const registration = await storage.registerForEvent({
+        eventId,
+        userId,
+        interests: interests || [],
+        networkingGoals: networkingGoals || []
+      });
+
+      res.json(registration);
+    } catch (error) {
+      console.error('Error registering for event:', error);
+      res.status(500).json({ error: 'Failed to register for event' });
+    }
+  });
+
+  app.delete('/api/events/:eventId/register', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { eventId } = req.params;
+
+      await storage.unregisterFromEvent(eventId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error unregistering from event:', error);
+      res.status(500).json({ error: 'Failed to unregister from event' });
+    }
+  });
+
+  app.get('/api/events/:eventId/rooms', isAuthenticated, async (req: any, res) => {
+    try {
+      const rooms = await storage.getEventRooms(req.params.eventId);
+      res.json(rooms);
+    } catch (error) {
+      console.error('Error fetching event rooms:', error);
+      res.status(500).json({ error: 'Failed to fetch event rooms' });
+    }
+  });
+
+  app.post('/api/rooms/:roomId/join', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { roomId } = req.params;
+
+      const participation = await storage.joinRoom({
+        roomId,
+        userId
+      });
+
+      res.json(participation);
+    } catch (error) {
+      console.error('Error joining room:', error);
+      res.status(500).json({ error: 'Failed to join room' });
+    }
+  });
+
+  app.delete('/api/rooms/:roomId/join', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { roomId } = req.params;
+
+      await storage.leaveRoom(roomId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error leaving room:', error);
+      res.status(500).json({ error: 'Failed to leave room' });
+    }
+  });
+
+  app.get('/api/events/:eventId/matches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { eventId } = req.params;
+
+      const matches = await storage.getEventMatches(eventId, userId);
+      res.json(matches);
+    } catch (error) {
+      console.error('Error fetching event matches:', error);
+      res.status(500).json({ error: 'Failed to fetch event matches' });
+    }
+  });
+
+  app.get('/api/user/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const registrations = await storage.getUserEventRegistrations(userId);
+      res.json(registrations);
+    } catch (error) {
+      console.error('Error fetching user events:', error);
+      res.status(500).json({ error: 'Failed to fetch user events' });
     }
   });
 

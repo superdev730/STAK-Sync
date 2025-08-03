@@ -4,6 +4,11 @@ import {
   messages,
   meetups,
   questionnaireResponses,
+  events,
+  eventRegistrations,
+  eventRooms,
+  roomParticipants,
+  eventMatches,
   type User,
   type UpsertUser,
   type Match,
@@ -14,6 +19,16 @@ import {
   type InsertMeetup,
   type QuestionnaireResponse,
   type InsertQuestionnaireResponse,
+  type Event,
+  type InsertEvent,
+  type EventRegistration,
+  type InsertEventRegistration,
+  type EventRoom,
+  type InsertEventRoom,
+  type RoomParticipant,
+  type InsertRoomParticipant,
+  type EventMatch,
+  type InsertEventMatch,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql } from "drizzle-orm";
@@ -43,6 +58,29 @@ export interface IStorage {
   // Questionnaire operations
   saveQuestionnaireResponse(response: InsertQuestionnaireResponse): Promise<QuestionnaireResponse>;
   getUserQuestionnaireResponse(userId: string): Promise<QuestionnaireResponse | undefined>;
+  
+  // Event operations
+  getEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]>;
+  getEvent(eventId: string): Promise<(Event & { organizer: User; registrationCount: number; rooms: EventRoom[] }) | undefined>;
+  createEvent(event: InsertEvent): Promise<Event>;
+  updateEvent(eventId: string, updates: Partial<Event>): Promise<Event>;
+  
+  // Event registration operations
+  registerForEvent(registration: InsertEventRegistration): Promise<EventRegistration>;
+  unregisterFromEvent(eventId: string, userId: string): Promise<void>;
+  getEventRegistrations(eventId: string): Promise<(EventRegistration & { user: User })[]>;
+  getUserEventRegistrations(userId: string): Promise<(EventRegistration & { event: Event })[]>;
+  
+  // Event room operations
+  getEventRooms(eventId: string): Promise<(EventRoom & { participantCount: number; participants: (RoomParticipant & { user: User })[] })[]>;
+  createEventRoom(room: InsertEventRoom): Promise<EventRoom>;
+  joinRoom(participation: InsertRoomParticipant): Promise<RoomParticipant>;
+  leaveRoom(roomId: string, userId: string): Promise<void>;
+  
+  // Event matching operations
+  getEventMatches(eventId: string, userId: string): Promise<(EventMatch & { matchedUser: User; event: Event; room?: EventRoom })[]>;
+  createEventMatch(match: InsertEventMatch): Promise<EventMatch>;
+  updateEventMatchStatus(matchId: string, status: string): Promise<EventMatch>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -303,6 +341,217 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(questionnaireResponses.completedAt))
       .limit(1);
     return response;
+  }
+
+  // Event operations
+  async getEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]> {
+    const result = await db
+      .select({
+        event: events,
+        organizer: users,
+        registrationCount: sql<number>`COUNT(${eventRegistrations.id})::int`
+      })
+      .from(events)
+      .leftJoin(users, eq(events.organizerId, users.id))
+      .leftJoin(eventRegistrations, eq(events.id, eventRegistrations.eventId))
+      .where(eq(events.status, "active"))
+      .groupBy(events.id, users.id)
+      .orderBy(desc(events.startDate));
+
+    return result.map(row => ({
+      ...row.event,
+      organizer: row.organizer!,
+      registrationCount: row.registrationCount || 0
+    }));
+  }
+
+  async getEvent(eventId: string): Promise<(Event & { organizer: User; registrationCount: number; rooms: EventRoom[] }) | undefined> {
+    const [result] = await db
+      .select({
+        event: events,
+        organizer: users,
+        registrationCount: sql<number>`COUNT(DISTINCT ${eventRegistrations.id})::int`
+      })
+      .from(events)
+      .leftJoin(users, eq(events.organizerId, users.id))
+      .leftJoin(eventRegistrations, eq(events.id, eventRegistrations.eventId))
+      .where(eq(events.id, eventId))
+      .groupBy(events.id, users.id);
+
+    if (!result) return undefined;
+
+    const rooms = await db.select().from(eventRooms).where(eq(eventRooms.eventId, eventId));
+
+    return {
+      ...result.event,
+      organizer: result.organizer!,
+      registrationCount: result.registrationCount || 0,
+      rooms
+    };
+  }
+
+  async createEvent(event: InsertEvent): Promise<Event> {
+    const [newEvent] = await db.insert(events).values(event).returning();
+    return newEvent;
+  }
+
+  async updateEvent(eventId: string, updates: Partial<Event>): Promise<Event> {
+    const [updatedEvent] = await db
+      .update(events)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(events.id, eventId))
+      .returning();
+    return updatedEvent;
+  }
+
+  // Event registration operations
+  async registerForEvent(registration: InsertEventRegistration): Promise<EventRegistration> {
+    const [newRegistration] = await db.insert(eventRegistrations).values(registration).returning();
+    return newRegistration;
+  }
+
+  async unregisterFromEvent(eventId: string, userId: string): Promise<void> {
+    await db.delete(eventRegistrations)
+      .where(and(
+        eq(eventRegistrations.eventId, eventId),
+        eq(eventRegistrations.userId, userId)
+      ));
+  }
+
+  async getEventRegistrations(eventId: string): Promise<(EventRegistration & { user: User })[]> {
+    const result = await db
+      .select({
+        registration: eventRegistrations,
+        user: users
+      })
+      .from(eventRegistrations)
+      .leftJoin(users, eq(eventRegistrations.userId, users.id))
+      .where(eq(eventRegistrations.eventId, eventId));
+
+    return result.map(row => ({
+      ...row.registration,
+      user: row.user!
+    }));
+  }
+
+  async getUserEventRegistrations(userId: string): Promise<(EventRegistration & { event: Event })[]> {
+    const result = await db
+      .select({
+        registration: eventRegistrations,
+        event: events
+      })
+      .from(eventRegistrations)
+      .leftJoin(events, eq(eventRegistrations.eventId, events.id))
+      .where(eq(eventRegistrations.userId, userId))
+      .orderBy(desc(events.startDate));
+
+    return result.map(row => ({
+      ...row.registration,
+      event: row.event!
+    }));
+  }
+
+  // Event room operations
+  async getEventRooms(eventId: string): Promise<(EventRoom & { participantCount: number; participants: (RoomParticipant & { user: User })[] })[]> {
+    const rooms = await db.select().from(eventRooms).where(eq(eventRooms.eventId, eventId));
+    
+    const roomsWithData = await Promise.all(
+      rooms.map(async (room) => {
+        const participants = await db
+          .select({
+            participant: roomParticipants,
+            user: users
+          })
+          .from(roomParticipants)
+          .leftJoin(users, eq(roomParticipants.userId, users.id))
+          .where(and(
+            eq(roomParticipants.roomId, room.id),
+            eq(roomParticipants.isActive, true)
+          ));
+
+        return {
+          ...room,
+          participantCount: participants.length,
+          participants: participants.map(p => ({
+            ...p.participant,
+            user: p.user!
+          }))
+        };
+      })
+    );
+
+    return roomsWithData;
+  }
+
+  async createEventRoom(room: InsertEventRoom): Promise<EventRoom> {
+    const [newRoom] = await db.insert(eventRooms).values(room).returning();
+    return newRoom;
+  }
+
+  async joinRoom(participation: InsertRoomParticipant): Promise<RoomParticipant> {
+    // First deactivate any existing participation
+    await db
+      .update(roomParticipants)
+      .set({ isActive: false, leftAt: new Date() })
+      .where(and(
+        eq(roomParticipants.roomId, participation.roomId),
+        eq(roomParticipants.userId, participation.userId)
+      ));
+
+    // Then create new active participation
+    const [newParticipation] = await db.insert(roomParticipants).values(participation).returning();
+    return newParticipation;
+  }
+
+  async leaveRoom(roomId: string, userId: string): Promise<void> {
+    await db
+      .update(roomParticipants)
+      .set({ isActive: false, leftAt: new Date() })
+      .where(and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.userId, userId)
+      ));
+  }
+
+  // Event matching operations
+  async getEventMatches(eventId: string, userId: string): Promise<(EventMatch & { matchedUser: User; event: Event; room?: EventRoom })[]> {
+    const result = await db
+      .select({
+        match: eventMatches,
+        matchedUser: users,
+        event: events,
+        room: eventRooms
+      })
+      .from(eventMatches)
+      .leftJoin(users, eq(eventMatches.matchedUserId, users.id))
+      .leftJoin(events, eq(eventMatches.eventId, events.id))
+      .leftJoin(eventRooms, eq(eventMatches.roomId, eventRooms.id))
+      .where(and(
+        eq(eventMatches.eventId, eventId),
+        eq(eventMatches.userId, userId)
+      ))
+      .orderBy(desc(eventMatches.matchScore));
+
+    return result.map(row => ({
+      ...row.match,
+      matchedUser: row.matchedUser!,
+      event: row.event!,
+      room: row.room || undefined
+    }));
+  }
+
+  async createEventMatch(match: InsertEventMatch): Promise<EventMatch> {
+    const [newMatch] = await db.insert(eventMatches).values(match).returning();
+    return newMatch;
+  }
+
+  async updateEventMatchStatus(matchId: string, status: string): Promise<EventMatch> {
+    const [updatedMatch] = await db
+      .update(eventMatches)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(eventMatches.id, matchId))
+      .returning();
+    return updatedMatch;
   }
 }
 

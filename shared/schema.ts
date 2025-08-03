@@ -109,6 +109,75 @@ export const questionnaireResponses = pgTable("questionnaire_responses", {
   completedAt: timestamp("completed_at").defaultNow(),
 });
 
+// Events table for networking events
+export const events = pgTable("events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  eventType: varchar("event_type").notNull(), // conference, workshop, mixer, demo-day
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  location: varchar("location"),
+  isVirtual: boolean("is_virtual").default(false),
+  maxAttendees: integer("max_attendees"),
+  registrationDeadline: timestamp("registration_deadline"),
+  tags: text("tags").array(), // tech, fintech, healthcare, ai, etc.
+  organizerId: varchar("organizer_id").notNull().references(() => users.id),
+  imageUrl: varchar("image_url"),
+  status: varchar("status").default("active"), // active, cancelled, completed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Event registrations
+export const eventRegistrations = pgTable("event_registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  registeredAt: timestamp("registered_at").defaultNow(),
+  attendanceStatus: varchar("attendance_status").default("registered"), // registered, attended, no-show
+  interests: text("interests").array(), // specific interests for this event
+  networkingGoals: text("networking_goals").array(), // goals for this specific event
+});
+
+// Event networking rooms
+export const eventRooms = pgTable("event_rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  roomType: varchar("room_type").notNull(), // breakout, industry-focus, skill-level, open-networking
+  maxParticipants: integer("max_participants").default(20),
+  tags: text("tags").array(), // room-specific tags
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Room participants
+export const roomParticipants = pgTable("room_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").notNull().references(() => eventRooms.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  leftAt: timestamp("left_at"),
+  isActive: boolean("is_active").default(true),
+});
+
+// Event-specific matches
+export const eventMatches = pgTable("event_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  matchedUserId: varchar("matched_user_id").notNull().references(() => users.id),
+  matchScore: integer("match_score").notNull(),
+  roomId: varchar("room_id").references(() => eventRooms.id),
+  status: varchar("status").default("pending"), // pending, connected, passed
+  eventSpecificFactors: jsonb("event_specific_factors"), // event-context matching factors
+  suggestedMeetingTime: timestamp("suggested_meeting_time"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   sentMessages: many(messages, { relationName: "sender" }),
@@ -118,6 +187,74 @@ export const usersRelations = relations(users, ({ many }) => ({
   matches: many(matches, { relationName: "user" }),
   matchedWith: many(matches, { relationName: "matchedUser" }),
   questionnaireResponses: many(questionnaireResponses),
+  organizedEvents: many(events, { relationName: "organizer" }),
+  eventRegistrations: many(eventRegistrations),
+  roomParticipations: many(roomParticipants),
+  eventMatches: many(eventMatches, { relationName: "user" }),
+  eventMatchedWith: many(eventMatches, { relationName: "matchedUser" }),
+}));
+
+export const eventsRelations = relations(events, ({ one, many }) => ({
+  organizer: one(users, {
+    fields: [events.organizerId],
+    references: [users.id],
+    relationName: "organizer",
+  }),
+  registrations: many(eventRegistrations),
+  rooms: many(eventRooms),
+  eventMatches: many(eventMatches),
+}));
+
+export const eventRegistrationsRelations = relations(eventRegistrations, ({ one }) => ({
+  event: one(events, {
+    fields: [eventRegistrations.eventId],
+    references: [events.id],
+  }),
+  user: one(users, {
+    fields: [eventRegistrations.userId],
+    references: [users.id],
+  }),
+}));
+
+export const eventRoomsRelations = relations(eventRooms, ({ one, many }) => ({
+  event: one(events, {
+    fields: [eventRooms.eventId],
+    references: [events.id],
+  }),
+  participants: many(roomParticipants),
+  eventMatches: many(eventMatches),
+}));
+
+export const roomParticipantsRelations = relations(roomParticipants, ({ one }) => ({
+  room: one(eventRooms, {
+    fields: [roomParticipants.roomId],
+    references: [eventRooms.id],
+  }),
+  user: one(users, {
+    fields: [roomParticipants.userId],
+    references: [users.id],
+  }),
+}));
+
+export const eventMatchesRelations = relations(eventMatches, ({ one }) => ({
+  event: one(events, {
+    fields: [eventMatches.eventId],
+    references: [events.id],
+  }),
+  room: one(eventRooms, {
+    fields: [eventMatches.roomId],
+    references: [eventRooms.id],
+  }),
+  user: one(users, {
+    fields: [eventMatches.userId],
+    references: [users.id],
+    relationName: "user",
+  }),
+  matchedUser: one(users, {
+    fields: [eventMatches.matchedUserId],
+    references: [users.id],
+    relationName: "matchedUser",
+  }),
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
@@ -193,6 +330,33 @@ export const insertQuestionnaireResponseSchema = createInsertSchema(questionnair
   completedAt: true,
 });
 
+export const insertEventSchema = createInsertSchema(events).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEventRegistrationSchema = createInsertSchema(eventRegistrations).omit({
+  id: true,
+  registeredAt: true,
+});
+
+export const insertEventRoomSchema = createInsertSchema(eventRooms).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRoomParticipantSchema = createInsertSchema(roomParticipants).omit({
+  id: true,
+  joinedAt: true,
+});
+
+export const insertEventMatchSchema = createInsertSchema(eventMatches).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
@@ -205,3 +369,14 @@ export type Meetup = typeof meetups.$inferSelect;
 export type InsertMeetup = z.infer<typeof insertMeetupSchema>;
 export type QuestionnaireResponse = typeof questionnaireResponses.$inferSelect;
 export type InsertQuestionnaireResponse = z.infer<typeof insertQuestionnaireResponseSchema>;
+
+export type Event = typeof events.$inferSelect;
+export type InsertEvent = z.infer<typeof insertEventSchema>;
+export type EventRegistration = typeof eventRegistrations.$inferSelect;
+export type InsertEventRegistration = z.infer<typeof insertEventRegistrationSchema>;
+export type EventRoom = typeof eventRooms.$inferSelect;
+export type InsertEventRoom = z.infer<typeof insertEventRoomSchema>;
+export type RoomParticipant = typeof roomParticipants.$inferSelect;
+export type InsertRoomParticipant = z.infer<typeof insertRoomParticipantSchema>;
+export type EventMatch = typeof eventMatches.$inferSelect;
+export type InsertEventMatch = z.infer<typeof insertEventMatchSchema>;
