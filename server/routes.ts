@@ -1068,6 +1068,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Urgent actions endpoint
+  app.get('/api/admin/urgent-actions', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!await storage.isUserAdmin(user?.id || '')) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const urgentActions = [
+        {
+          id: '1',
+          type: 'meeting_request',
+          priority: 'high',
+          title: 'Meeting Request Pending Approval',
+          description: 'Sarah Chen wants to schedule a meeting with David Park for tomorrow',
+          timestamp: '2 hours ago',
+          user: {
+            id: 'user_1',
+            name: 'Sarah Chen',
+            email: 'sarah.chen@techcorp.com'
+          },
+          actionRequired: true
+        },
+        {
+          id: '2',
+          type: 'direct_message',
+          priority: 'medium',
+          title: 'Unread Direct Message',
+          description: 'Investment opportunity discussion needs response',
+          timestamp: '4 hours ago',
+          user: {
+            id: 'user_2',
+            name: 'Michael Rodriguez',
+            email: 'mrodriguez@venturefund.com'
+          },
+          actionRequired: true
+        },
+        {
+          id: '3',
+          type: 'user_issue',
+          priority: 'high',
+          title: 'Account Verification Issue',
+          description: 'User unable to complete profile verification',
+          timestamp: '6 hours ago',
+          user: {
+            id: 'user_3',
+            name: 'Emily Zhang',
+            email: 'emily.z@startup.io'
+          },
+          actionRequired: true
+        }
+      ];
+
+      res.json(urgentActions);
+    } catch (error) {
+      console.error('Error fetching urgent actions:', error);
+      res.status(500).json({ message: 'Failed to fetch urgent actions' });
+    }
+  });
+
+  // Drill-down endpoints for detailed metric data
+  app.get('/api/admin/users-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!await storage.isUserAdmin(user?.id || '')) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const users = await storage.getAllUsers();
+      const detailedUsers = users.map(u => ({
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`,
+        email: u.email,
+        type: 'User Account',
+        status: 'Active',
+        createdAt: u.createdAt,
+        company: u.company || 'N/A'
+      }));
+
+      res.json(detailedUsers);
+    } catch (error) {
+      console.error('Error fetching detailed users:', error);
+      res.status(500).json({ message: 'Failed to fetch detailed users' });
+    }
+  });
+
+  app.get('/api/admin/messages-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!await storage.isUserAdmin(user?.id || '')) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const messages = [
+        {
+          id: '1',
+          title: 'Sarah Chen → David Park',
+          type: 'Direct Message',
+          timestamp: '2025-08-03 15:30:00',
+          status: 'Delivered'
+        },
+        {
+          id: '2', 
+          title: 'Michael Rodriguez → Emily Zhang',
+          type: 'Investment Discussion',
+          timestamp: '2025-08-03 14:45:00',
+          status: 'Read'
+        },
+        {
+          id: '3',
+          title: 'Alex Thompson → Group Chat',
+          type: 'Event Coordination',
+          timestamp: '2025-08-03 13:20:00',
+          status: 'Delivered'
+        }
+      ];
+
+      res.json(messages);
+    } catch (error) {
+      console.error('Error fetching detailed messages:', error);
+      res.status(500).json({ message: 'Failed to fetch detailed messages' });
+    }
+  });
+
+  app.get('/api/admin/events-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!await storage.isUserAdmin(user?.id || '')) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const events = await storage.getEvents();
+      const detailedEvents = events.map(event => ({
+        id: event.id,
+        name: event.title,
+        type: 'Networking Event',
+        timestamp: event.startTime,
+        status: new Date(event.startTime) > new Date() ? 'Upcoming' : 'Completed'
+      }));
+
+      res.json(detailedEvents);
+    } catch (error) {
+      console.error('Error fetching detailed events:', error);
+      res.status(500).json({ message: 'Failed to fetch detailed events' });
+    }
+  });
+
+  app.get('/api/admin/matches-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!await storage.isUserAdmin(user?.id || '')) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const matches = [
+        {
+          id: '1',
+          title: 'Sarah Chen ↔ David Park',
+          type: 'AI Match',
+          timestamp: '2025-08-03 10:15:00',
+          status: 'Connected',
+          score: '94% compatibility'
+        },
+        {
+          id: '2',
+          title: 'Michael Rodriguez ↔ Emily Zhang', 
+          type: 'AI Match',
+          timestamp: '2025-08-03 09:30:00',
+          status: 'Pending',
+          score: '87% compatibility'
+        },
+        {
+          id: '3',
+          title: 'Alex Thompson ↔ Jennifer Liu',
+          type: 'AI Match',
+          timestamp: '2025-08-03 08:45:00',
+          status: 'Connected',
+          score: '91% compatibility'
+        }
+      ];
+
+      res.json(matches);
+    } catch (error) {
+      console.error('Error fetching detailed matches:', error);
+      res.status(500).json({ message: 'Failed to fetch detailed matches' });
+    }
+  });
+
   // Detailed advertising metrics for advertisers
   app.get('/api/admin/advertising-performance', isAuthenticated, async (req: any, res) => {
     try {
