@@ -352,3 +352,50 @@ export class AIMatchingService {
 }
 
 export const aiMatchingService = new AIMatchingService();
+
+// Export function for generating matches for a user
+export async function generateMatches(userId: string, limit: number = 5): Promise<any[]> {
+  const { db } = await import('./db');
+  const { users, matches } = await import('@shared/schema');
+  const { eq } = await import('drizzle-orm');
+  
+  try {
+    // Get all users from database
+    const allUsers = await db.select().from(users);
+    
+    // Find the target user
+    const targetUser = allUsers.find(u => u.id === userId);
+    if (!targetUser) {
+      throw new Error('User not found');
+    }
+
+    // Get optimal matches using AI
+    const matchedUsers = await aiMatchingService.findOptimalMatches(userId, allUsers, limit);
+    
+    // Generate detailed match analysis and store in database
+    const matchResults = [];
+    
+    for (const matchedUser of matchedUsers) {
+      const analysis = await aiMatchingService.generateMatchAnalysis(targetUser, matchedUser);
+      
+      // Store match in database
+      const [newMatch] = await db.insert(matches).values({
+        userId: userId,
+        matchedUserId: matchedUser.id,
+        matchScore: analysis.overallScore,
+        status: 'pending',
+        aiAnalysis: analysis,
+        compatibilityFactors: analysis.compatibilityFactors,
+        recommendedTopics: analysis.recommendedTopics,
+        mutualGoals: analysis.mutualGoals,
+      }).returning();
+      
+      matchResults.push(newMatch);
+    }
+    
+    return matchResults;
+  } catch (error) {
+    console.error('Error in generateMatches:', error);
+    throw error;
+  }
+}

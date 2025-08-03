@@ -73,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { generateMatches } = await import('./aiMatching');
-      const newMatches = await generateMatches(userId);
+      const newMatches = await generateMatches(userId, 5);
       
       res.json({ 
         success: true, 
