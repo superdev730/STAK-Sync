@@ -71,7 +71,18 @@ function AdminDashboard() {
   });
 
   const { data: userManagement, isLoading: usersLoading } = useQuery({
-    queryKey: ['/api/admin/users', currentPage.toString()],
+    queryKey: ['/api/admin/users', { page: currentPage, limit: 50 }],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users?page=${currentPage}&limit=50`, {
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${res.statusText}`);
+      }
+      
+      return res.json();
+    },
   });
 
   const { data: urgentActions } = useQuery({
@@ -289,10 +300,10 @@ function AdminDashboard() {
                   <CardTitle className="text-sm font-medium text-gray-300">Total Users</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-white">{analytics?.userStats?.totalUsers || 0}</div>
+                  <div className="text-2xl font-bold text-white">{(analytics as any)?.userStats?.totalUsers || 0}</div>
                   <div className="flex items-center mt-2">
                     <TrendingUp className="h-4 w-4 text-green-400 mr-1" />
-                    <span className="text-sm text-green-400">+{analytics?.userStats?.newUsersThisWeek || 0} this week</span>
+                    <span className="text-sm text-green-400">+{(analytics as any)?.userStats?.newUsersThisWeek || 0} this week</span>
                   </div>
                 </CardContent>
               </Card>
@@ -302,10 +313,10 @@ function AdminDashboard() {
                   <CardTitle className="text-sm font-medium text-gray-300">Active Events</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-white">{analytics?.eventStats?.upcomingEvents || 0}</div>
+                  <div className="text-2xl font-bold text-white">{(analytics as any)?.eventStats?.upcomingEvents || 0}</div>
                   <div className="flex items-center mt-2">
                     <CalendarIcon className="h-4 w-4 text-blue-400 mr-1" />
-                    <span className="text-sm text-blue-400">{analytics?.eventStats?.totalRegistrations || 0} registrations</span>
+                    <span className="text-sm text-blue-400">{(analytics as any)?.eventStats?.totalRegistrations || 0} registrations</span>
                   </div>
                 </CardContent>
               </Card>
@@ -315,10 +326,10 @@ function AdminDashboard() {
                   <CardTitle className="text-sm font-medium text-gray-300">Matches Made</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-white">{analytics?.matchingStats?.totalMatches || 0}</div>
+                  <div className="text-2xl font-bold text-white">{(analytics as any)?.matchingStats?.totalMatches || 0}</div>
                   <div className="flex items-center mt-2">
                     <Target className="h-4 w-4 text-[#CD853F] mr-1" />
-                    <span className="text-sm text-[#CD853F]">{analytics?.matchingStats?.matchSuccessRate || 0}% success rate</span>
+                    <span className="text-sm text-[#CD853F]">{(analytics as any)?.matchingStats?.matchSuccessRate || 0}% success rate</span>
                   </div>
                 </CardContent>
               </Card>
@@ -328,10 +339,10 @@ function AdminDashboard() {
                   <CardTitle className="text-sm font-medium text-gray-300">Messages Sent</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-white">{analytics?.engagementStats?.totalMessages || 0}</div>
+                  <div className="text-2xl font-bold text-white">{(analytics as any)?.engagementStats?.totalMessages || 0}</div>
                   <div className="flex items-center mt-2">
                     <MessageSquare className="h-4 w-4 text-purple-400 mr-1" />
-                    <span className="text-sm text-purple-400">{analytics?.engagementStats?.activeMeetups || 0} active meetups</span>
+                    <span className="text-sm text-purple-400">{(analytics as any)?.engagementStats?.activeMeetups || 0} active meetups</span>
                   </div>
                 </CardContent>
               </Card>

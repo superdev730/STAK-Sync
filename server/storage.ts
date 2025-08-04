@@ -963,12 +963,18 @@ export class DatabaseStorage implements IStorage {
 
   async isUserAdmin(userId: string): Promise<boolean> {
     const [user] = await db
-      .select({ adminRole: users.adminRole, isStakTeamMember: users.isStakTeamMember })
+      .select({ adminRole: users.adminRole, isStakTeamMember: users.isStakTeamMember, email: users.email })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
     
-    return !!(user?.adminRole && user?.isStakTeamMember);
+    // Check for owner accounts first
+    const ownerEmails = ['cbehring@behringco.com', 'dhoelle@behringco.com'];
+    if (user?.email && ownerEmails.includes(user.email)) {
+      return true;
+    }
+    
+    return !!(user?.adminRole && user.adminRole !== '');
   }
 
   async getAllUsers(page: number = 1, limit: number = 50): Promise<{ users: User[], total: number }> {
