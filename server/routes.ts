@@ -181,24 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Profile routes
-  app.put('/api/profile', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const updates = req.body;
-      
-      // Remove undefined/null values and ensure proper formatting
-      const cleanData = Object.fromEntries(
-        Object.entries(updates).filter(([_, value]) => value !== undefined && value !== null && value !== "")
-      );
-      
-      const user = await storage.updateUser(userId, cleanData);
-      res.json(user);
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      res.status(500).json({ message: "Failed to update profile" });
-    }
-  });
+
 
   // Generate AI matches (authenticated)
   app.post('/api/matches/generate', isAuthenticated, async (req: any, res) => {
@@ -239,6 +222,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating match status:", error);
       res.status(500).json({ message: "Failed to update match status" });
+    }
+  });
+
+  // Profile update endpoint
+  app.put('/api/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = req.body;
+
+      // Clean the data to remove empty strings and undefined values
+      const cleanedData = Object.fromEntries(
+        Object.entries(profileData).filter(([_, value]) => value !== "" && value !== undefined && value !== null)
+      );
+
+      // Update the user profile
+      const updatedUser = await storage.updateUser(userId, cleanedData);
+      
+      res.json({ 
+        success: true, 
+        user: updatedUser,
+        message: "Profile updated successfully" 
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
     }
   });
 

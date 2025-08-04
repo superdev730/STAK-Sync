@@ -184,11 +184,15 @@ export default function Profile() {
     },
   });
 
-  const onSubmit = (data: ProfileFormData) => {
-    updateProfileMutation.mutate(data);
+  const onSubmit = async (data: ProfileFormData) => {
+    try {
+      await updateProfileMutation.mutateAsync(data);
+    } catch (error) {
+      console.error("Profile update error:", error);
+    }
   };
 
-  const handleLinkedinEnhancement = () => {
+  const handleLinkedinEnhancement = async () => {
     if (!linkedinUrl) {
       toast({
         title: "LinkedIn URL Required",
@@ -197,8 +201,12 @@ export default function Profile() {
       });
       return;
     }
-    setIsEnhancingProfile(true);
-    enhanceProfileMutation.mutate(linkedinUrl);
+    try {
+      setIsEnhancingProfile(true);
+      await enhanceProfileMutation.mutateAsync(linkedinUrl);
+    } catch (error) {
+      console.error("LinkedIn enhancement error:", error);
+    }
   };
 
   // Calculate profile completeness
