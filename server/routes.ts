@@ -703,7 +703,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user?.claims?.sub;
       const { eventId } = req.params;
 
-      const registration = await storage.registerForEvent(eventId, userId);
+      const registration = await storage.registerForEvent({
+        eventId,
+        userId
+      });
 
       res.json(registration);
     } catch (error) {
@@ -1165,6 +1168,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error searching users:', error);
       res.status(500).json({ message: 'Failed to search users' });
+    }
+  });
+
+  // Admin user management routes
+  app.post('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      const { firstName, lastName, email, company, title, adminRole, isStakTeamMember } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: 'User with this email already exists' });
+      }
+
+      // Create new user
+      const newUser = await storage.createUser({
+        id: `admin_${Date.now()}`, // Temporary ID for admin-created users
+        email,
+        firstName,
+        lastName,
+        company,
+        title,
+        adminRole: adminRole || null,
+        isStakTeamMember: isStakTeamMember || false,
+        profileImageUrl: null,
+        bio: '',
+        networkingGoals: '',
+        skills: [],
+        industries: [],
+        websiteUrls: [],
+        linkedinUrl: '',
+        twitterUrl: '',
+        githubUrl: '',
+        location: '',
+        privacy: 'public',
+        personalityProfile: null,
+        goalAnalysis: null,
+        signalScore: 0,
+        signalLevel: 'Signal Starter',
+        isOnboarded: false,
+      });
+
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: adminUser!.id,
+        action: 'user_created',
+        targetType: 'user',
+        targetId: newUser.id,
+        details: { email, firstName, lastName, company, title },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+
+      res.json(newUser);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      res.status(500).json({ message: 'Failed to create user' });
+    }
+  });
+
+  app.put('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      const { userId } = req.params;
+      const { firstName, lastName, company, title, adminRole, isStakTeamMember } = req.body;
+
+      // Get existing user
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Update user
+      const updatedUser = await storage.updateUser(userId, {
+        firstName,
+        lastName,
+        company,
+        title,
+        adminRole: adminRole || null,
+        isStakTeamMember: isStakTeamMember || false,
+      });
+
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: adminUser!.id,
+        action: 'user_updated',
+        targetType: 'user',
+        targetId: userId,
+        details: { firstName, lastName, company, title },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      res.status(500).json({ message: 'Failed to update user' });
+    }
+  });
+
+  app.delete('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      const { userId } = req.params;
+
+      // Get existing user for logging
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Delete user (implementation depends on storage layer)
+      // For now, we'll mark as deleted or suspended
+      await storage.updateUserAccountStatus(userId, {
+        userId,
+        status: 'banned',
+        reason: 'Account deleted by admin',
+        suspendedAt: new Date(),
+        suspendedBy: adminUser!.id,
+      });
+
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: adminUser!.id,
+        action: 'user_deleted',
+        targetType: 'user',
+        targetId: userId,
+        details: { email: existingUser.email },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      res.status(500).json({ message: 'Failed to delete user' });
     }
   });
 
@@ -1659,10 +1803,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/events', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const events = await storage.getAllEvents();
+      const events = await storage.getEvents();
       
       // Enrich events with registration data for the current user
-      const enrichedEvents = await Promise.all(events.map(async (event) => {
+      const enrichedEvents = await Promise.all(events.map(async (event: any) => {
         const registrationCount = await storage.getEventRegistrationCount(event.id);
         const userRegistration = await storage.getUserEventRegistration(event.id, userId);
         
@@ -1704,7 +1848,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Register user for event
-      const registration = await storage.registerForEvent(eventId, userId);
+      const registration = await storage.registerForEvent({
+        eventId,
+        userId
+      });
       res.json(registration);
     } catch (error) {
       console.error('Error registering for event:', error);

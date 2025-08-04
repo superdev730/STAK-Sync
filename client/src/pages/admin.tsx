@@ -160,6 +160,20 @@ interface AdPerformance {
   };
 }
 
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  capacity: number;
+  registrationCount?: number;
+  status: 'upcoming' | 'active' | 'completed' | 'cancelled';
+  organizerId: string;
+  coverImageUrl?: string;
+}
+
 export default function Admin() {
   const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
   const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -312,6 +326,800 @@ export default function Admin() {
     );
   }
 
+  // User Management Component
+  function UserManagementTab({ 
+    userManagement, 
+    usersLoading, 
+    userSearchQuery, 
+    setUserSearchQuery, 
+    currentPage, 
+    setCurrentPage, 
+    handleUserAction, 
+    getStatusBadge,
+    toast,
+    queryClient 
+  }: any) {
+    const [showAddUserDialog, setShowAddUserDialog] = useState(false);
+    const [showEditUserDialog, setShowEditUserDialog] = useState(false);
+    const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
+    const [newUserData, setNewUserData] = useState({
+      firstName: '',
+      lastName: '',
+      email: '',
+      company: '',
+      title: '',
+      adminRole: '',
+      isStakTeamMember: false
+    });
+
+    const addUserMutation = useMutation({
+      mutationFn: async (userData: any) => {
+        return apiRequest('/api/admin/users', 'POST', userData);
+      },
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "User added successfully",
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+        setShowAddUserDialog(false);
+        setNewUserData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          company: '',
+          title: '',
+          adminRole: '',
+          isStakTeamMember: false
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to add user",
+          variant: "destructive",
+        });
+      },
+    });
+
+    const updateUserMutation = useMutation({
+      mutationFn: async ({ userId, userData }: { userId: string; userData: any }) => {
+        return apiRequest(`/api/admin/users/${userId}`, 'PUT', userData);
+      },
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "User updated successfully",
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+        setShowEditUserDialog(false);
+        setSelectedUserForEdit(null);
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update user",
+          variant: "destructive",
+        });
+      },
+    });
+
+    const handleEditUser = (user: User) => {
+      setSelectedUserForEdit(user);
+      setShowEditUserDialog(true);
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-white">User Management</h3>
+            <p className="text-gray-400">Manage user accounts and permissions</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search users..."
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                className="pl-10 bg-[#1F1F1F] border-gray-600 text-white w-64"
+              />
+            </div>
+            <Button 
+              onClick={() => setShowAddUserDialog(true)}
+              className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
+            >
+              <UserCheck className="h-4 w-4 mr-2" />
+              Add User
+            </Button>
+          </div>
+        </div>
+
+        {/* Users Table */}
+        <Card className="bg-[#1F1F1F] border-gray-600">
+          <CardContent className="p-0">
+            {usersLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <Activity className="h-6 w-6 animate-spin text-[#CD853F]" />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-gray-600">
+                    <tr className="text-left">
+                      <th className="p-4 text-gray-300 font-medium">User</th>
+                      <th className="p-4 text-gray-300 font-medium">Email</th>
+                      <th className="p-4 text-gray-300 font-medium">Role</th>
+                      <th className="p-4 text-gray-300 font-medium">Status</th>
+                      <th className="p-4 text-gray-300 font-medium">Joined</th>
+                      <th className="p-4 text-gray-300 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userManagement?.users?.map((user: User) => (
+                      <tr key={user.id} className="border-b border-gray-700 hover:bg-[#2A2A2A]">
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[#CD853F] flex items-center justify-center text-black font-semibold">
+                              {user.firstName?.[0] || user.email[0].toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-white font-medium">
+                                {user.firstName && user.lastName 
+                                  ? `${user.firstName} ${user.lastName}` 
+                                  : user.email.split('@')[0]
+                                }
+                              </p>
+                              <p className="text-sm text-gray-400">{user.company || 'No company'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-gray-300">{user.email}</td>
+                        <td className="p-4">
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                            User
+                          </Badge>
+                        </td>
+                        <td className="p-4">{getStatusBadge(user)}</td>
+                        <td className="p-4 text-gray-300">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="text-gray-400 hover:text-white"
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="text-yellow-400 hover:text-yellow-300"
+                              onClick={() => handleUserAction(user, 'suspend')}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="text-green-400 hover:text-green-300"
+                              onClick={() => handleUserAction(user, 'activate')}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="text-red-400 hover:text-red-300"
+                              onClick={() => handleUserAction(user, 'ban')}
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Pagination */}
+        {userManagement?.total && (
+          <div className="flex items-center justify-between">
+            <p className="text-gray-400">
+              Showing {((currentPage - 1) * 50) + 1} to {Math.min(currentPage * 50, userManagement.total)} of {userManagement.total} users
+            </p>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(currentPage - 1)}
+                className="border-gray-600 text-gray-300"
+              >
+                Previous
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                disabled={currentPage * 50 >= userManagement.total}
+                onClick={() => setCurrentPage(currentPage + 1)}
+                className="border-gray-600 text-gray-300"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Add User Dialog */}
+        <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New User</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Create a new user account for the platform
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName" className="text-gray-300">First Name</Label>
+                  <Input
+                    id="firstName"
+                    value={newUserData.firstName}
+                    onChange={(e) => setNewUserData({...newUserData, firstName: e.target.value})}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lastName" className="text-gray-300">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    value={newUserData.lastName}
+                    onChange={(e) => setNewUserData({...newUserData, lastName: e.target.value})}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="email" className="text-gray-300">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newUserData.email}
+                  onChange={(e) => setNewUserData({...newUserData, email: e.target.value})}
+                  className="bg-[#141414] border-gray-600 text-white"
+                />
+              </div>
+              <div>
+                <Label htmlFor="company" className="text-gray-300">Company</Label>
+                <Input
+                  id="company"
+                  value={newUserData.company}
+                  onChange={(e) => setNewUserData({...newUserData, company: e.target.value})}
+                  className="bg-[#141414] border-gray-600 text-white"
+                />
+              </div>
+              <div>
+                <Label htmlFor="title" className="text-gray-300">Title</Label>
+                <Input
+                  id="title"
+                  value={newUserData.title}
+                  onChange={(e) => setNewUserData({...newUserData, title: e.target.value})}
+                  className="bg-[#141414] border-gray-600 text-white"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowAddUserDialog(false)}
+                className="border-gray-600 text-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => addUserMutation.mutate(newUserData)}
+                disabled={addUserMutation.isPending || !newUserData.email}
+                className="bg-[#CD853F] text-black hover:bg-[#B8752F]"
+              >
+                {addUserMutation.isPending ? 'Adding...' : 'Add User'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={showEditUserDialog} onOpenChange={setShowEditUserDialog}>
+          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Update user account information
+              </DialogDescription>
+            </DialogHeader>
+            {selectedUserForEdit && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editFirstName" className="text-gray-300">First Name</Label>
+                    <Input
+                      id="editFirstName"
+                      defaultValue={selectedUserForEdit.firstName || ''}
+                      className="bg-[#141414] border-gray-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editLastName" className="text-gray-300">Last Name</Label>
+                    <Input
+                      id="editLastName"
+                      defaultValue={selectedUserForEdit.lastName || ''}
+                      className="bg-[#141414] border-gray-600 text-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="editEmail" className="text-gray-300">Email</Label>
+                  <Input
+                    id="editEmail"
+                    type="email"
+                    defaultValue={selectedUserForEdit.email}
+                    className="bg-[#141414] border-gray-600 text-white"
+                    disabled
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editCompany" className="text-gray-300">Company</Label>
+                  <Input
+                    id="editCompany"
+                    defaultValue={selectedUserForEdit.company || ''}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editTitle" className="text-gray-300">Title</Label>
+                  <Input
+                    id="editTitle"
+                    defaultValue={selectedUserForEdit.title || ''}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowEditUserDialog(false)}
+                className="border-gray-600 text-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedUserForEdit) {
+                    updateUserMutation.mutate({
+                      userId: selectedUserForEdit.id,
+                      userData: {
+                        firstName: (document.getElementById('editFirstName') as HTMLInputElement)?.value,
+                        lastName: (document.getElementById('editLastName') as HTMLInputElement)?.value,
+                        company: (document.getElementById('editCompany') as HTMLInputElement)?.value,
+                        title: (document.getElementById('editTitle') as HTMLInputElement)?.value,
+                      }
+                    });
+                  }
+                }}
+                disabled={updateUserMutation.isPending}
+                className="bg-[#CD853F] text-black hover:bg-[#B8752F]"
+              >
+                {updateUserMutation.isPending ? 'Updating...' : 'Update User'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // Event Management Component
+  function EventManagementTab({ toast, queryClient }: any) {
+    const [showAddEventDialog, setShowAddEventDialog] = useState(false);
+    const [showEditEventDialog, setShowEditEventDialog] = useState(false);
+    const [selectedEventForEdit, setSelectedEventForEdit] = useState<Event | null>(null);
+    const [newEventData, setNewEventData] = useState({
+      title: '',
+      description: '',
+      startTime: '',
+      endTime: '',
+      location: '',
+      capacity: 50,
+      coverImageUrl: ''
+    });
+
+    const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
+      queryKey: ['/api/admin/events'],
+      retry: false,
+    });
+
+    const addEventMutation = useMutation({
+      mutationFn: async (eventData: any) => {
+        return apiRequest('/api/admin/events', 'POST', eventData);
+      },
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Event created successfully",
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/events'] });
+        setShowAddEventDialog(false);
+        setNewEventData({
+          title: '',
+          description: '',
+          startTime: '',
+          endTime: '',
+          location: '',
+          capacity: 50,
+          coverImageUrl: ''
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create event",
+          variant: "destructive",
+        });
+      },
+    });
+
+    const updateEventMutation = useMutation({
+      mutationFn: async ({ eventId, eventData }: { eventId: string; eventData: any }) => {
+        return apiRequest(`/api/admin/events/${eventId}`, 'PUT', eventData);
+      },
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Event updated successfully",
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/events'] });
+        setShowEditEventDialog(false);
+        setSelectedEventForEdit(null);
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update event",
+          variant: "destructive",
+        });
+      },
+    });
+
+    const deleteEventMutation = useMutation({
+      mutationFn: async (eventId: string) => {
+        return apiRequest(`/api/admin/events/${eventId}`, 'DELETE');
+      },
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Event deleted successfully",
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/events'] });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete event",
+          variant: "destructive",
+        });
+      },
+    });
+
+    const handleEditEvent = (event: Event) => {
+      setSelectedEventForEdit(event);
+      setShowEditEventDialog(true);
+    };
+
+    const getEventStatusBadge = (event: Event) => {
+      const statusColors = {
+        upcoming: 'bg-blue-100 text-blue-800',
+        active: 'bg-green-100 text-green-800',
+        completed: 'bg-gray-100 text-gray-800',
+        cancelled: 'bg-red-100 text-red-800'
+      };
+      
+      return (
+        <Badge variant="secondary" className={statusColors[event.status] || statusColors.upcoming}>
+          {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+        </Badge>
+      );
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-white">Event Management</h3>
+            <p className="text-gray-400">Create and manage platform events</p>
+          </div>
+          <Button 
+            onClick={() => setShowAddEventDialog(true)}
+            className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Add Event
+          </Button>
+        </div>
+
+        {/* Events Table */}
+        <Card className="bg-[#1F1F1F] border-gray-600">
+          <CardContent className="p-0">
+            {eventsLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <Activity className="h-6 w-6 animate-spin text-[#CD853F]" />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-gray-600">
+                    <tr className="text-left">
+                      <th className="p-4 text-gray-300 font-medium">Event</th>
+                      <th className="p-4 text-gray-300 font-medium">Date & Time</th>
+                      <th className="p-4 text-gray-300 font-medium">Location</th>
+                      <th className="p-4 text-gray-300 font-medium">Capacity</th>
+                      <th className="p-4 text-gray-300 font-medium">Status</th>
+                      <th className="p-4 text-gray-300 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {events?.map((event: Event) => (
+                      <tr key={event.id} className="border-b border-gray-700 hover:bg-[#2A2A2A]">
+                        <td className="p-4">
+                          <div>
+                            <p className="text-white font-medium">{event.title}</p>
+                            <p className="text-sm text-gray-400">{event.description?.slice(0, 80)}...</p>
+                          </div>
+                        </td>
+                        <td className="p-4 text-gray-300">
+                          <div>
+                            <p>{new Date(event.startTime).toLocaleDateString()}</p>
+                            <p className="text-sm text-gray-400">
+                              {new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="p-4 text-gray-300">{event.location}</td>
+                        <td className="p-4 text-gray-300">
+                          {event.registrationCount || 0} / {event.capacity}
+                        </td>
+                        <td className="p-4">{getEventStatusBadge(event)}</td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="text-gray-400 hover:text-white"
+                              onClick={() => handleEditEvent(event)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="text-red-400 hover:text-red-300"
+                              onClick={() => deleteEventMutation.mutate(event.id)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Add Event Dialog */}
+        <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
+          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Event</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Add a new event to the platform
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="eventTitle" className="text-gray-300">Event Title</Label>
+                <Input
+                  id="eventTitle"
+                  value={newEventData.title}
+                  onChange={(e) => setNewEventData({...newEventData, title: e.target.value})}
+                  className="bg-[#141414] border-gray-600 text-white"
+                />
+              </div>
+              <div>
+                <Label htmlFor="eventDescription" className="text-gray-300">Description</Label>
+                <Textarea
+                  id="eventDescription"
+                  value={newEventData.description}
+                  onChange={(e) => setNewEventData({...newEventData, description: e.target.value})}
+                  className="bg-[#141414] border-gray-600 text-white"
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="startTime" className="text-gray-300">Start Time</Label>
+                  <Input
+                    id="startTime"
+                    type="datetime-local"
+                    value={newEventData.startTime}
+                    onChange={(e) => setNewEventData({...newEventData, startTime: e.target.value})}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endTime" className="text-gray-300">End Time</Label>
+                  <Input
+                    id="endTime"
+                    type="datetime-local"
+                    value={newEventData.endTime}
+                    onChange={(e) => setNewEventData({...newEventData, endTime: e.target.value})}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="location" className="text-gray-300">Location</Label>
+                <Input
+                  id="location"
+                  value={newEventData.location}
+                  onChange={(e) => setNewEventData({...newEventData, location: e.target.value})}
+                  className="bg-[#141414] border-gray-600 text-white"
+                />
+              </div>
+              <div>
+                <Label htmlFor="capacity" className="text-gray-300">Capacity</Label>
+                <Input
+                  id="capacity"
+                  type="number"
+                  value={newEventData.capacity}
+                  onChange={(e) => setNewEventData({...newEventData, capacity: parseInt(e.target.value)})}
+                  className="bg-[#141414] border-gray-600 text-white"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowAddEventDialog(false)}
+                className="border-gray-600 text-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => addEventMutation.mutate(newEventData)}
+                disabled={addEventMutation.isPending || !newEventData.title}
+                className="bg-[#CD853F] text-black hover:bg-[#B8752F]"
+              >
+                {addEventMutation.isPending ? 'Creating...' : 'Create Event'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Event Dialog */}
+        <Dialog open={showEditEventDialog} onOpenChange={setShowEditEventDialog}>
+          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Event</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Update event information
+              </DialogDescription>
+            </DialogHeader>
+            {selectedEventForEdit && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="editEventTitle" className="text-gray-300">Event Title</Label>
+                  <Input
+                    id="editEventTitle"
+                    defaultValue={selectedEventForEdit.title}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editEventDescription" className="text-gray-300">Description</Label>
+                  <Textarea
+                    id="editEventDescription"
+                    defaultValue={selectedEventForEdit.description}
+                    className="bg-[#141414] border-gray-600 text-white"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editStartTime" className="text-gray-300">Start Time</Label>
+                    <Input
+                      id="editStartTime"
+                      type="datetime-local"
+                      defaultValue={selectedEventForEdit.startTime?.slice(0, 16)}
+                      className="bg-[#141414] border-gray-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editEndTime" className="text-gray-300">End Time</Label>
+                    <Input
+                      id="editEndTime"
+                      type="datetime-local"
+                      defaultValue={selectedEventForEdit.endTime?.slice(0, 16)}
+                      className="bg-[#141414] border-gray-600 text-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="editLocation" className="text-gray-300">Location</Label>
+                  <Input
+                    id="editLocation"
+                    defaultValue={selectedEventForEdit.location}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editCapacity" className="text-gray-300">Capacity</Label>
+                  <Input
+                    id="editCapacity"
+                    type="number"
+                    defaultValue={selectedEventForEdit.capacity}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowEditEventDialog(false)}
+                className="border-gray-600 text-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedEventForEdit) {
+                    updateEventMutation.mutate({
+                      eventId: selectedEventForEdit.id,
+                      eventData: {
+                        title: (document.getElementById('editEventTitle') as HTMLInputElement)?.value,
+                        description: (document.getElementById('editEventDescription') as HTMLTextAreaElement)?.value,
+                        startTime: (document.getElementById('editStartTime') as HTMLInputElement)?.value,
+                        endTime: (document.getElementById('editEndTime') as HTMLInputElement)?.value,
+                        location: (document.getElementById('editLocation') as HTMLInputElement)?.value,
+                        capacity: parseInt((document.getElementById('editCapacity') as HTMLInputElement)?.value),
+                      }
+                    });
+                  }
+                }}
+                disabled={updateEventMutation.isPending}
+                className="bg-[#CD853F] text-black hover:bg-[#B8752F]"
+              >
+                {updateEventMutation.isPending ? 'Updating...' : 'Update Event'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#141414] text-white p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -370,7 +1178,7 @@ export default function Admin() {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             {/* Urgent Actions Section - Priority #1 */}
-            {urgentActions && urgentActions.length > 0 && (
+            {urgentActions && Array.isArray(urgentActions) && urgentActions.length > 0 && (
               <Card className="bg-gradient-to-r from-red-900/20 to-orange-900/20 border-red-500/30">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                   <div className="flex items-center gap-2">
@@ -389,7 +1197,7 @@ export default function Admin() {
                 {showUrgentActions && (
                   <CardContent>
                     <div className="space-y-3">
-                      {urgentActions.slice(0, 5).map((action: any) => (
+                      {Array.isArray(urgentActions) && urgentActions.slice(0, 5).map((action: any) => (
                         <div key={action.id} className="flex items-center justify-between p-3 bg-[#1F1F1F] rounded-lg border border-gray-600">
                           <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-lg ${getPriorityColor(action.priority)}`}>
@@ -493,100 +1301,25 @@ export default function Admin() {
             </div>
           </TabsContent>
 
-          {/* User Management Tab */}
+          {/* Enhanced User Management Tab */}
           <TabsContent value="users" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-white">User Management</h2>
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <Input
-                    placeholder="Search users..."
-                    value={userSearchQuery}
-                    onChange={(e) => setUserSearchQuery(e.target.value)}
-                    className="pl-10 bg-[#1F1F1F] border-gray-600 text-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <Card className="bg-[#1F1F1F] border-gray-600">
-              <CardHeader>
-                <CardTitle className="text-white">Platform Members</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Manage user accounts and access levels
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {usersLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <Activity className="h-6 w-6 animate-spin text-[#CD853F]" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {userManagement?.users.map((user) => (
-                      <div key={user.id} className="flex items-center justify-between p-4 bg-[#141414] rounded-lg border border-gray-600">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-[#CD853F] flex items-center justify-center text-black font-semibold">
-                            {user.firstName?.[0]}{user.lastName?.[0]}
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-white">{user.firstName} {user.lastName}</h3>
-                            <p className="text-sm text-gray-400">{user.email}</p>
-                            {user.company && (
-                              <p className="text-sm text-gray-500">{user.title} at {user.company}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {getStatusBadge(user)}
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleUserAction(user, 'suspend')}
-                              className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                            >
-                              <UserX className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleUserAction(user, 'activate')}
-                              className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                            >
-                              <Mail className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <UserManagementTab 
+              userManagement={userManagement}
+              usersLoading={usersLoading}
+              userSearchQuery={userSearchQuery}
+              setUserSearchQuery={setUserSearchQuery}
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              handleUserAction={handleUserAction}
+              getStatusBadge={getStatusBadge}
+              toast={toast}
+              queryClient={queryClient}
+            />
           </TabsContent>
 
-          {/* Other tabs content would go here */}
-          <TabsContent value="events">
-            <Card className="bg-[#1F1F1F] border-gray-600">
-              <CardHeader>
-                <CardTitle className="text-white">Event Management</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Manage events and attendee analytics
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-400">Event management features coming soon...</p>
-              </CardContent>
-            </Card>
+          {/* Enhanced Event Management Tab */}
+          <TabsContent value="events" className="space-y-6">
+            <EventManagementTab toast={toast} queryClient={queryClient} />
           </TabsContent>
 
           <TabsContent value="matching">
