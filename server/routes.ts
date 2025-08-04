@@ -246,9 +246,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/user/matches-detailed', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const matches = await storage.getUserMatches(userId);
+      const matches = await storage.getMatches(userId);
       // Transform matches to include detailed breakdown
-      const detailedMatches = matches.map(match => ({
+      const detailedMatches = matches.map((match: any) => ({
         firstName: match.matchedUser.firstName,
         lastName: match.matchedUser.lastName,
         title: match.matchedUser.title,
@@ -266,10 +266,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/user/connections-detailed', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const matches = await storage.getUserMatches(userId);
+      const matches = await storage.getMatches(userId);
       const connectedMatches = matches
-        .filter(match => match.status === 'connected')
-        .map(match => ({
+        .filter((match: any) => match.status === 'connected')
+        .map((match: any) => ({
           firstName: match.matchedUser.firstName,
           lastName: match.matchedUser.lastName,
           title: match.matchedUser.title,
@@ -287,10 +287,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/user/pending-detailed', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const matches = await storage.getUserMatches(userId);
+      const matches = await storage.getMatches(userId);
       const pendingMatches = matches
-        .filter(match => match.status === 'pending')
-        .map(match => ({
+        .filter((match: any) => match.status === 'pending')
+        .map((match: any) => ({
           firstName: match.matchedUser.firstName,
           lastName: match.matchedUser.lastName,
           title: match.matchedUser.title,
@@ -355,7 +355,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get all users for matching analysis
-      const allUsers = await storage.getAllUsers();
+      const allUsersResult = await storage.getAllUsers();
+      const allUsers = allUsersResult.users;
       
       // Import AI matching service
       const { aiMatchingService } = await import('./aiMatching');

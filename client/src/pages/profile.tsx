@@ -86,20 +86,20 @@ export default function Profile() {
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      firstName: user?.firstName || "",
-      lastName: user?.lastName || "",
-      title: user?.title || "",
-      company: user?.company || "",
-      bio: user?.bio || "",
-      location: user?.location || "",
-      linkedinUrl: user?.linkedinUrl || "",
-      twitterUrl: user?.twitterUrl || "",
-      websiteUrl: user?.websiteUrl || "",
-      githubUrl: user?.githubUrl || "",
-      networkingGoal: user?.networkingGoal || "",
-      profileVisible: user?.profileVisible ?? true,
-      showOnlineStatus: user?.showOnlineStatus ?? true,
-      emailNotifications: user?.emailNotifications ?? true,
+      firstName: (user as any)?.firstName || "",
+      lastName: (user as any)?.lastName || "",
+      title: (user as any)?.title || "",
+      company: (user as any)?.company || "",
+      bio: (user as any)?.bio || "",
+      location: (user as any)?.location || "",
+      linkedinUrl: (user as any)?.linkedinUrl || "",
+      twitterUrl: (user as any)?.twitterUrl || "",
+      websiteUrl: (user as any)?.websiteUrl || "",
+      githubUrl: (user as any)?.githubUrl || "",
+      networkingGoal: (user as any)?.networkingGoal || "",
+      profileVisible: (user as any)?.profileVisible ?? true,
+      showOnlineStatus: (user as any)?.showOnlineStatus ?? true,
+      emailNotifications: (user as any)?.emailNotifications ?? true,
     },
   });
 
@@ -138,7 +138,7 @@ export default function Profile() {
     mutationFn: async (linkedinUrl: string) => {
       return await apiRequest(`/api/profile/enhance-from-linkedin`, "POST", { linkedinUrl });
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       // Update form with enhanced profile data
       form.reset({
         ...form.getValues(),
@@ -150,6 +150,7 @@ export default function Profile() {
       });
       setShowLinkedinDialog(false);
       setIsEnhancingProfile(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     },
     onError: (error) => {
       toast({
