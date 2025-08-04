@@ -139,6 +139,7 @@ export const events = pgTable("events", {
   coverImageUrl: varchar("cover_image_url"),
   externalPlatform: varchar("external_platform"), // none, luma, eventbrite
   externalUrl: varchar("external_url"),
+  videoUrl: varchar("video_url"), // YouTube video URL
   organizerId: varchar("organizer_id").notNull().references(() => users.id),
   status: varchar("status").default("active"), // active, cancelled, completed
   isFeatured: boolean("is_featured").default(false),

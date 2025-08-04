@@ -66,7 +66,9 @@ function AdminDashboard() {
     location: '',
     capacity: 50,
     isVirtual: false,
-    isFeatured: false
+    isFeatured: false,
+    coverImageUrl: '',
+    videoUrl: ''
   });
   const [newUserData, setNewUserData] = useState({
     firstName: '',
@@ -215,8 +217,11 @@ function AdminDashboard() {
         title: "Success",
         description: "User deleted successfully",
       });
+      // Force immediate refresh of user list
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.refetchQueries({ queryKey: ['/api/admin/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
+      queryClient.refetchQueries({ queryKey: ['/api/admin/analytics/30d'] });
       // Stay on users tab after deletion
       setActiveTab("users");
     },
@@ -257,7 +262,9 @@ function AdminDashboard() {
         location: '',
         capacity: 50,
         isVirtual: false,
-        isFeatured: false
+        isFeatured: false,
+        coverImageUrl: '',
+        videoUrl: ''
       });
     },
     onError: (error: any) => {
@@ -908,7 +915,7 @@ function AdminDashboard() {
                     <Label htmlFor="editAdminRole" className="text-gray-300">Admin Role</Label>
                     <select 
                       id="editAdminRole"
-                      defaultValue={selectedUserForEdit?.adminRole || ''}
+                      defaultValue={(selectedUserForEdit as any)?.adminRole || ''}
                       className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white"
                     >
                       <option value="">No Admin Role</option>
@@ -935,7 +942,7 @@ function AdminDashboard() {
                   <input
                     type="checkbox"
                     id="editIsStakTeamMember"
-                    defaultChecked={selectedUserForEdit?.isStakTeamMember || false}
+                    defaultChecked={(selectedUserForEdit as any)?.isStakTeamMember || false}
                     className="rounded border-gray-600"
                   />
                   <Label htmlFor="editIsStakTeamMember" className="text-gray-300">STAK Team Member</Label>
@@ -1170,6 +1177,29 @@ function AdminDashboard() {
                     placeholder="50"
                     value={eventData.capacity}
                     onChange={(e) => setEventData({...eventData, capacity: parseInt(e.target.value) || 50})}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="coverImageUrl" className="text-gray-300">Cover Image URL</Label>
+                  <Input
+                    id="coverImageUrl"
+                    placeholder="https://example.com/image.jpg"
+                    value={eventData.coverImageUrl}
+                    onChange={(e) => setEventData({...eventData, coverImageUrl: e.target.value})}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="videoUrl" className="text-gray-300">YouTube Video URL</Label>
+                  <Input
+                    id="videoUrl"
+                    placeholder="https://youtube.com/watch?v=..."
+                    value={eventData.videoUrl}
+                    onChange={(e) => setEventData({...eventData, videoUrl: e.target.value})}
                     className="bg-[#141414] border-gray-600 text-white"
                   />
                 </div>

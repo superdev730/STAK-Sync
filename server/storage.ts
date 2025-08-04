@@ -455,9 +455,26 @@ export class DatabaseStorage implements IStorage {
   async getEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]> {
     const result = await db
       .select({
-        event: events,
+        event: {
+          id: events.id,
+          title: events.title,
+          description: events.description,
+          eventType: events.eventType,
+          startDate: events.startDate,
+          endDate: events.endDate,
+          location: events.location,
+          isVirtual: events.isVirtual,
+          capacity: events.capacity,
+          price: events.price,
+          coverImageUrl: events.coverImageUrl,
+          organizerId: events.organizerId,
+          status: events.status,
+          videoUrl: events.videoUrl,
+          createdAt: events.createdAt,
+          updatedAt: events.updatedAt
+        },
         organizer: users,
-        registrationCount: sql<number>`COUNT(${eventRegistrations.id})::int`
+        registrationCount: sql<number>`COALESCE(COUNT(${eventRegistrations.id}), 0)::int`
       })
       .from(events)
       .leftJoin(users, eq(events.organizerId, users.id))
@@ -498,7 +515,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
-    const [newEvent] = await db.insert(events).values(event).returning();
+    // Clean up the event data to only include existing columns
+    const cleanEventData = {
+      title: event.title,
+      description: event.description,
+      eventType: event.eventType,  
+      startDate: event.startDate,
+      endDate: event.endDate,
+      location: event.location,
+      isVirtual: event.isVirtual || false,
+      capacity: event.capacity,
+      price: event.price || "0",
+      coverImageUrl: event.coverImageUrl,
+      organizerId: event.organizerId,
+      status: event.status || "active",
+      videoUrl: event.videoUrl,
+      externalPlatform: event.externalPlatform || null,
+      externalUrl: event.externalUrl || null
+    };
+    
+    const [newEvent] = await db.insert(events).values(cleanEventData).returning();
     return newEvent;
   }
 
