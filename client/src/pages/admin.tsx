@@ -365,20 +365,20 @@ function AdminDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white border border-gray-200 shadow-sm">
-            <TabsTrigger value="analytics" className="data-[state=active]:bg-navy data-[state=active]:text-white text-gray-600">
+          <TabsList className="bg-gray-100 border border-gray-200 shadow-sm">
+            <TabsTrigger value="analytics" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
               <BarChart3 className="h-4 w-4 mr-2" />
               Analytics
             </TabsTrigger>
-            <TabsTrigger value="users" className="data-[state=active]:bg-navy data-[state=active]:text-white text-gray-600">
+            <TabsTrigger value="users" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
               <Users className="h-4 w-4 mr-2" />
               User Management
             </TabsTrigger>
-            <TabsTrigger value="events" className="data-[state=active]:bg-navy data-[state=active]:text-white text-gray-600">
+            <TabsTrigger value="events" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
               <CalendarIcon className="h-4 w-4 mr-2" />
               Event Management
             </TabsTrigger>
-            <TabsTrigger value="insights" className="data-[state=active]:bg-navy data-[state=active]:text-white text-gray-600">
+            <TabsTrigger value="insights" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
               <PieChart className="h-4 w-4 mr-2" />
               Platform Insights
             </TabsTrigger>
@@ -580,9 +580,16 @@ function AdminDashboard() {
                               </td>
                               <td className="p-4 text-gray-700">{user.email}</td>
                               <td className="p-4">
-                                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                                  User
-                                </Badge>
+                                {user.adminRole ? (
+                                  <Badge variant="default" className="bg-copper text-white">
+                                    {user.adminRole === 'owner' ? 'Owner' : 
+                                     user.adminRole === 'super_admin' ? 'Super Admin' : 'Admin'}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                    User
+                                  </Badge>
+                                )}
                               </td>
                               <td className="p-4">{getStatusBadge(user)}</td>
                               <td className="p-4 text-gray-700">
@@ -1010,14 +1017,14 @@ function AdminDashboard() {
                         lastName: (document.getElementById('editLastName') as HTMLInputElement)?.value,
                         company: (document.getElementById('editCompany') as HTMLInputElement)?.value,
                         title: (document.getElementById('editTitle') as HTMLInputElement)?.value,
-                        adminRole: (document.getElementById('editAdminRole') as HTMLSelectElement)?.value || null,
+                        adminRole: (document.getElementById('editAdminRole') as HTMLSelectElement)?.value === '' ? null : (document.getElementById('editAdminRole') as HTMLSelectElement)?.value,
                         isStakTeamMember: (document.getElementById('editIsStakTeamMember') as HTMLInputElement)?.checked || false,
                       }
                     });
                   }
                 }}
                 disabled={updateUserMutation.isPending}
-                className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
+                className="bg-navy text-white hover:bg-navy/80"
               >
                 {updateUserMutation.isPending ? 'Updating...' : 'Update User'}
               </Button>

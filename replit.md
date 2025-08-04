@@ -11,6 +11,8 @@ Preferred communication style: Simple, everyday language.
 - **Admin Features**: Complete user account management, analytics dashboard, member support
 - **Email Integration**: SendGrid for account notifications and admin communications
 - **Admin Permissions**: View analytics, manage users, manage events, system configuration
+- **Database Integration**: Real PostgreSQL database with Drizzle ORM for persistent data storage
+- **User Role Management**: Admin interface supports role updates (User, Admin, Owner) with proper database persistence
 
 # Platform Analytics & Business Intelligence
 - **Stakeholder Metrics**: Total revenue, growth rates, user acquisition costs, lifetime value
