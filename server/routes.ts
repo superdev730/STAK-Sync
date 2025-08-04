@@ -18,6 +18,26 @@ import { csvImportService } from "./csvImportService";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 
+// Admin middleware
+const isAdmin = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const isUserAdmin = await storage.isUserAdmin(userId);
+    if (!isUserAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    next();
+  } catch (error) {
+    console.error("Error checking admin status:", error);
+    res.status(500).json({ message: "Failed to verify admin access" });
+  }
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -213,6 +233,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating match status:", error);
       res.status(500).json({ message: "Failed to update match status" });
+    }
+  });
+
+  // Drill-down API endpoints for match statistics
+  app.get('/api/user/matches-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const matches = await storage.getUserMatches(userId);
+      // Transform matches to include detailed breakdown
+      const detailedMatches = matches.map(match => ({
+        firstName: match.matchedUser.firstName,
+        lastName: match.matchedUser.lastName,
+        title: match.matchedUser.title,
+        company: match.matchedUser.company,
+        matchScore: match.matchScore,
+        status: match.status
+      }));
+      res.json(detailedMatches);
+    } catch (error) {
+      console.error("Error fetching detailed matches:", error);
+      res.status(500).json({ message: "Failed to fetch detailed matches" });
+    }
+  });
+
+  app.get('/api/user/connections-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const matches = await storage.getUserMatches(userId);
+      const connectedMatches = matches
+        .filter(match => match.status === 'connected')
+        .map(match => ({
+          firstName: match.matchedUser.firstName,
+          lastName: match.matchedUser.lastName,
+          title: match.matchedUser.title,
+          company: match.matchedUser.company,
+          matchScore: match.matchScore,
+          status: match.status
+        }));
+      res.json(connectedMatches);
+    } catch (error) {
+      console.error("Error fetching connected matches:", error);
+      res.status(500).json({ message: "Failed to fetch connected matches" });
+    }
+  });
+
+  app.get('/api/user/pending-detailed', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const matches = await storage.getUserMatches(userId);
+      const pendingMatches = matches
+        .filter(match => match.status === 'pending')
+        .map(match => ({
+          firstName: match.matchedUser.firstName,
+          lastName: match.matchedUser.lastName,
+          title: match.matchedUser.title,
+          company: match.matchedUser.company,
+          matchScore: match.matchScore,
+          status: match.status
+        }));
+      res.json(pendingMatches);
+    } catch (error) {
+      console.error("Error fetching pending matches:", error);
+      res.status(500).json({ message: "Failed to fetch pending matches" });
     }
   });
 
@@ -468,6 +551,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching events:', error);
       res.status(500).json({ error: 'Failed to fetch events' });
+    }
+  });
+
+  // Admin event management routes
+  app.get('/api/admin/events', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const events = await storage.getAllEvents();
+      res.json(events);
+    } catch (error) {
+      console.error('Error fetching admin events:', error);
+      res.status(500).json({ message: 'Failed to fetch events' });
+    }
+  });
+
+  app.post('/api/admin/events', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const eventData = { ...req.body, organizerId: userId };
+      const event = await storage.createEvent(eventData);
+      res.json(event);
+    } catch (error) {
+      console.error('Error creating event:', error);
+      res.status(500).json({ message: 'Failed to create event' });
+    }
+  });
+
+  app.put('/api/admin/events/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const event = await storage.updateEvent(req.params.id, req.body);
+      res.json(event);
+    } catch (error) {
+      console.error('Error updating event:', error);
+      res.status(500).json({ message: 'Failed to update event' });
+    }
+  });
+
+  app.delete('/api/admin/events/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      await storage.deleteEvent(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      res.status(500).json({ message: 'Failed to delete event' });
     }
   });
 

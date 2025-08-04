@@ -20,6 +20,12 @@ Preferred communication style: Simple, everyday language.
 - **Market Intelligence**: Brand awareness, competitive position, Net Promoter Score
 - **Revenue Breakdown**: Subscription, advertising, events revenue streams with detailed analytics
 
+# Interactive Features & UI Enhancements
+- **Clickable Match Statistics**: Total matches, connected, and pending stats with drill-down data tables
+- **AI Insights Tooltips**: Comprehensive explanations for match scores and profile optimization
+- **Dummy Message System**: Professional networking messages showcasing design and formatting
+- **Event Management System**: Admin interface for creating STAK events with cover photos, videos, social sharing
+
 # System Architecture
 
 ## Frontend Architecture

@@ -116,7 +116,7 @@ export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: varchar("title").notNull(),
   description: text("description"),
-  eventType: varchar("event_type").notNull(), // conference, workshop, mixer, demo-day
+  eventType: varchar("event_type").notNull(), // speaker-series, meetup, vc-dinner, leadership-event
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
   location: varchar("location"),
@@ -125,8 +125,11 @@ export const events = pgTable("events", {
   registrationDeadline: timestamp("registration_deadline"),
   tags: text("tags").array(), // tech, fintech, healthcare, ai, etc.
   organizerId: varchar("organizer_id").notNull().references(() => users.id),
-  imageUrl: varchar("image_url"),
+  imageUrl: varchar("image_url"), // Cover photo URL
+  videoUrl: varchar("video_url"), // YouTube video URL
+  socialShareText: text("social_share_text"), // Pre-written social media text
   status: varchar("status").default("active"), // active, cancelled, completed
+  isFeatured: boolean("is_featured").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

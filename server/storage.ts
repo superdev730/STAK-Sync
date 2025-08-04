@@ -981,6 +981,29 @@ export class DatabaseStorage implements IStorage {
       ))
       .limit(20);
   }
+
+  // Event management methods
+  async getAllEvents(): Promise<Event[]> {
+    return await db.select().from(events).orderBy(desc(events.startDate));
+  }
+
+  async createEvent(eventData: InsertEvent): Promise<Event> {
+    const [event] = await db.insert(events).values(eventData).returning();
+    return event;
+  }
+
+  async updateEvent(eventId: string, eventData: Partial<InsertEvent>): Promise<Event> {
+    const [event] = await db
+      .update(events)
+      .set({ ...eventData, updatedAt: new Date() })
+      .where(eq(events.id, eventId))
+      .returning();
+    return event;
+  }
+
+  async deleteEvent(eventId: string): Promise<void> {
+    await db.delete(events).where(eq(events.id, eventId));
+  }
 }
 
 export const storage = new DatabaseStorage();

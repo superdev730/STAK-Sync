@@ -66,9 +66,95 @@ export default function Messages() {
     });
   };
 
+  // Dummy conversations for demonstration
+  const dummyConversations = [
+    {
+      user: {
+        id: "2",
+        firstName: "Sarah",
+        lastName: "Chen",
+        email: "sarah.chen@techcorp.com",
+        title: "VP of Engineering",
+        company: "TechCorp",
+        profileImageUrl: null
+      },
+      lastMessage: {
+        id: "msg1",
+        content: "Thanks for connecting! I'd love to discuss the AI infrastructure challenges you mentioned. Would you be available for a 30-minute call next week?",
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+        senderId: "2",
+        receiverId: currentUser?.id || "",
+        isRead: false
+      },
+      unreadCount: 2
+    },
+    {
+      user: {
+        id: "3", 
+        firstName: "Michael",
+        lastName: "Rodriguez",
+        email: "m.rodriguez@venturecp.com",
+        title: "Partner",
+        company: "Venture Capital Partners",
+        profileImageUrl: null
+      },
+      lastMessage: {
+        id: "msg2",
+        content: "Great presentation at the STAK event yesterday! I'm particularly interested in your Series A fundraising timeline. Let's schedule a follow-up meeting.",
+        createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5 hours ago
+        senderId: "3",
+        receiverId: currentUser?.id || "",
+        isRead: false
+      },
+      unreadCount: 1
+    },
+    {
+      user: {
+        id: "4",
+        firstName: "Jessica",
+        lastName: "Park",
+        email: "jessica@innovatelab.com", 
+        title: "Founder & CEO",
+        company: "InnovateLab",
+        profileImageUrl: null
+      },
+      lastMessage: {
+        id: "msg3",
+        content: "Perfect! I'll send over the partnership proposal by Friday. Looking forward to exploring how our companies can collaborate on the healthcare AI space.",
+        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+        senderId: currentUser?.id || "",
+        receiverId: "4",
+        isRead: true
+      },
+      unreadCount: 0
+    },
+    {
+      user: {
+        id: "5",
+        firstName: "David",
+        lastName: "Kim",
+        email: "dkim@stakventures.com",
+        title: "Investment Director",
+        company: "STAK Ventures",
+        profileImageUrl: null
+      },
+      lastMessage: {
+        id: "msg4",
+        content: "Welcome to the STAK ecosystem! I noticed you're working on fintech solutions. Would love to introduce you to our portfolio company CEOs in the space.",
+        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+        senderId: "5",
+        receiverId: currentUser?.id || "",
+        isRead: true
+      },
+      unreadCount: 0
+    }
+  ];
+
   // Get unique conversations grouped by users
   const getUniqueConversations = () => {
-    if (!conversations || !currentUser) return [];
+    if (!currentUser) return dummyConversations;
+
+    if (!conversations || conversations.length === 0) return dummyConversations;
 
     const userMap = new Map<string, { user: User; lastMessage: Message & { sender: User; receiver: User }; unreadCount: number }>();
 
