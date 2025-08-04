@@ -986,6 +986,48 @@ export class DatabaseStorage implements IStorage {
   async deleteEvent(eventId: string): Promise<void> {
     await db.delete(events).where(eq(events.id, eventId));
   }
+
+  // Event management methods for API
+  async getAllEvents(): Promise<Event[]> {
+    return await db
+      .select()
+      .from(events)
+      .orderBy(desc(events.startDate));
+  }
+
+  async getEventRegistrationCount(eventId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(eventRegistrations)
+      .where(eq(eventRegistrations.eventId, eventId));
+    
+    return result.count;
+  }
+
+  async getUserEventRegistration(eventId: string, userId: string): Promise<EventRegistration | undefined> {
+    const [registration] = await db
+      .select()
+      .from(eventRegistrations)
+      .where(and(
+        eq(eventRegistrations.eventId, eventId),
+        eq(eventRegistrations.userId, userId)
+      ));
+    
+    return registration;
+  }
+
+  async registerForEvent(eventId: string, userId: string): Promise<EventRegistration> {
+    const [registration] = await db
+      .insert(eventRegistrations)
+      .values({
+        eventId,
+        userId,
+        attendanceStatus: 'registered'
+      })
+      .returning();
+    
+    return registration;
+  }
 }
 
 export const storage = new DatabaseStorage();

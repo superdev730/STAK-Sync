@@ -11,6 +11,7 @@ import {
   decimal,
   date,
   pgEnum,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
@@ -126,18 +127,19 @@ export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: varchar("title").notNull(),
   description: text("description"),
-  eventType: varchar("event_type").notNull(), // speaker-series, meetup, vc-dinner, leadership-event
-  startDate: timestamp("start_date").notNull(),
-  endDate: timestamp("end_date").notNull(),
+  eventType: varchar("event_type").notNull(), // networking, workshop, conference, meetup, webinar
+  startDate: varchar("start_date").notNull(),
+  startTime: varchar("start_time").notNull(),
+  endDate: varchar("end_date"),
+  endTime: varchar("end_time"),
   location: varchar("location"),
   isVirtual: boolean("is_virtual").default(false),
-  maxAttendees: integer("max_attendees"),
-  registrationDeadline: timestamp("registration_deadline"),
-  tags: text("tags").array(), // tech, fintech, healthcare, ai, etc.
+  capacity: integer("capacity").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).default("0"),
+  coverImage: varchar("cover_image"),
+  externalPlatform: varchar("external_platform"), // none, luma, eventbrite
+  externalUrl: varchar("external_url"),
   organizerId: varchar("organizer_id").notNull().references(() => users.id),
-  imageUrl: varchar("image_url"), // Cover photo URL
-  videoUrl: varchar("video_url"), // YouTube video URL
-  socialShareText: text("social_share_text"), // Pre-written social media text
   status: varchar("status").default("active"), // active, cancelled, completed
   isFeatured: boolean("is_featured").default(false),
   createdAt: timestamp("created_at").defaultNow(),
@@ -151,9 +153,9 @@ export const eventRegistrations = pgTable("event_registrations", {
   userId: varchar("user_id").notNull().references(() => users.id),
   registeredAt: timestamp("registered_at").defaultNow(),
   attendanceStatus: varchar("attendance_status").default("registered"), // registered, attended, no-show
-  interests: text("interests").array(), // specific interests for this event
-  networkingGoals: text("networking_goals").array(), // goals for this specific event
-});
+}, (table) => ({
+  uniqueRegistration: unique().on(table.eventId, table.userId), // Prevent duplicate registrations
+}));
 
 // Event networking rooms
 export const eventRooms = pgTable("event_rooms", {

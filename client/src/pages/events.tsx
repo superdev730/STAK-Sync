@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Users, Clock, Sparkles, Plus, Upload, Activity } from "lucide-react";
-import { CSVImportModal } from "@/components/CSVImportModal";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Search, Calendar, MapPin, Users, Clock, ExternalLink, Star, Sparkles } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface Event {
   id: string;
@@ -14,182 +17,177 @@ interface Event {
   startDate: string;
   endDate: string;
   location: string;
-  maxAttendees: number;
-  registrationCount: number;
-  eventType: string;
-  status: string;
+  capacity: number;
+  registered: number;
+  isUserRegistered: boolean;
   tags: string[];
-  organizer: {
-    firstName: string;
-    lastName: string;
-    title: string;
-    company: string;
-  };
-  rooms: Array<{
-    id: string;
-    name: string;
-    description: string;
-    maxParticipants: number;
-    participantCount: number;
-    roomType: string;
-  }>;
-}
-
-interface EventRegistration {
-  id: string;
-  eventId: string;
-  userId: string;
-  registeredAt: string;
-  interests: string[];
-  networkingGoals: string[];
-  event: Event;
+  imageUrl?: string;
+  eventbriteUrl?: string;
+  lumaUrl?: string;
+  organizerId: string;
+  createdAt: string;
 }
 
 export default function Events() {
-  const [selectedEventType, setSelectedEventType] = useState<string>("all");
-  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: events = [], isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
   });
 
-  const { data: userEvents = [] } = useQuery<EventRegistration[]>({
-    queryKey: ["/api/user/events"],
-  });
-
-  const seedEventsMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest('/api/seed-events', 'POST');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-    },
-  });
-
   const registerMutation = useMutation({
-    mutationFn: async ({ eventId, interests, networkingGoals }: { 
-      eventId: string; 
-      interests: string[]; 
-      networkingGoals: string[] 
-    }) => {
-      return apiRequest(`/api/events/${eventId}/register`, 'POST', { interests, networkingGoals });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user/events"] });
-    },
-  });
-
-  const unregisterMutation = useMutation({
     mutationFn: async (eventId: string) => {
-      return apiRequest(`/api/events/${eventId}/register`, 'DELETE');
+      return await apiRequest(`/api/events/${eventId}/register`, {
+        method: "POST",
+      });
     },
     onSuccess: () => {
+      toast({
+        title: "Registration Successful",
+        description: "You've been registered for this event!",
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user/events"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Registration Failed",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
     },
   });
 
-  const isRegistered = (eventId: string) => {
-    return userEvents.some(reg => reg.eventId === eventId);
+  const filteredEvents = events.filter((event) => {
+    const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         event.location.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (selectedFilter === "registered") {
+      return matchesSearch && event.isUserRegistered;
+    }
+    if (selectedFilter === "upcoming") {
+      return matchesSearch && new Date(event.startDate) > new Date();
+    }
+    return matchesSearch;
+  });
+
+  const handleRegister = (eventId: string) => {
+    registerMutation.mutate(eventId);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
+  const getEventStatusBadge = (event: Event) => {
+    const now = new Date();
+    const startDate = new Date(event.startDate);
+    const endDate = new Date(event.endDate);
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    if (event.isUserRegistered) {
+      return <Badge className="bg-green-600 text-white">Registered</Badge>;
+    }
+    if (event.registered >= event.capacity) {
+      return <Badge variant="destructive">Full</Badge>;
+    }
+    if (startDate > now) {
+      return <Badge className="bg-blue-600 text-white">Upcoming</Badge>;
+    }
+    if (startDate <= now && endDate >= now) {
+      return <Badge className="bg-yellow-600 text-white">Live</Badge>;
+    }
+    return <Badge variant="secondary">Past</Badge>;
   };
-
-  const filteredEvents = events.filter(event => 
-    selectedEventType === "all" || event.eventType === selectedEventType
-  );
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-80 bg-muted/20 animate-pulse rounded-lg" />
-            ))}
-          </div>
+      <div className="container mx-auto py-8">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <div className="h-48 bg-gray-300 rounded-t-lg"></div>
+              <CardHeader>
+                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                <div className="h-3 bg-gray-300 rounded w-full"></div>
+              </CardHeader>
+            </Card>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Sparkles className="h-8 w-8 text-primary" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
-              STAK Signal Events
-            </h1>
-          </div>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Exclusive networking opportunities for the STAK ecosystem. Connect with fellow founders, investors, and innovators.
-          </p>
-          
-          {/* Event Type Filters */}
-          <div className="flex flex-wrap justify-center gap-2 mt-6">
-            {["all", "networking", "roundtable", "summit", "leadership"].map((type) => (
-              <Button
-                key={type}
-                variant={selectedEventType === type ? "default" : "outline"}
-                onClick={() => setSelectedEventType(type)}
-                className="capitalize"
-              >
-                {type === "all" ? "All Events" : type.replace("-", " ")}
-              </Button>
-            ))}
-          </div>
-
-          {/* Seed Events Button (for demo) */}
-          {events.length === 0 && (
-            <div className="mt-6">
-              <Button
-                onClick={() => seedEventsMutation.mutate()}
-                disabled={seedEventsMutation.isPending}
-                className="bg-primary hover:bg-primary/90"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {seedEventsMutation.isPending ? "Creating Sample Events..." : "Create Sample Events"}
-              </Button>
-            </div>
-          )}
+    <div className="container mx-auto py-8 space-y-8">
+      {/* Header */}
+      <div className="text-center space-y-4">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Sparkles className="h-8 w-8 text-copper-600" />
+          <h1 className="text-4xl font-bold font-playfair">STAK Signal Events</h1>
         </div>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Connect with industry leaders, investors, and innovators at exclusive STAK events designed to accelerate your professional growth.
+        </p>
+      </div>
 
-        {/* Events Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search events..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Tabs value={selectedFilter} onValueChange={setSelectedFilter} className="w-auto">
+          <TabsList>
+            <TabsTrigger value="all">All Events</TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="registered">My Events</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Events Grid */}
+      {filteredEvents.length === 0 ? (
+        <div className="text-center py-12">
+          <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-xl font-semibold mb-2">No Events Found</h3>
+          <p className="text-muted-foreground">
+            {searchQuery ? "Try adjusting your search terms" : "Check back soon for upcoming events"}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredEvents.map((event) => (
-            <Card key={event.id} className="group hover:shadow-lg transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm">
-              <CardHeader className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <Badge variant={event.eventType === "summit" ? "default" : "secondary"} className="text-xs">
-                    {event.eventType.replace("-", " ").toUpperCase()}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    {event.status.toUpperCase()}
-                  </Badge>
+            <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden">
+              {/* Event Image */}
+              {event.imageUrl && (
+                <div className="relative h-48 overflow-hidden">
+                  <img
+                    src={event.imageUrl}
+                    alt={event.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                  />
+                  <div className="absolute top-4 right-4">
+                    {getEventStatusBadge(event)}
+                  </div>
                 </div>
-                
-                <CardTitle className="text-xl font-bold line-clamp-2 group-hover:text-primary transition-colors">
-                  {event.title}
-                </CardTitle>
-                
-                <CardDescription className="line-clamp-3 text-sm leading-relaxed">
+              )}
+              
+              <CardHeader className="space-y-2">
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-xl font-playfair line-clamp-2 flex-1">
+                    {event.title}
+                  </CardTitle>
+                  {!event.imageUrl && (
+                    <div className="ml-2">
+                      {getEventStatusBadge(event)}
+                    </div>
+                  )}
+                </div>
+                <CardDescription className="line-clamp-3">
                   {event.description}
                 </CardDescription>
               </CardHeader>
@@ -198,142 +196,115 @@ export default function Events() {
                 {/* Event Details */}
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    <span>{formatDate(event.startDate)}</span>
+                    <Calendar className="h-4 w-4" />
+                    <span>{format(new Date(event.startDate), "MMM dd, yyyy")}</span>
                   </div>
-                  
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="h-4 w-4 text-primary" />
-                    <span>{formatTime(event.startDate)} - {formatTime(event.endDate)}</span>
+                    <Clock className="h-4 w-4" />
+                    <span>{format(new Date(event.startDate), "h:mm a")}</span>
                   </div>
-                  
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="h-4 w-4 text-primary" />
+                    <MapPin className="h-4 w-4" />
                     <span className="line-clamp-1">{event.location}</span>
                   </div>
-                  
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Users className="h-4 w-4 text-primary" />
-                    <span>{event.registrationCount} / {event.maxAttendees} registered</span>
+                    <Users className="h-4 w-4" />
+                    <span>{event.registered} / {event.capacity} registered</span>
                   </div>
-                </div>
-
-                {/* Organizer */}
-                <div className="pt-2 border-t border-border/50">
-                  <p className="text-xs text-muted-foreground">
-                    Organized by{" "}
-                    <span className="font-medium text-foreground">
-                      {event.organizer?.firstName || "STAK"} {event.organizer?.lastName || "Team"}
-                    </span>
-                    {event.organizer?.title && (
-                      <span>, {event.organizer.title}</span>
-                    )}
-                  </p>
                 </div>
 
                 {/* Tags */}
                 {event.tags && event.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {event.tags.slice(0, 3).map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs py-1 px-2">
+                    {event.tags.slice(0, 3).map((tag, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
                         {tag}
                       </Badge>
                     ))}
                     {event.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs py-1 px-2">
-                        +{event.tags.length - 3}
+                      <Badge variant="outline" className="text-xs">
+                        +{event.tags.length - 3} more
                       </Badge>
                     )}
                   </div>
                 )}
 
-                {/* Networking Rooms */}
-                {event.rooms && event.rooms.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-foreground">Networking Rooms</h4>
-                    <div className="space-y-1">
-                      {event.rooms.slice(0, 2).map((room) => (
-                        <div key={room.id} className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
-                          <div className="font-medium text-foreground">{room.name}</div>
-                          <div className="line-clamp-1">{room.description}</div>
-                          <div className="mt-1 text-xs">
-                            {room.participantCount || 0} / {room.maxParticipants} participants
-                          </div>
-                        </div>
-                      ))}
-                      {event.rooms.length > 2 && (
-                        <div className="text-xs text-muted-foreground text-center py-1">
-                          +{event.rooms.length - 2} more rooms
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* Action Buttons */}
-                <div className="pt-4 space-y-2">
-                  {isRegistered(event.id) ? (
+                <div className="flex gap-2 pt-2">
+                  {!event.isUserRegistered && event.registered < event.capacity && new Date(event.startDate) > new Date() ? (
                     <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => unregisterMutation.mutate(event.id)}
-                      disabled={unregisterMutation.isPending}
+                      onClick={() => handleRegister(event.id)}
+                      disabled={registerMutation.isPending}
+                      className="flex-1 bg-copper-600 hover:bg-copper-700 text-white"
                     >
-                      {unregisterMutation.isPending ? "Canceling..." : "Cancel Registration"}
+                      {registerMutation.isPending ? "Registering..." : "Register"}
                     </Button>
                   ) : (
-                    <Button
-                      className="w-full bg-primary hover:bg-primary/90"
-                      onClick={() => registerMutation.mutate({ 
-                        eventId: event.id, 
-                        interests: [], 
-                        networkingGoals: [] 
-                      })}
-                      disabled={registerMutation.isPending || event.registrationCount >= event.maxAttendees}
-                    >
-                      {registerMutation.isPending ? "Registering..." : 
-                       event.registrationCount >= event.maxAttendees ? "Event Full" : "Register"}
+                    <Button variant="outline" className="flex-1" disabled>
+                      {event.isUserRegistered ? "Registered" : 
+                       event.registered >= event.capacity ? "Full" : "Past Event"}
                     </Button>
                   )}
-                  
-                  {/* Live Dashboard Button - for registered attendees */}
-                  {isRegistered(event.id) && (
-                    <Button
-                      variant="outline"
-                      className="w-full border-primary text-primary hover:bg-primary/10"
-                      onClick={() => window.location.href = `/live-dashboard?eventId=${event.id}`}
-                    >
-                      <Activity className="h-4 w-4 mr-2" />
-                      Live Dashboard
-                    </Button>
+
+                  {/* External Links */}
+                  {(event.lumaUrl || event.eventbriteUrl) && (
+                    <div className="flex gap-1">
+                      {event.lumaUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(event.lumaUrl, '_blank')}
+                          className="px-2"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {event.eventbriteUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(event.eventbriteUrl, '_blank')}
+                          className="px-2"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   )}
-                  
-                  {/* CSV Import Button for Event Organizers */}
-                  <CSVImportModal eventId={event.id}>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Import Attendees
-                    </Button>
-                  </CSVImportModal>
+                </div>
+
+                {/* Registration Progress */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Registration</span>
+                    <span>{Math.round((event.registered / event.capacity) * 100)}% full</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div
+                      className="bg-copper-600 h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min((event.registered / event.capacity) * 100, 100)}%` }}
+                    ></div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+      )}
 
-        {filteredEvents.length === 0 && events.length > 0 && (
-          <div className="text-center py-12">
-            <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No events found</h3>
-            <p className="text-muted-foreground">
-              No {selectedEventType.replace("-", " ")} events are currently available.
-            </p>
-          </div>
-        )}
+      {/* CTA Section */}
+      <div className="text-center py-12 border-t">
+        <h2 className="text-2xl font-bold font-playfair mb-4">Ready to Network?</h2>
+        <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+          Join STAK Signal events to connect with vetted investors, successful founders, and industry experts. 
+          Every connection is an opportunity to accelerate your journey.
+        </p>
+        <div className="flex items-center justify-center gap-2">
+          <Star className="h-5 w-5 text-copper-600" />
+          <span className="text-sm text-muted-foreground">
+            Curated for STAK's exclusive membership community
+          </span>
+        </div>
       </div>
     </div>
   );

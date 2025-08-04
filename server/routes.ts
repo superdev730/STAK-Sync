@@ -1127,18 +1127,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Send email notification
       if (targetUser?.email) {
-        const { EmailService } = await import('./emailService');
-        if (status === 'suspended') {
-          await EmailService.sendAccountSuspensionEmail(
-            targetUser.email,
-            `${targetUser.firstName} ${targetUser.lastName}`,
-            reason || 'Administrative action'
-          );
-        } else if (status === 'active') {
-          await EmailService.sendAccountReactivationEmail(
-            targetUser.email,
-            `${targetUser.firstName} ${targetUser.lastName}`
-          );
+        try {
+          const { sendWelcomeEmail } = await import('./emailService');
+          if (status === 'active') {
+            await sendWelcomeEmail(targetUser.email, targetUser.firstName || 'User');
+          }
+        } catch (emailError) {
+          console.log('Email service error:', emailError);
         }
       }
 

@@ -1,189 +1,155 @@
-import sgMail from '@sendgrid/mail';
+import { MailService } from '@sendgrid/mail';
 
 if (!process.env.SENDGRID_API_KEY) {
   throw new Error("SENDGRID_API_KEY environment variable must be set");
 }
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const mailService = new MailService();
+mailService.setApiKey(process.env.SENDGRID_API_KEY);
 
-export interface EmailTemplate {
+interface LoginCredentialsEmailParams {
   to: string;
-  subject: string;
-  html: string;
-  text?: string;
+  firstName: string;
+  lastName: string;
+  temporaryPassword: string;
+  loginUrl: string;
 }
 
-export class EmailService {
-  private static fromEmail = 'noreply@staksignal.com'; // Update with your verified sender
-
-  static async sendEmail(template: EmailTemplate): Promise<boolean> {
-    try {
-      const msg = {
-        to: template.to,
-        from: this.fromEmail,
-        subject: template.subject,
-        html: template.html,
-        text: template.text || template.html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
-      };
-
-      await sgMail.send(msg);
-      console.log(`Email sent successfully to ${template.to}`);
-      return true;
-    } catch (error) {
-      console.error('SendGrid email error:', error);
-      return false;
-    }
-  }
-
-  static async sendWelcomeEmail(userEmail: string, userName: string): Promise<boolean> {
-    const template: EmailTemplate = {
-      to: userEmail,
-      subject: 'Welcome to STAK Signal - Your Elite Networking Journey Begins',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #141414; color: #FAFAFA; padding: 40px;">
-          <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="color: #CD853F; font-size: 32px; margin: 0;">STAK Signal</h1>
-            <p style="color: #CD853F; font-size: 16px; margin: 0;">Find Signal, Cut the Noise</p>
-          </div>
-          
-          <h2 style="color: #FAFAFA; font-size: 24px;">Welcome to the STAK Ecosystem, ${userName}</h2>
-          
-          <p style="color: #FAFAFA; font-size: 16px; line-height: 1.6;">
-            You've joined an exclusive community of venture capitalists, startup founders, and industry leaders 
-            who understand that ecosystems are more valuable than products.
-          </p>
-          
-          <div style="background-color: #1F1F1F; padding: 20px; border-left: 4px solid #CD853F; margin: 20px 0;">
-            <h3 style="color: #CD853F; margin-top: 0;">What's Next?</h3>
-            <ul style="color: #FAFAFA; line-height: 1.8;">
-              <li>Complete your profile to enhance AI matching</li>
-              <li>Take the networking questionnaire</li>
-              <li>Discover meaningful connections in your field</li>
-              <li>Join exclusive STAK events and meetups</li>
+export async function sendLoginCredentialsEmail(params: LoginCredentialsEmailParams): Promise<boolean> {
+  try {
+    const emailContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>STAK Signal - Your Login Credentials</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; }
+        .credentials { background: #f8fafc; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #CD853F; }
+        .button { display: inline-block; background: #CD853F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 14px; }
+        .logo { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
+        .tagline { font-size: 14px; opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">STAK Signal</div>
+            <div class="tagline">Find Signal, Cut the Noise</div>
+        </div>
+        <div class="content">
+            <h2>Welcome to STAK Signal, ${params.firstName}!</h2>
+            
+            <p>Your STAK Signal account has been created with owner privileges. As a member of the STAK team, you have full administrative access to the platform.</p>
+            
+            <div class="credentials">
+                <h3>🔐 Your Login Credentials</h3>
+                <p><strong>Email:</strong> ${params.to}</p>
+                <p><strong>Temporary Password:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 3px; font-family: monospace;">${params.temporaryPassword}</code></p>
+            </div>
+            
+            <p><strong>Important Security Notice:</strong> Please change your password immediately upon first login for security purposes.</p>
+            
+            <div style="text-align: center;">
+                <a href="${params.loginUrl}" class="button">Login to STAK Signal</a>
+            </div>
+            
+            <h3>Your Owner Privileges Include:</h3>
+            <ul>
+                <li>Full administrative dashboard access</li>
+                <li>User account management</li>
+                <li>Platform analytics and reporting</li>
+                <li>Event management and creation</li>
+                <li>System configuration</li>
             </ul>
-          </div>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://staksignal.com/profile" 
-               style="background-color: #CD853F; color: #141414; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-              Complete Your Profile
-            </a>
-          </div>
-          
-          <p style="color: #888; font-size: 14px; text-align: center; margin-top: 40px;">
-            STAK Signal - Connecting the STAK ecosystem<br>
-            1900 Broadway, Denver, CO
-          </p>
+            
+            <p>If you have any questions or need assistance, please don't hesitate to reach out to the STAK team.</p>
         </div>
-      `
-    };
+        <div class="footer">
+            <p>This email contains sensitive login information. Please keep it secure.</p>
+            <p>© 2025 STAK Ventures. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>`;
 
-    return this.sendEmail(template);
+    await mailService.send({
+      to: params.to,
+      from: 'noreply@stakventures.com',
+      subject: 'STAK Signal - Your Owner Account Credentials',
+      html: emailContent,
+    });
+
+    return true;
+  } catch (error) {
+    console.error('SendGrid email error:', error);
+    return false;
   }
+}
 
-  static async sendAccountSuspensionEmail(userEmail: string, userName: string, reason: string): Promise<boolean> {
-    const template: EmailTemplate = {
-      to: userEmail,
-      subject: 'STAK Signal Account Status Update',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #141414; color: #FAFAFA; padding: 40px;">
-          <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="color: #CD853F; font-size: 32px; margin: 0;">STAK Signal</h1>
-          </div>
-          
-          <h2 style="color: #FAFAFA; font-size: 24px;">Account Status Update</h2>
-          
-          <p style="color: #FAFAFA; font-size: 16px; line-height: 1.6;">
-            Hello ${userName},
-          </p>
-          
-          <p style="color: #FAFAFA; font-size: 16px; line-height: 1.6;">
-            Your STAK Signal account has been temporarily suspended. Reason: ${reason}
-          </p>
-          
-          <div style="background-color: #1F1F1F; padding: 20px; border-left: 4px solid #CD853F; margin: 20px 0;">
-            <p style="color: #FAFAFA; margin: 0;">
-              If you believe this is an error or would like to discuss your account status, 
-              please contact our support team.
-            </p>
-          </div>
-          
-          <p style="color: #888; font-size: 14px; text-align: center; margin-top: 40px;">
-            STAK Signal Support Team
-          </p>
+export async function sendWelcomeEmail(to: string, firstName: string): Promise<boolean> {
+  try {
+    const emailContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Welcome to STAK Signal</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; }
+        .button { display: inline-block; background: #CD853F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 14px; }
+        .logo { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
+        .tagline { font-size: 14px; opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">STAK Signal</div>
+            <div class="tagline">Find Signal, Cut the Noise</div>
         </div>
-      `
-    };
-
-    return this.sendEmail(template);
-  }
-
-  static async sendAccountReactivationEmail(userEmail: string, userName: string): Promise<boolean> {
-    const template: EmailTemplate = {
-      to: userEmail,
-      subject: 'Welcome Back to STAK Signal',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #141414; color: #FAFAFA; padding: 40px;">
-          <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="color: #CD853F; font-size: 32px; margin: 0;">STAK Signal</h1>
-            <p style="color: #CD853F; font-size: 16px; margin: 0;">Find Signal, Cut the Noise</p>
-          </div>
-          
-          <h2 style="color: #FAFAFA; font-size: 24px;">Welcome Back, ${userName}</h2>
-          
-          <p style="color: #FAFAFA; font-size: 16px; line-height: 1.6;">
-            Your STAK Signal account has been reactivated. You can now access all platform features 
-            and continue building meaningful connections within the STAK ecosystem.
-          </p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://staksignal.com/discover" 
-               style="background-color: #CD853F; color: #141414; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-              Start Networking
-            </a>
-          </div>
-          
-          <p style="color: #888; font-size: 14px; text-align: center; margin-top: 40px;">
-            STAK Signal - Connecting the STAK ecosystem
-          </p>
+        <div class="content">
+            <h2>Welcome to STAK Signal, ${firstName}!</h2>
+            
+            <p>You've successfully joined the STAK ecosystem's premier networking platform. Connect with venture capitalists, startup founders, and industry leaders through our AI-powered matching system.</p>
+            
+            <div style="text-align: center;">
+                <a href="${process.env.REPL_URL || 'https://stak-signal.repl.co'}" class="button">Get Started</a>
+            </div>
+            
+            <h3>What's Next?</h3>
+            <ul>
+                <li>Complete your professional profile</li>
+                <li>Set your networking goals</li>
+                <li>Discover AI-matched connections</li>
+                <li>Join STAK events and meetups</li>
+            </ul>
         </div>
-      `
-    };
-
-    return this.sendEmail(template);
-  }
-
-  static async sendAdminNotificationEmail(adminEmail: string, action: string, details: string): Promise<boolean> {
-    const template: EmailTemplate = {
-      to: adminEmail,
-      subject: `STAK Signal Admin Alert: ${action}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #141414; color: #FAFAFA; padding: 40px;">
-          <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="color: #CD853F; font-size: 32px; margin: 0;">STAK Signal Admin</h1>
-          </div>
-          
-          <h2 style="color: #FAFAFA; font-size: 24px;">Admin Action Alert</h2>
-          
-          <div style="background-color: #1F1F1F; padding: 20px; border-left: 4px solid #CD853F; margin: 20px 0;">
-            <h3 style="color: #CD853F; margin-top: 0;">Action: ${action}</h3>
-            <p style="color: #FAFAFA; margin: 0;">${details}</p>
-          </div>
-          
-          <p style="color: #FAFAFA; font-size: 16px; line-height: 1.6;">
-            Timestamp: ${new Date().toLocaleString()}
-          </p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://staksignal.com/admin" 
-               style="background-color: #CD853F; color: #141414; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-              View Admin Dashboard
-            </a>
-          </div>
+        <div class="footer">
+            <p>© 2025 STAK Ventures. All rights reserved.</p>
         </div>
-      `
-    };
+    </div>
+</body>
+</html>`;
 
-    return this.sendEmail(template);
+    await mailService.send({
+      to,
+      from: 'noreply@stakventures.com',
+      subject: 'Welcome to STAK Signal - Your Journey Begins',
+      html: emailContent,
+    });
+
+    return true;
+  } catch (error) {
+    console.error('SendGrid email error:', error);
+    return false;
   }
 }

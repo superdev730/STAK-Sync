@@ -1,5 +1,4 @@
 import { storage } from './storage';
-import { EmailService } from './emailService';
 import { db } from './db';
 import { users } from '../shared/schema';
 import { eq } from 'drizzle-orm';
@@ -45,11 +44,12 @@ export class AdminSetupService {
       });
 
       // Send welcome admin email
-      await EmailService.sendAdminNotificationEmail(
-        userEmail,
-        'Admin Account Created',
-        `Your STAK Signal account has been granted administrator privileges. You now have full access to the admin dashboard and user management features.`
-      );
+      try {
+        const { sendWelcomeEmail } = await import('./emailService');
+        await sendWelcomeEmail(userEmail, existingUser.firstName || 'Admin');
+      } catch (emailError) {
+        console.log('Email service not available for admin notification');
+      }
 
       // Log the admin creation
       await storage.logAdminAction({
@@ -71,41 +71,102 @@ export class AdminSetupService {
   }
 
   static async setupInitialAdmin(): Promise<void> {
-    const adminEmail = 'cbehring@behringco.com';
+    const ownerAccounts = [
+      {
+        email: 'cbehring@behringco.com',
+        firstName: 'Colin',
+        lastName: 'Behring'
+      },
+      {
+        email: 'dhoelle@behringco.com',
+        firstName: 'Donald',
+        lastName: 'Hoelle'
+      }
+    ];
     
     try {
-      console.log('Setting up initial admin user...');
+      console.log('Setting up owner accounts...');
       
-      // Check if user exists and update with admin role
-      const existingUsers = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, adminEmail))
-        .limit(1);
+      for (const ownerInfo of ownerAccounts) {
+        // Check if user exists and update with admin role
+        const existingUsers = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, ownerInfo.email))
+          .limit(1);
 
-      if (existingUsers.length > 0) {
-        const user = existingUsers[0];
-        if (!user.adminRole) {
-          await db
-            .update(users)
-            .set({ 
-              adminRole: "owner",
-              isStakTeamMember: true,
-              updatedAt: new Date()
-            })
-            .where(eq(users.email, adminEmail));
-          console.log(`✓ Updated ${adminEmail} to owner admin role.`);
+        if (existingUsers.length > 0) {
+          const user = existingUsers[0];
+          if (user.adminRole !== 'owner') {
+            await db
+              .update(users)
+              .set({ 
+                adminRole: "owner",
+                isStakTeamMember: true,
+                updatedAt: new Date()
+              })
+              .where(eq(users.email, ownerInfo.email));
+            console.log(`✓ Updated ${ownerInfo.email} to owner admin role.`);
+          } else {
+            console.log(`User ${ownerInfo.email} is already an admin with role: ${user.adminRole}`);
+          }
         } else {
-          console.log(`User ${adminEmail} is already an admin with role: ${user.adminRole}`);
+          // Create new owner account
+          const temporaryPassword = this.generateSecurePassword();
+          const loginUrl = process.env.REPL_URL || 'https://stak-signal.repl.co';
+          
+          await storage.upsertUser({
+            id: 'owner-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+            email: ownerInfo.email,
+            firstName: ownerInfo.firstName,
+            lastName: ownerInfo.lastName,
+            adminRole: 'owner',
+            isStakTeamMember: true,
+            profileVisible: true,
+            showOnlineStatus: true,
+            emailNotifications: true
+          });
+          
+          // Send login credentials email via SendGrid
+          try {
+            const { sendLoginCredentialsEmail } = await import('./emailService');
+            const emailSent = await sendLoginCredentialsEmail({
+              to: ownerInfo.email,
+              firstName: ownerInfo.firstName,
+              lastName: ownerInfo.lastName,
+              temporaryPassword,
+              loginUrl
+            });
+            
+            if (emailSent) {
+              console.log(`✓ Created owner account and sent credentials to: ${ownerInfo.email}`);
+            } else {
+              console.log(`✓ Created owner account for ${ownerInfo.email} (email sending failed)`);
+              console.log(`   Temporary password: ${temporaryPassword}`);
+            }
+          } catch (emailError) {
+            console.log(`✓ Created owner account for ${ownerInfo.email} (email service error)`);
+            console.log(`   Temporary password: ${temporaryPassword}`);
+          }
         }
-      } else {
-        console.log('⚠ Admin user not found - they need to sign up first');
       }
       
-      console.log('✓ Initial admin setup completed successfully');
+      console.log('✓ Owner accounts setup completed successfully');
     } catch (error) {
-      console.error('Failed to setup initial admin:', error);
+      console.error('Failed to setup owner accounts:', error);
     }
+  }
+
+  private static generateSecurePassword(): string {
+    const length = 16;
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    
+    return password;
   }
 
   // Function to check if a user should have admin access based on email domain
@@ -119,7 +180,7 @@ export class AdminSetupService {
 
   // Function to determine admin role based on email
   static getAdminRoleForEmail(email: string): "admin" | "super_admin" | "owner" | null {
-    if (email === "cbehring@behringco.com") {
+    if (email === "cbehring@behringco.com" || email === "dhoelle@behringco.com") {
       return "owner";
     }
     if (email.endsWith("@stakventures.com") || email.endsWith("@behringco.com")) {
