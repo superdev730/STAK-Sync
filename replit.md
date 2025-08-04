@@ -81,11 +81,20 @@ The application implements an intelligent matching algorithm that considers:
 - Proper authorization checks on all API endpoints
 
 ## Design & Branding
-- STAK Signal branding with black background and copper accents
-- Inspired by STAK Ventures and 1900 Broadway aesthetic
-- Uses sophisticated color palette: black (#141414), copper (#CD853F), white (#FAFAFA)
+- STAK Signal branding with light theme for better readability
+- Profile pages use light background with STAK copper accents (#CD853F)
+- Sophisticated color palette: white (#FAFAFA), blue (#3B82F6), gray gradients, copper accents
 - Professional typography with clean, modern layout
-- Emphasizes "Ecosystems are more valuable than products" philosophy
+- Emphasizes "Find Signal, Cut the Noise" and "Ecosystems are more valuable than products" philosophy
+
+# LinkedIn Integration & AI Profile Enhancement
+- **Automated Onboarding**: LinkedIn URL input for AI-powered profile generation
+- **AI Profile Analysis**: OpenAI integration for comprehensive profile enhancement
+- **Multi-Platform Support**: LinkedIn, Twitter, GitHub, and website integration capabilities
+- **Smart Bio Generation**: AI creates compelling professional bios optimized for networking
+- **Networking Goals**: AI-generated networking objectives based on professional background
+- **Profile Completeness**: Dynamic scoring system with visual progress indicators
+- **Enhanced User Fields**: Extended database schema with social links, skills, industries, and privacy settings
 
 # External Dependencies
 

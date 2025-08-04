@@ -299,6 +299,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Profile Enhancement endpoints
+  app.post('/api/profile/enhance-from-linkedin', isAuthenticated, async (req: any, res) => {
+    try {
+      const { linkedinUrl } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!linkedinUrl) {
+        return res.status(400).json({ message: "LinkedIn URL is required" });
+      }
+
+      // Import AI service for profile enhancement
+      const { enhanceProfileFromLinkedIn } = await import('./aiProfileEnhancer');
+      
+      // Use AI to analyze LinkedIn and enhance profile
+      const enhancedProfile = await enhanceProfileFromLinkedIn(linkedinUrl);
+      
+      // Update user profile with enhanced data
+      await storage.updateUser(userId, {
+        bio: enhancedProfile.bio,
+        networkingGoal: enhancedProfile.networkingGoal,
+        linkedinUrl: linkedinUrl,
+        title: enhancedProfile.title || undefined,
+        company: enhancedProfile.company || undefined,
+        skills: enhancedProfile.skills || undefined,
+        industries: enhancedProfile.industries || undefined
+      });
+
+      res.json({ 
+        success: true, 
+        profile: enhancedProfile,
+        message: "Profile successfully enhanced with LinkedIn data"
+      });
+    } catch (error) {
+      console.error("Error enhancing profile from LinkedIn:", error);
+      res.status(500).json({ 
+        message: "Failed to enhance profile from LinkedIn. Please try again or update manually." 
+      });
+    }
+  });
+
   // Generate AI-powered matches
   app.post('/api/matches/generate', isAuthenticated, async (req: any, res) => {
     try {

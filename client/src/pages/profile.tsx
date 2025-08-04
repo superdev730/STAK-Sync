@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +13,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { 
   User, 
   MapPin, 
@@ -34,7 +36,15 @@ import {
   Eye,
   Filter,
   ArrowUpDown,
-  BarChart3
+  BarChart3,
+  Linkedin,
+  Twitter,
+  Globe,
+  Github,
+  Wand2,
+  Sparkles,
+  Target,
+  Trophy
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -52,6 +62,7 @@ const profileSchema = z.object({
   linkedinUrl: z.string().url().optional().or(z.literal("")),
   twitterUrl: z.string().url().optional().or(z.literal("")),
   websiteUrl: z.string().url().optional().or(z.literal("")),
+  githubUrl: z.string().url().optional().or(z.literal("")),
   networkingGoal: z.string().optional(),
   industries: z.array(z.string()).optional(),
   skills: z.array(z.string()).optional(),
@@ -67,80 +78,39 @@ export default function Profile() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"profile" | "privacy">("profile");
-  const [drillDownDialog, setDrillDownDialog] = useState(false);
-  const [drillDownType, setDrillDownType] = useState("");
-  const [drillDownData, setDrillDownData] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"profile" | "privacy" | "ai-enhance">("profile");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [isEnhancingProfile, setIsEnhancingProfile] = useState(false);
+  const [showLinkedinDialog, setShowLinkedinDialog] = useState(false);
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      firstName: "",
-      lastName: "",
-      title: "",
-      company: "",
-      bio: "",
-      location: "",
-      linkedinUrl: "",
-      twitterUrl: "",
-      websiteUrl: "",
-      networkingGoal: "",
-      industries: [],
-      skills: [],
-      meetingPreference: "",
-      profileVisible: true,
-      showOnlineStatus: true,
-      emailNotifications: true,
+      firstName: user?.firstName || "",
+      lastName: user?.lastName || "",
+      title: user?.title || "",
+      company: user?.company || "",
+      bio: user?.bio || "",
+      location: user?.location || "",
+      linkedinUrl: user?.linkedinUrl || "",
+      twitterUrl: user?.twitterUrl || "",
+      websiteUrl: user?.websiteUrl || "",
+      githubUrl: user?.githubUrl || "",
+      networkingGoal: user?.networkingGoal || "",
+      profileVisible: user?.profileVisible ?? true,
+      showOnlineStatus: user?.showOnlineStatus ?? true,
+      emailNotifications: user?.emailNotifications ?? true,
     },
   });
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, authLoading, toast]);
-
-  // Set form values when user data loads
-  useEffect(() => {
-    if (user) {
-      form.reset({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        title: user.title || "",
-        company: user.company || "",
-        bio: user.bio || "",
-        location: user.location || "",
-        linkedinUrl: user.linkedinUrl || "",
-        twitterUrl: user.twitterUrl || "",
-        websiteUrl: user.websiteUrl || "",
-        networkingGoal: user.networkingGoal || "",
-        industries: user.industries || [],
-        skills: user.skills || [],
-        meetingPreference: user.meetingPreference || "",
-        profileVisible: user.profileVisible ?? true,
-        showOnlineStatus: user.showOnlineStatus ?? true,
-        emailNotifications: user.emailNotifications ?? true,
-      });
-    }
-  }, [user, form]);
-
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      return apiRequest("PUT", "/api/profile", data);
+      return await apiRequest(`/api/auth/user`, "PUT", data);
     },
     onSuccess: () => {
       toast({
-        title: "Profile Updated",
-        description: "Your profile has been updated successfully.",
+        title: "Profile updated",
+        description: "Your profile has been successfully updated.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     },
@@ -164,32 +134,30 @@ export default function Profile() {
     },
   });
 
-  const analyzeProfileMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/profile/analyze", {}),
-    onSuccess: () => {
-      toast({
-        title: "Profile Analyzed!",
-        description: "AI analysis completed. Your matching algorithm has been enhanced.",
+  const enhanceProfileMutation = useMutation({
+    mutationFn: async (linkedinUrl: string) => {
+      return await apiRequest(`/api/profile/enhance-from-linkedin`, "POST", { linkedinUrl });
+    },
+    onSuccess: (data) => {
+      // Update form with enhanced profile data
+      form.reset({
+        ...form.getValues(),
+        ...data.profile,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Profile Enhanced",
+        description: "Your profile has been enhanced with AI-powered insights from your LinkedIn.",
+      });
+      setShowLinkedinDialog(false);
+      setIsEnhancingProfile(false);
     },
     onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
       toast({
-        title: "Error",
-        description: "Failed to analyze profile. Please try again.",
+        title: "Enhancement Failed",
+        description: "Could not enhance profile from LinkedIn. Please try manually.",
         variant: "destructive",
       });
+      setIsEnhancingProfile(false);
     },
   });
 
@@ -197,661 +165,462 @@ export default function Profile() {
     updateProfileMutation.mutate(data);
   };
 
-  const handleMetricClick = async (metricType: string) => {
-    setDrillDownType(metricType);
-    setDrillDownDialog(true);
-
-    // Fetch detailed data based on metric type
-    try {
-      let endpoint = '';
-      switch (metricType) {
-        case 'Connections':
-          endpoint = '/api/user/connections-detailed';
-          break;
-        case 'Meetings':
-          endpoint = '/api/user/meetings-detailed';
-          break;
-        case 'Messages':
-          endpoint = '/api/user/messages-detailed';
-          break;
-        case 'Match Score':
-          endpoint = '/api/user/matches-detailed';
-          break;
-        default:
-          return;
-      }
-
-      const response = await apiRequest('GET', endpoint);
-      setDrillDownData(response || []);
-    } catch (error) {
-      console.error('Error fetching detailed data:', error);
-      setDrillDownData([]);
+  const handleLinkedinEnhancement = () => {
+    if (!linkedinUrl) {
+      toast({
+        title: "LinkedIn URL Required",
+        description: "Please enter your LinkedIn profile URL.",
+        variant: "destructive",
+      });
+      return;
     }
+    setIsEnhancingProfile(true);
+    enhanceProfileMutation.mutate(linkedinUrl);
   };
+
+  // Calculate profile completeness
+  const calculateCompleteness = () => {
+    const fields = form.getValues();
+    const requiredFields = ['firstName', 'lastName', 'title', 'company', 'bio', 'location'];
+    const optionalFields = ['linkedinUrl', 'networkingGoal'];
+    
+    const requiredFilled = requiredFields.filter(field => fields[field as keyof ProfileFormData]).length;
+    const optionalFilled = optionalFields.filter(field => fields[field as keyof ProfileFormData]).length;
+    
+    const totalScore = (requiredFilled / requiredFields.length) * 80 + (optionalFilled / optionalFields.length) * 20;
+    return Math.round(totalScore);
+  };
+
+  const completenessScore = calculateCompleteness();
 
   if (authLoading) {
-    return (
-      <div className="space-y-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-        </div>
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="h-96 bg-gray-200 rounded-2xl animate-pulse"></div>
-          </div>
-          <div className="space-y-6">
-            <div className="h-48 bg-gray-200 rounded-2xl animate-pulse"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
-
-  if (!user) {
-    return null;
-  }
-
-  const getProfileCompletion = () => {
-    const fields = [
-      user.firstName,
-      user.lastName,
-      user.title,
-      user.bio,
-      user.profileImageUrl,
-      user.linkedinUrl,
-      user.networkingGoal,
-      user.industries?.length,
-    ];
-    const completed = fields.filter(Boolean).length;
-    return Math.round((completed / fields.length) * 100);
-  };
-
-  const profileStats = [
-    { label: "Connections", value: "87", icon: Users },
-    { label: "Match Score", value: "94%", icon: TrendingUp },
-    { label: "Meetings", value: "23", icon: Calendar },
-    { label: "Messages", value: "156", icon: MessageSquare },
-  ];
-
-  const recentActivity = [
-    {
-      type: "connection",
-      description: "Connected with Sarah Chen, Managing Partner at Sequoia",
-      time: "2 days ago",
-      icon: Users,
-    },
-    {
-      type: "meeting",
-      description: "Completed meeting with Marcus Rodriguez",
-      time: "1 week ago",
-      icon: Calendar,
-    },
-    {
-      type: "profile",
-      description: "Updated profile with new achievements",
-      time: "2 weeks ago",
-      icon: User,
-    },
-  ];
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-stak-white mb-4">Your Professional Profile</h1>
-        <p className="text-xl text-stak-light-gray">Enhance your profile to attract better matches</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Your STAK Profile</h1>
+          <p className="text-lg text-gray-600">Build connections that matter in the STAK ecosystem</p>
+        </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Main Profile Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Profile Preview */}
-          <Card className="bg-stak-black border border-stak-gray">
-            <CardHeader>
-              <CardTitle className="text-2xl font-semibold text-stak-white">Profile Preview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-start space-x-6 mb-8">
-                <Avatar className="w-24 h-24 rounded-2xl">
-                  <AvatarImage src={user.profileImageUrl || ""} alt={user.firstName || ""} />
-                  <AvatarFallback className="bg-stak-copper text-stak-black text-xl rounded-2xl">
-                    {user.firstName?.[0]}{user.lastName?.[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-stak-white mb-2">
-                    {user.firstName} {user.lastName}
-                  </h3>
-                  <p className="text-stak-copper font-semibold mb-3">{user.title || "Professional Title"}</p>
-                  {user.company && (
-                    <p className="text-stak-light-gray mb-3">at {user.company}</p>
-                  )}
-                  <p className="text-stak-light-gray leading-relaxed mb-4">
-                    {user.bio || "Add a compelling bio to tell your professional story and attract the right connections."}
-                  </p>
-                  <div className="flex items-center space-x-4 text-sm text-stak-light-gray">
-                    {user.location && (
-                      <span className="flex items-center">
-                        <MapPin className="w-4 h-4 mr-1" />
-                        {user.location}
-                      </span>
-                    )}
-                    {user.linkedinUrl && (
-                      <span className="flex items-center text-stak-copper">
-                        <LinkIcon className="w-4 h-4 mr-1" />
-                        LinkedIn
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" className="border-stak-copper text-stak-copper hover:bg-stak-copper/10">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Change Photo
-                </Button>
+        {/* Profile Completeness Card */}
+        <Card className="bg-white border-0 shadow-lg">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl text-gray-900">Profile Strength</CardTitle>
+                <p className="text-gray-600">Complete your profile to maximize networking opportunities</p>
               </div>
+              <div className="text-right">
+                <div className="text-3xl font-bold text-blue-600">{completenessScore}%</div>
+                <div className="text-sm text-gray-500">Complete</div>
+              </div>
+            </div>
+            <Progress value={completenessScore} className="h-3 mt-4" />
+          </CardHeader>
+        </Card>
 
-              {/* Profile Stats */}
-              <div className="grid grid-cols-4 gap-6 p-6 bg-stak-gray rounded-xl">
-                {profileStats.map((stat) => (
-                  <div 
-                    key={stat.label} 
-                    className="text-center cursor-pointer hover:bg-stak-black/50 p-3 rounded-lg transition-all duration-200 group"
-                    onClick={() => handleMetricClick(stat.label)}
-                  >
-                    <div className="text-2xl font-bold text-stak-copper group-hover:text-stak-white transition-colors">
-                      {stat.value}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="w-full">
+          <TabsList className="grid grid-cols-3 w-full bg-white border shadow-sm">
+            <TabsTrigger value="profile" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              <User className="w-4 h-4 mr-2" />
+              Profile
+            </TabsTrigger>
+            <TabsTrigger value="ai-enhance" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              <Wand2 className="w-4 h-4 mr-2" />
+              AI Enhancement
+            </TabsTrigger>
+            <TabsTrigger value="privacy" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              <Eye className="w-4 h-4 mr-2" />
+              Privacy
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Profile Tab */}
+          <TabsContent value="profile" className="space-y-6">
+            <Card className="bg-white border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-gray-900">Personal Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="firstName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700">First Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="lastName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700">Last Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
-                    <div className="text-sm text-stak-light-gray flex items-center justify-center gap-1">
-                      {stat.label}
-                      <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Profile Form */}
-          <Card className="bg-stak-black border border-stak-gray">
-            <CardHeader>
-              <div className="flex space-x-4 border-b border-stak-gray">
-                <Button
-                  variant={activeTab === "profile" ? "default" : "ghost"}
-                  onClick={() => setActiveTab("profile")}
-                  className={activeTab === "profile" ? "bg-stak-copper text-stak-black" : "text-stak-light-gray hover:text-stak-white"}
-                >
-                  Profile Information
-                </Button>
-                <Button
-                  variant={activeTab === "privacy" ? "default" : "ghost"}
-                  onClick={() => setActiveTab("privacy")}
-                  className={activeTab === "privacy" ? "bg-stak-copper text-stak-black" : "text-stak-light-gray hover:text-stak-white"}
-                >
-                  Privacy & Settings
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  {activeTab === "profile" && (
-                    <>
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="firstName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>First Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} className="focus:border-navy" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="lastName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Last Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} className="focus:border-navy" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="title"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Professional Title</FormLabel>
+                            <FormLabel className="text-gray-700">Professional Title</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="e.g., Co-Founder & CEO" className="focus:border-navy" />
+                              <Input {...field} placeholder="e.g., CEO, Founder, Investor" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-
                       <FormField
                         control={form.control}
                         name="company"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Company</FormLabel>
+                            <FormLabel className="text-gray-700">Company</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="e.g., InnovateTech Solutions" className="focus:border-navy" />
+                              <Input {...field} placeholder="Your company or organization" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+                    </div>
 
-                      <FormField
-                        control={form.control}
-                        name="bio"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Professional Bio</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                {...field} 
-                                placeholder="Tell your professional story. What makes you unique? What are your goals?"
-                                className="focus:border-navy min-h-[100px]"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <FormField
+                      control={form.control}
+                      name="bio"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-700">Professional Bio</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              {...field} 
+                              placeholder="Tell the STAK community about your expertise, interests, and what you're looking to achieve..."
+                              className="bg-gray-50 border-gray-200 focus:border-blue-500 min-h-[120px]"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <FormField
-                        control={form.control}
-                        name="location"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Location</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="e.g., San Francisco, CA" className="focus:border-navy" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <FormField
+                      control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-700">Location</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="City, State/Country" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <Separator />
+                    <Separator className="my-6" />
 
-                      <div className="space-y-4">
-                        <h4 className="text-lg font-semibold text-charcoal">Social Links</h4>
-                        
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Professional Links</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField
                           control={form.control}
                           name="linkedinUrl"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>LinkedIn URL</FormLabel>
+                              <FormLabel className="text-gray-700 flex items-center">
+                                <Linkedin className="w-4 h-4 mr-2 text-blue-600" />
+                                LinkedIn
+                              </FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="https://linkedin.com/in/yourprofile" className="focus:border-navy" />
+                                <Input {...field} placeholder="https://linkedin.com/in/yourprofile" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-
                         <FormField
                           control={form.control}
                           name="twitterUrl"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Twitter URL</FormLabel>
+                              <FormLabel className="text-gray-700 flex items-center">
+                                <Twitter className="w-4 h-4 mr-2 text-blue-400" />
+                                Twitter
+                              </FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="https://twitter.com/yourhandle" className="focus:border-navy" />
+                                <Input {...field} placeholder="https://twitter.com/yourusername" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
+                      </div>
 
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField
                           control={form.control}
                           name="websiteUrl"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Website URL</FormLabel>
+                              <FormLabel className="text-gray-700 flex items-center">
+                                <Globe className="w-4 h-4 mr-2 text-green-600" />
+                                Website
+                              </FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="https://yourwebsite.com" className="focus:border-navy" />
+                                <Input {...field} placeholder="https://yourwebsite.com" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="githubUrl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-gray-700 flex items-center">
+                                <Github className="w-4 h-4 mr-2 text-gray-800" />
+                                GitHub
+                              </FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="https://github.com/yourusername" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
+                    </div>
 
-                      <Separator />
+                    <Separator className="my-6" />
 
-                      <FormField
-                        control={form.control}
-                        name="networkingGoal"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Networking Goal</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="e.g., Seeking Series A funding, Looking for co-founder" className="focus:border-navy" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <FormField
+                      control={form.control}
+                      name="networkingGoal"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-700">Networking Goals</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              {...field} 
+                              placeholder="What are you hoping to achieve through networking in the STAK community?"
+                              className="bg-gray-50 border-gray-200 focus:border-blue-500"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <FormField
-                        control={form.control}
-                        name="meetingPreference"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Meeting Preference</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="e.g., Coffee meetings, Lunch discussions, Virtual first" className="focus:border-navy" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
+                    <div className="flex justify-end pt-4">
+                      <Button 
+                        type="submit" 
+                        disabled={updateProfileMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-8"
+                      >
+                        {updateProfileMutation.isPending ? "Saving..." : "Save Profile"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                  {activeTab === "privacy" && (
-                    <div className="space-y-6">
-                      <div className="space-y-4">
-                        <h4 className="text-lg font-semibold text-charcoal">Privacy Settings</h4>
-                        
-                        <FormField
-                          control={form.control}
-                          name="profileVisible"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center justify-between">
-                              <div>
-                                <FormLabel>Profile Visibility</FormLabel>
-                                <p className="text-sm text-gray-600">Allow others to discover your profile</p>
-                              </div>
-                              <FormControl>
-                                <Switch checked={field.value} onCheckedChange={field.onChange} />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="showOnlineStatus"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center justify-between">
-                              <div>
-                                <FormLabel>Show Online Status</FormLabel>
-                                <p className="text-sm text-gray-600">Let others see when you're online</p>
-                              </div>
-                              <FormControl>
-                                <Switch checked={field.value} onCheckedChange={field.onChange} />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="emailNotifications"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center justify-between">
-                              <div>
-                                <FormLabel>Email Notifications</FormLabel>
-                                <p className="text-sm text-gray-600">Receive updates about matches and messages</p>
-                              </div>
-                              <FormControl>
-                                <Switch checked={field.value} onCheckedChange={field.onChange} />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <Separator />
-
-                      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="flex items-center mb-2">
-                          <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
-                          <h5 className="font-semibold text-red-800">Report Inappropriate Behavior</h5>
-                        </div>
-                        <p className="text-sm text-red-700 mb-3">
-                          If you encounter inappropriate behavior or safety concerns, please report it immediately.
-                        </p>
-                        <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
-                          Report Issue
-                        </Button>
+          {/* AI Enhancement Tab */}
+          <TabsContent value="ai-enhance" className="space-y-6">
+            <Card className="bg-white border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-gray-900 flex items-center">
+                  <Sparkles className="w-5 h-5 mr-2 text-blue-600" />
+                  AI-Powered Profile Enhancement
+                </CardTitle>
+                <p className="text-gray-600">
+                  Link your professional profiles and let AI create a compelling STAK profile that highlights your strengths and networking potential.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* LinkedIn Enhancement */}
+                <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center">
+                      <Linkedin className="w-6 h-6 text-blue-600 mr-3" />
+                      <div>
+                        <h3 className="font-semibold text-gray-900">LinkedIn Profile Import</h3>
+                        <p className="text-sm text-gray-600">Automatically enhance your profile with LinkedIn data</p>
                       </div>
                     </div>
-                  )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex gap-3">
+                      <Input
+                        placeholder="https://linkedin.com/in/yourprofile"
+                        value={linkedinUrl}
+                        onChange={(e) => setLinkedinUrl(e.target.value)}
+                        className="flex-1 bg-white border-gray-200"
+                      />
+                      <Button 
+                        onClick={handleLinkedinEnhancement}
+                        disabled={isEnhancingProfile || !linkedinUrl}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {isEnhancingProfile ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            Enhancing...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-4 h-4 mr-2" />
+                            Enhance
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    <div className="text-xs text-gray-500">
+                      <p>• AI will analyze your LinkedIn profile for professional achievements</p>
+                      <p>• Generate an optimized bio highlighting your expertise</p>
+                      <p>• Suggest networking goals based on your experience</p>
+                      <p>• Identify key skills and industry connections</p>
+                    </div>
+                  </div>
+                </div>
 
-                  <div className="flex justify-end space-x-4 pt-6">
-                    <Button type="button" variant="outline" className="border-stak-gray text-stak-light-gray hover:bg-stak-gray">
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                      disabled={updateProfileMutation.isPending}
-                    >
-                      {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                {/* Other Enhancement Options */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center mb-2">
+                      <Globe className="w-5 h-5 text-green-600 mr-2" />
+                      <h3 className="font-semibold text-gray-900">Website Analysis</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">Import achievements and expertise from your personal website or company page</p>
+                    <Button variant="outline" size="sm" className="w-full" disabled>
+                      Coming Soon
                     </Button>
                   </div>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
 
-          {/* Recent Activity */}
-          <Card className="bg-stak-black border border-stak-gray">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-stak-white">Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-center space-x-3 p-3 bg-stak-gray rounded-lg">
-                    <div className="w-8 h-8 bg-stak-copper rounded-full flex items-center justify-center">
-                      <activity.icon className="w-4 h-4 text-stak-black" />
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center mb-2">
+                      <Github className="w-5 h-5 text-gray-800 mr-2" />
+                      <h3 className="font-semibold text-gray-900">GitHub Integration</h3>
                     </div>
-                    <div className="flex-1">
-                      <span className="text-stak-white">{activity.description}</span>
-                      <span className="text-xs text-stak-light-gray ml-auto block">{activity.time}</span>
+                    <p className="text-sm text-gray-600 mb-3">Showcase your technical contributions and open source involvement</p>
+                    <Button variant="outline" size="sm" className="w-full" disabled>
+                      Coming Soon
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Success Metrics */}
+                <div className="p-6 bg-green-50 rounded-lg border border-green-200">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <Trophy className="w-5 h-5 text-green-600 mr-2" />
+                    Profile Optimization Tips
+                  </h3>
+                  <div className="space-y-2 text-sm text-gray-700">
+                    <div className="flex items-center">
+                      <Target className="w-4 h-4 text-green-600 mr-2" />
+                      <span>Complete profiles get 3x more connection requests</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Users className="w-4 h-4 text-green-600 mr-2" />
+                      <span>Rich bios increase match quality by 40%</span>
+                    </div>
+                    <div className="flex items-center">
+                      <MessageSquare className="w-4 h-4 text-green-600 mr-2" />
+                      <span>Clear networking goals lead to better conversations</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Profile Completion */}
-          <Card className="bg-stak-black border border-stak-gray">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-stak-white">Profile Completion</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-stak-light-gray">Basic Info</span>
-                  <CheckCircle className="w-5 h-5 text-green-400" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-stak-light-gray">Professional Photo</span>
-                  {user.profileImageUrl ? (
-                    <CheckCircle className="w-5 h-5 text-green-400" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-red-400" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-stak-light-gray">LinkedIn Integration</span>
-                  {user.linkedinUrl ? (
-                    <CheckCircle className="w-5 h-5 text-green-400" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-red-400" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-stak-light-gray">Networking Goals</span>
-                  {user.networkingGoal ? (
-                    <CheckCircle className="w-5 h-5 text-green-400" />
-                  ) : (
-                    <CircleAlert className="w-5 h-5 text-stak-copper" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-stak-light-gray">Industry Preferences</span>
-                  {user.industries?.length ? (
-                    <CheckCircle className="w-5 h-5 text-green-400" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-red-400" />
-                  )}
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="w-full bg-stak-gray rounded-full h-2">
-                  <div 
-                    className="bg-stak-copper h-2 rounded-full transition-all" 
-                    style={{ width: `${getProfileCompletion()}%` }}
-                  ></div>
-                </div>
-                <p className="text-sm text-stak-light-gray mt-2">{getProfileCompletion()}% Complete</p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Privacy Tab */}
+          <TabsContent value="privacy" className="space-y-6">
+            <Card className="bg-white border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-gray-900">Privacy Settings</CardTitle>
+                <p className="text-gray-600">Control how your profile appears to other STAK members</p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium text-gray-900">Profile Visibility</Label>
+                      <p className="text-sm text-gray-600">Allow other members to discover and view your profile</p>
+                    </div>
+                    <Switch 
+                      checked={form.watch("profileVisible")}
+                      onCheckedChange={(checked) => form.setValue("profileVisible", checked)}
+                    />
+                  </div>
 
-          {/* AI Profile Analysis */}
-          <Card className="bg-stak-black border border-stak-gray">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-stak-white">AI Profile Enhancement</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-stak-light-gray">
-                Analyze your profile with AI to improve match quality and discover networking opportunities.
-              </p>
-              <Button 
-                onClick={() => analyzeProfileMutation.mutate()}
-                disabled={analyzeProfileMutation.isPending}
-                className="w-full bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
-              >
-                {analyzeProfileMutation.isPending ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-4 h-4 mr-2" />
-                    Analyze My Profile
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+                  <Separator />
 
-          {/* Account Actions */}
-          <Card className="bg-stak-black border border-stak-gray">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-stak-white">Account</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start border-stak-gray text-stak-light-gray hover:bg-stak-gray"
-                onClick={() => window.location.href = "/api/logout"}
-              >
-                Sign Out
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium text-gray-900">Show Online Status</Label>
+                      <p className="text-sm text-gray-600">Let others see when you're active on the platform</p>
+                    </div>
+                    <Switch 
+                      checked={form.watch("showOnlineStatus")}
+                      onCheckedChange={(checked) => form.setValue("showOnlineStatus", checked)}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium text-gray-900">Email Notifications</Label>
+                      <p className="text-sm text-gray-600">Receive notifications about matches, messages, and events</p>
+                    </div>
+                    <Switch 
+                      checked={form.watch("emailNotifications")}
+                      onCheckedChange={(checked) => form.setValue("emailNotifications", checked)}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <Button 
+                    onClick={form.handleSubmit(onSubmit)}
+                    disabled={updateProfileMutation.isPending}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Privacy Settings"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
-
-      {/* Drill-Down Dialog */}
-      <Dialog open={drillDownDialog} onOpenChange={setDrillDownDialog}>
-        <DialogContent className="bg-stak-black border-stak-gray max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-stak-white flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-stak-copper" />
-              {drillDownType} - Detailed Records
-            </DialogTitle>
-            <DialogDescription className="text-stak-light-gray">
-              Detailed information about your {drillDownType.toLowerCase()}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-stak-light-gray">{drillDownData.length} records found</p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="border-stak-gray text-stak-light-gray">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                </Button>
-                <Button variant="outline" size="sm" className="border-stak-gray text-stak-light-gray">
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
-                  Sort
-                </Button>
-              </div>
-            </div>
-
-            <div className="border border-stak-gray rounded-lg overflow-hidden">
-              <div className="bg-stak-gray px-4 py-3 border-b border-stak-gray">
-                <div className="grid grid-cols-4 gap-4 text-sm font-medium text-stak-light-gray">
-                  <div>Name/Title</div>
-                  <div>Type/Status</div>
-                  <div>Date/Time</div>
-                  <div>Action</div>
-                </div>
-              </div>
-              
-              <div className="max-h-96 overflow-y-auto">
-                {drillDownData.length > 0 ? (
-                  drillDownData.map((record: any, index: number) => (
-                    <div key={record.id || index} className="px-4 py-3 border-b border-stak-gray hover:bg-stak-gray/30 transition-colors">
-                      <div className="grid grid-cols-4 gap-4 items-center text-sm">
-                        <div className="text-stak-white font-medium">
-                          {record.name || record.title || record.email || `Record ${index + 1}`}
-                        </div>
-                        <div className="text-stak-light-gray">
-                          {record.type || record.status || record.category || 'N/A'}
-                        </div>
-                        <div className="text-stak-light-gray">
-                          {record.createdAt || record.timestamp || record.date || 'N/A'}
-                        </div>
-                        <div>
-                          <Button size="sm" variant="outline" className="border-stak-gray text-stak-light-gray hover:bg-stak-gray">
-                            View
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="px-4 py-8 text-center text-stak-light-gray">
-                    No detailed records available for this metric
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

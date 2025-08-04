@@ -40,6 +40,7 @@ export const users = pgTable("users", {
   linkedinUrl: text("linkedin_url"),
   twitterUrl: text("twitter_url"),
   websiteUrl: text("website_url"),
+  githubUrl: text("github_url"),
   networkingGoal: text("networking_goal"),
   industries: text("industries").array(),
   skills: text("skills").array(),
