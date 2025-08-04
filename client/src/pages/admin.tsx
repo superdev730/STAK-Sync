@@ -865,18 +865,24 @@ export default function Admin() {
 
     const addEventMutation = useMutation({
       mutationFn: async (eventData: any) => {
-        // Convert date/time data to the expected format
+        // Convert date/time data to the expected format for the database
         const processedData = {
-          ...eventData,
-          startTime: eventData.startDate && eventData.startTime ? 
-            new Date(`${eventData.startDate.toDateString()} ${eventData.startTime}`).toISOString() : 
-            new Date().toISOString(),
-          endTime: eventData.endDate && eventData.endTime ? 
-            new Date(`${eventData.endDate.toDateString()} ${eventData.endTime}`).toISOString() : 
-            new Date().toISOString(),
+          title: eventData.title,
+          description: eventData.description,
+          location: eventData.location,
+          capacity: eventData.capacity,
+          eventType: 'networking', // Default event type
+          startDate: eventData.startDate ? format(eventData.startDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+          startTime: eventData.startTime || '09:00',
+          endDate: eventData.endDate ? format(eventData.endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+          endTime: eventData.endTime || '17:00',
+          imageUrl: eventData.imageUrl || null,
+          videoUrl: eventData.videoUrl || null,
+          status: 'active',
+          price: '0',
+          isVirtual: false,
+          isFeatured: false,
         };
-        delete processedData.startDate;
-        delete processedData.endDate;
         return apiRequest('/api/admin/events', 'POST', processedData);
       },
       onSuccess: () => {
@@ -1059,73 +1065,198 @@ export default function Admin() {
 
         {/* Add Event Dialog */}
         <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
-          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-2xl">
+          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Event</DialogTitle>
               <DialogDescription className="text-gray-400">
-                Add a new event to the platform
+                Add a new event to the platform with enhanced media support
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="eventTitle" className="text-gray-300">Event Title</Label>
-                <Input
-                  id="eventTitle"
-                  value={newEventData.title}
-                  onChange={(e) => setNewEventData({...newEventData, title: e.target.value})}
-                  className="bg-[#141414] border-gray-600 text-white"
-                />
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-medium text-white">Basic Information</h4>
+                <div>
+                  <Label htmlFor="eventTitle" className="text-gray-300">Event Title</Label>
+                  <Input
+                    id="eventTitle"
+                    value={newEventData.title}
+                    onChange={(e) => setNewEventData({...newEventData, title: e.target.value})}
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="eventDescription" className="text-gray-300">Description</Label>
+                  <Textarea
+                    id="eventDescription"
+                    value={newEventData.description}
+                    onChange={(e) => setNewEventData({...newEventData, description: e.target.value})}
+                    className="bg-[#141414] border-gray-600 text-white"
+                    rows={3}
+                  />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="eventDescription" className="text-gray-300">Description</Label>
-                <Textarea
-                  id="eventDescription"
-                  value={newEventData.description}
-                  onChange={(e) => setNewEventData({...newEventData, description: e.target.value})}
-                  className="bg-[#141414] border-gray-600 text-white"
-                  rows={3}
-                />
+
+              {/* Date and Time */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-medium text-white">Date & Time</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-300">Start Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full bg-[#141414] border-gray-600 text-white hover:bg-[#2A2A2A] justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {newEventData.startDate ? format(newEventData.startDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-[#1F1F1F] border-gray-600">
+                        <Calendar
+                          mode="single"
+                          selected={newEventData.startDate}
+                          onSelect={(date) => setNewEventData({...newEventData, startDate: date})}
+                          initialFocus
+                          className="bg-[#1F1F1F] text-white"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <Label className="text-gray-300">End Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full bg-[#141414] border-gray-600 text-white hover:bg-[#2A2A2A] justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {newEventData.endDate ? format(newEventData.endDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-[#1F1F1F] border-gray-600">
+                        <Calendar
+                          mode="single"
+                          selected={newEventData.endDate}
+                          onSelect={(date) => setNewEventData({...newEventData, endDate: date})}
+                          initialFocus
+                          className="bg-[#1F1F1F] text-white"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="startTime" className="text-gray-300">Start Time</Label>
+                    <Select value={newEventData.startTime} onValueChange={(value) => setNewEventData({...newEventData, startTime: value})}>
+                      <SelectTrigger className="bg-[#141414] border-gray-600 text-white">
+                        <SelectValue placeholder="Select start time" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1F1F1F] border-gray-600">
+                        {Array.from({ length: 24 }, (_, i) => {
+                          const hour = i.toString().padStart(2, '0');
+                          return [
+                            <SelectItem key={`${hour}:00`} value={`${hour}:00`} className="text-white hover:bg-[#2A2A2A]">{hour}:00</SelectItem>,
+                            <SelectItem key={`${hour}:30`} value={`${hour}:30`} className="text-white hover:bg-[#2A2A2A]">{hour}:30</SelectItem>
+                          ];
+                        }).flat()}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="endTime" className="text-gray-300">End Time</Label>
+                    <Select value={newEventData.endTime} onValueChange={(value) => setNewEventData({...newEventData, endTime: value})}>
+                      <SelectTrigger className="bg-[#141414] border-gray-600 text-white">
+                        <SelectValue placeholder="Select end time" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1F1F1F] border-gray-600">
+                        {Array.from({ length: 24 }, (_, i) => {
+                          const hour = i.toString().padStart(2, '0');
+                          return [
+                            <SelectItem key={`${hour}:00`} value={`${hour}:00`} className="text-white hover:bg-[#2A2A2A]">{hour}:00</SelectItem>,
+                            <SelectItem key={`${hour}:30`} value={`${hour}:30`} className="text-white hover:bg-[#2A2A2A]">{hour}:30</SelectItem>
+                          ];
+                        }).flat()}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
+
+              {/* Location and Capacity */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="startTime" className="text-gray-300">Start Time</Label>
+                  <Label htmlFor="location" className="text-gray-300">Location</Label>
                   <Input
-                    id="startTime"
-                    type="datetime-local"
-                    value={newEventData.startTime}
-                    onChange={(e) => setNewEventData({...newEventData, startTime: e.target.value})}
+                    id="location"
+                    value={newEventData.location}
+                    onChange={(e) => setNewEventData({...newEventData, location: e.target.value})}
                     className="bg-[#141414] border-gray-600 text-white"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="endTime" className="text-gray-300">End Time</Label>
+                  <Label htmlFor="capacity" className="text-gray-300">Capacity</Label>
                   <Input
-                    id="endTime"
-                    type="datetime-local"
-                    value={newEventData.endTime}
-                    onChange={(e) => setNewEventData({...newEventData, endTime: e.target.value})}
+                    id="capacity"
+                    type="number"
+                    value={newEventData.capacity}
+                    onChange={(e) => setNewEventData({...newEventData, capacity: parseInt(e.target.value) || 0})}
                     className="bg-[#141414] border-gray-600 text-white"
                   />
                 </div>
               </div>
-              <div>
-                <Label htmlFor="location" className="text-gray-300">Location</Label>
-                <Input
-                  id="location"
-                  value={newEventData.location}
-                  onChange={(e) => setNewEventData({...newEventData, location: e.target.value})}
-                  className="bg-[#141414] border-gray-600 text-white"
-                />
-              </div>
-              <div>
-                <Label htmlFor="capacity" className="text-gray-300">Capacity</Label>
-                <Input
-                  id="capacity"
-                  type="number"
-                  value={newEventData.capacity}
-                  onChange={(e) => setNewEventData({...newEventData, capacity: parseInt(e.target.value)})}
-                  className="bg-[#141414] border-gray-600 text-white"
-                />
+
+              {/* Media Upload */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-medium text-white">Media & Content</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-300 mb-2 block">Event Cover Image</Label>
+                    <ObjectUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={5242880} // 5MB
+                      onGetUploadParameters={async () => {
+                        const response = await fetch('/api/objects/upload', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({ fileName: 'event-image.jpg' })
+                        });
+                        const { uploadURL } = await response.json();
+                        return { method: 'PUT' as const, url: uploadURL };
+                      }}
+                      onComplete={(result) => {
+                        if (result.successful.length > 0) {
+                          setNewEventData({...newEventData, imageUrl: result.successful[0].uploadURL});
+                        }
+                      }}
+                      buttonClassName="w-full bg-[#141414] border border-gray-600 text-white hover:bg-[#2A2A2A]"
+                    >
+                      <Image className="h-4 w-4 mr-2" />
+                      Upload Cover Image
+                    </ObjectUploader>
+                    {newEventData.imageUrl && (
+                      <p className="text-sm text-green-400 mt-2">✓ Image uploaded successfully</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="videoUrl" className="text-gray-300">YouTube Video URL (Optional)</Label>
+                    <Input
+                      id="videoUrl"
+                      value={newEventData.videoUrl}
+                      onChange={(e) => setNewEventData({...newEventData, videoUrl: e.target.value})}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="bg-[#141414] border-gray-600 text-white"
+                    />
+                    <div className="flex items-center mt-2 text-sm text-gray-400">
+                      <Video className="h-4 w-4 mr-1" />
+                      Paste YouTube URL for event video
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -1138,8 +1269,8 @@ export default function Admin() {
               </Button>
               <Button
                 onClick={() => addEventMutation.mutate(newEventData)}
-                disabled={addEventMutation.isPending || !newEventData.title}
-                className="bg-[#CD853F] text-black hover:bg-[#B8752F]"
+                disabled={addEventMutation.isPending}
+                className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
               >
                 {addEventMutation.isPending ? 'Creating...' : 'Create Event'}
               </Button>
