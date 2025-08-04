@@ -474,8 +474,8 @@ function AdminDashboard() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold text-white">User Management</h3>
-                  <p className="text-gray-400">Manage user accounts and permissions</p>
+                  <h3 className="text-xl font-semibold text-navy">User Management</h3>
+                  <p className="text-gray-600">Manage user accounts and permissions</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="relative">
@@ -484,30 +484,30 @@ function AdminDashboard() {
                       placeholder="Search users..."
                       value={userSearchQuery}
                       onChange={(e) => setUserSearchQuery(e.target.value)}
-                      className="pl-10 bg-[#1F1F1F] border-gray-600 text-white w-64"
+                      className="pl-10 bg-white border-gray-300 text-gray-900 w-64 focus:border-navy"
                     />
                     {userSearchQuery.length >= 2 && searchSuggestions && searchSuggestions.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 bg-[#1F1F1F] border border-gray-600 rounded-md mt-1 z-50 max-h-48 overflow-y-auto">
+                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md mt-1 z-50 max-h-48 overflow-y-auto shadow-lg">
                         {searchSuggestions.map((user: any) => (
                           <div
                             key={user.id}
-                            className="p-3 hover:bg-[#2A2A2A] cursor-pointer border-b border-gray-700 last:border-b-0"
+                            className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-200 last:border-b-0"
                             onClick={() => {
                               setUserSearchQuery(user.email);
                             }}
                           >
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-[#CD853F] flex items-center justify-center text-black text-xs font-semibold">
+                              <div className="w-6 h-6 rounded-full bg-navy flex items-center justify-center text-white text-xs font-semibold">
                                 {user.firstName?.[0] || user.email[0].toUpperCase()}
                               </div>
                               <div>
-                                <p className="text-white text-sm">
+                                <p className="text-gray-900 text-sm">
                                   {user.firstName && user.lastName 
                                     ? `${user.firstName} ${user.lastName}` 
                                     : user.email.split('@')[0]
                                   }
                                 </p>
-                                <p className="text-gray-400 text-xs">{user.email}</p>
+                                <p className="text-gray-600 text-xs">{user.email}</p>
                               </div>
                             </div>
                           </div>
@@ -517,7 +517,7 @@ function AdminDashboard() {
                   </div>
                   <Button 
                     onClick={() => setShowAddUserDialog(true)}
-                    className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
+                    className="bg-navy text-white hover:bg-navy/90"
                   >
                     <UserCheck className="h-4 w-4 mr-2" />
                     Add User
@@ -526,36 +526,36 @@ function AdminDashboard() {
               </div>
 
               {/* Users Table */}
-              <Card className="bg-[#1F1F1F] border-gray-600">
+              <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardContent className="p-0">
                   {usersLoading ? (
                     <div className="flex items-center justify-center h-32">
-                      <Activity className="h-6 w-6 animate-spin text-[#CD853F]" />
+                      <Activity className="h-6 w-6 animate-spin text-navy" />
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="border-b border-gray-600">
+                        <thead className="border-b border-gray-200 bg-gray-50">
                           <tr className="text-left">
-                            <th className="p-4 text-gray-300 font-medium">User</th>
-                            <th className="p-4 text-gray-300 font-medium">Email</th>
-                            <th className="p-4 text-gray-300 font-medium">Role</th>
-                            <th className="p-4 text-gray-300 font-medium">Status</th>
-                            <th className="p-4 text-gray-300 font-medium">Joined</th>
-                            <th className="p-4 text-gray-300 font-medium">Actions</th>
+                            <th className="p-4 text-gray-700 font-medium">User</th>
+                            <th className="p-4 text-gray-700 font-medium">Email</th>
+                            <th className="p-4 text-gray-700 font-medium">Role</th>
+                            <th className="p-4 text-gray-700 font-medium">Status</th>
+                            <th className="p-4 text-gray-700 font-medium">Joined</th>
+                            <th className="p-4 text-gray-700 font-medium">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {!userManagement && !usersLoading && (
                             <tr>
-                              <td colSpan={6} className="p-8 text-center text-gray-400">
+                              <td colSpan={6} className="p-8 text-center text-gray-600">
                                 Unable to load user data. Please refresh the page.
                               </td>
                             </tr>
                           )}
                           {userManagement?.users?.length === 0 && (
                             <tr>
-                              <td colSpan={6} className="p-8 text-center text-gray-400">
+                              <td colSpan={6} className="p-8 text-center text-gray-600">
                                 No users found. Try adjusting your search or check the system.
                               </td>
                             </tr>
