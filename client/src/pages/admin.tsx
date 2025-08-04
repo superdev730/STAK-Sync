@@ -343,12 +343,12 @@ function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#141414] text-white p-8">
+      <div className="min-h-screen bg-gray-50 text-gray-900 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
-              <Activity className="h-8 w-8 animate-spin mx-auto mb-4 text-[#CD853F]" />
-              <p className="text-gray-300">Loading admin dashboard...</p>
+              <Activity className="h-8 w-8 animate-spin mx-auto mb-4 text-navy" />
+              <p className="text-gray-600">Loading admin dashboard...</p>
             </div>
           </div>
         </div>
@@ -357,28 +357,28 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#141414] text-white p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 text-gray-900 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-gray-400">Comprehensive platform management and analytics</p>
+          <h1 className="text-3xl font-bold mb-2 text-navy">STAK Signal Admin</h1>
+          <p className="text-gray-600">Comprehensive platform management and analytics</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-[#1F1F1F] border-gray-600">
-            <TabsTrigger value="analytics" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+          <TabsList className="bg-white border border-gray-200 shadow-sm">
+            <TabsTrigger value="analytics" className="data-[state=active]:bg-navy data-[state=active]:text-white text-gray-600">
               <BarChart3 className="h-4 w-4 mr-2" />
               Analytics
             </TabsTrigger>
-            <TabsTrigger value="users" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+            <TabsTrigger value="users" className="data-[state=active]:bg-navy data-[state=active]:text-white text-gray-600">
               <Users className="h-4 w-4 mr-2" />
               User Management
             </TabsTrigger>
-            <TabsTrigger value="events" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+            <TabsTrigger value="events" className="data-[state=active]:bg-navy data-[state=active]:text-white text-gray-600">
               <CalendarIcon className="h-4 w-4 mr-2" />
               Event Management
             </TabsTrigger>
-            <TabsTrigger value="insights" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
+            <TabsTrigger value="insights" className="data-[state=active]:bg-navy data-[state=active]:text-white text-gray-600">
               <PieChart className="h-4 w-4 mr-2" />
               Platform Insights
             </TabsTrigger>
@@ -386,28 +386,28 @@ function AdminDashboard() {
 
           <TabsContent value="analytics">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-              <Card className="bg-[#1F1F1F] border-gray-600">
+              <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-300">Total Users</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-white">{(analytics as any)?.userStats?.totalUsers || 0}</div>
+                  <div className="text-2xl font-bold text-navy">{(analytics as any)?.userStats?.totalUsers || 0}</div>
                   <div className="flex items-center mt-2">
-                    <TrendingUp className="h-4 w-4 text-green-400 mr-1" />
-                    <span className="text-sm text-green-400">+{(analytics as any)?.userStats?.newUsersThisWeek || 0} this week</span>
+                    <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600">+{(analytics as any)?.userStats?.newUsersThisWeek || 0} this week</span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-[#1F1F1F] border-gray-600">
+              <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-300">Active Events</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-600">Active Events</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-white">{(analytics as any)?.eventStats?.upcomingEvents || 0}</div>
+                  <div className="text-2xl font-bold text-navy">{(analytics as any)?.eventStats?.upcomingEvents || 0}</div>
                   <div className="flex items-center mt-2">
-                    <CalendarIcon className="h-4 w-4 text-blue-400 mr-1" />
-                    <span className="text-sm text-blue-400">{(analytics as any)?.eventStats?.totalRegistrations || 0} registrations</span>
+                    <CalendarIcon className="h-4 w-4 text-blue-600 mr-1" />
+                    <span className="text-sm text-blue-600">{(analytics as any)?.eventStats?.totalRegistrations || 0} registrations</span>
                   </div>
                 </CardContent>
               </Card>
@@ -561,31 +561,31 @@ function AdminDashboard() {
                             </tr>
                           )}
                           {userManagement?.users?.map((user: User) => (
-                            <tr key={user.id} className="border-b border-gray-700 hover:bg-[#2A2A2A]">
+                            <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
                               <td className="p-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-[#CD853F] flex items-center justify-center text-black font-semibold">
+                                  <div className="w-8 h-8 rounded-full bg-navy flex items-center justify-center text-white font-semibold">
                                     {user.firstName?.[0] || user.email[0].toUpperCase()}
                                   </div>
                                   <div>
-                                    <p className="text-white font-medium">
+                                    <p className="text-gray-900 font-medium">
                                       {user.firstName && user.lastName 
                                         ? `${user.firstName} ${user.lastName}` 
                                         : user.email.split('@')[0]
                                       }
                                     </p>
-                                    <p className="text-sm text-gray-400">{user.company || 'No company'}</p>
+                                    <p className="text-sm text-gray-600">{user.company || 'No company'}</p>
                                   </div>
                                 </div>
                               </td>
-                              <td className="p-4 text-gray-300">{user.email}</td>
+                              <td className="p-4 text-gray-700">{user.email}</td>
                               <td className="p-4">
                                 <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                                   User
                                 </Badge>
                               </td>
                               <td className="p-4">{getStatusBadge(user)}</td>
-                              <td className="p-4 text-gray-300">
+                              <td className="p-4 text-gray-700">
                                 {new Date(user.createdAt).toLocaleDateString()}
                               </td>
                               <td className="p-4">
@@ -593,7 +593,7 @@ function AdminDashboard() {
                                   <Button 
                                     size="sm" 
                                     variant="ghost" 
-                                    className="text-blue-400 hover:text-blue-300"
+                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                     onClick={() => handleEditUser(user)}
                                     title="Edit User"
                                   >
@@ -602,7 +602,7 @@ function AdminDashboard() {
                                   <Button 
                                     size="sm" 
                                     variant="ghost" 
-                                    className="text-yellow-400 hover:text-yellow-300"
+                                    className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
                                     onClick={() => handleUserAction(user, 'suspend')}
                                     title="Suspend User"
                                   >
@@ -611,7 +611,7 @@ function AdminDashboard() {
                                   <Button 
                                     size="sm" 
                                     variant="ghost" 
-                                    className="text-green-400 hover:text-green-300"
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
                                     onClick={() => handleUserAction(user, 'activate')}
                                     title="Activate User"
                                   >
@@ -620,7 +620,7 @@ function AdminDashboard() {
                                   <Button 
                                     size="sm" 
                                     variant="ghost" 
-                                    className="text-red-400 hover:text-red-300"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                     onClick={() => deleteUserMutation.mutate(user.id)}
                                     title="Delete User"
                                   >
@@ -856,10 +856,10 @@ function AdminDashboard() {
 
         {/* Edit User Dialog */}
         <Dialog open={showEditUserDialog} onOpenChange={setShowEditUserDialog}>
-          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-white border border-gray-200 text-gray-900 max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription className="text-gray-400">
+              <DialogTitle className="text-navy">Edit User</DialogTitle>
+              <DialogDescription className="text-gray-600">
                 Update user account information and permissions
               </DialogDescription>
             </DialogHeader>
@@ -867,56 +867,56 @@ function AdminDashboard() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="editFirstName" className="text-gray-300">First Name</Label>
+                    <Label htmlFor="editFirstName" className="text-gray-700 font-medium">First Name</Label>
                     <Input
                       id="editFirstName"
                       defaultValue={selectedUserForEdit.firstName || ''}
-                      className="bg-[#141414] border-gray-600 text-white"
+                      className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="editLastName" className="text-gray-300">Last Name</Label>
+                    <Label htmlFor="editLastName" className="text-gray-700 font-medium">Last Name</Label>
                     <Input
                       id="editLastName"
                       defaultValue={selectedUserForEdit.lastName || ''}
-                      className="bg-[#141414] border-gray-600 text-white"
+                      className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                     />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="editEmail" className="text-gray-300">Email</Label>
+                  <Label htmlFor="editEmail" className="text-gray-700 font-medium">Email</Label>
                   <Input
                     id="editEmail"
                     type="email"
                     defaultValue={selectedUserForEdit.email}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-gray-100 border-gray-300 text-gray-700"
                     disabled
                   />
                 </div>
                 <div>
-                  <Label htmlFor="editCompany" className="text-gray-300">Company</Label>
+                  <Label htmlFor="editCompany" className="text-gray-700 font-medium">Company</Label>
                   <Input
                     id="editCompany"
                     defaultValue={selectedUserForEdit.company || ''}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="editTitle" className="text-gray-300">Title</Label>
+                  <Label htmlFor="editTitle" className="text-gray-700 font-medium">Title</Label>
                   <Input
                     id="editTitle"
                     defaultValue={selectedUserForEdit.title || ''}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="editAdminRole" className="text-gray-300">Admin Role</Label>
+                    <Label htmlFor="editAdminRole" className="text-gray-700 font-medium">Admin Role</Label>
                     <select 
                       id="editAdminRole"
                       defaultValue={(selectedUserForEdit as any)?.adminRole || ''}
-                      className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white"
+                      className="w-full p-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:border-navy"
                     >
                       <option value="">No Admin Role</option>
                       <option value="admin">Admin</option>
@@ -925,11 +925,11 @@ function AdminDashboard() {
                     </select>
                   </div>
                   <div>
-                    <Label htmlFor="editStatus" className="text-gray-300">Account Status</Label>
+                    <Label htmlFor="editStatus" className="text-gray-700 font-medium">Account Status</Label>
                     <select 
                       id="editStatus"
                       defaultValue="active"
-                      className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white"
+                      className="w-full p-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:border-navy"
                     >
                       <option value="active">Active</option>
                       <option value="suspended">Suspended</option>
@@ -943,9 +943,9 @@ function AdminDashboard() {
                     type="checkbox"
                     id="editIsStakTeamMember"
                     defaultChecked={(selectedUserForEdit as any)?.isStakTeamMember || false}
-                    className="rounded border-gray-600"
+                    className="rounded border-gray-300 text-navy focus:ring-navy"
                   />
-                  <Label htmlFor="editIsStakTeamMember" className="text-gray-300">STAK Team Member</Label>
+                  <Label htmlFor="editIsStakTeamMember" className="text-gray-700 font-medium">STAK Team Member</Label>
                 </div>
                 
                 {/* Password Reset Section */}
@@ -1077,31 +1077,31 @@ function AdminDashboard() {
 
         {/* Create Event Dialog */}
         <Dialog open={showCreateEventDialog} onOpenChange={setShowCreateEventDialog}>
-          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-2xl">
+          <DialogContent className="bg-white border border-gray-200 text-gray-900 max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create New Event</DialogTitle>
-              <DialogDescription className="text-gray-400">
+              <DialogTitle className="text-navy">Create New Event</DialogTitle>
+              <DialogDescription className="text-gray-600">
                 Create a new networking event for the STAK platform
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="eventTitle" className="text-gray-300">Event Title</Label>
+                  <Label htmlFor="eventTitle" className="text-gray-700 font-medium">Event Title</Label>
                   <Input
                     id="eventTitle"
                     placeholder="STAK Networking Event"
                     value={eventData.title}
                     onChange={(e) => setEventData({...eventData, title: e.target.value})}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="eventType" className="text-gray-300">Event Type</Label>
+                  <Label htmlFor="eventType" className="text-gray-700 font-medium">Event Type</Label>
                   <select 
                     value={eventData.eventType}
                     onChange={(e) => setEventData({...eventData, eventType: e.target.value})}
-                    className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white"
+                    className="w-full p-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:border-navy"
                   >
                     <option value="networking">Networking</option>
                     <option value="workshop">Workshop</option>
@@ -1113,13 +1113,13 @@ function AdminDashboard() {
               </div>
               
               <div>
-                <Label htmlFor="eventDescription" className="text-gray-300">Description</Label>
+                <Label htmlFor="eventDescription" className="text-gray-700 font-medium">Description</Label>
                 <textarea
                   id="eventDescription"
                   placeholder="Event description and details..."
                   value={eventData.description}
                   onChange={(e) => setEventData({...eventData, description: e.target.value})}
-                  className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white h-24 resize-none"
+                  className="w-full p-2 bg-white border border-gray-300 rounded-md text-gray-900 h-24 resize-none focus:border-navy"
                 />
               </div>
 
