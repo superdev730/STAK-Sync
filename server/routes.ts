@@ -1712,5 +1712,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Enhancement API routes
+  app.post('/api/ai/enhance', isAuthenticated, async (req: any, res) => {
+    try {
+      const { field, currentValue, context, profileData } = req.body;
+      
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: 'AI service not configured' });
+      }
+
+      // Efficient, minimal token prompts for each field type
+      const prompts: Record<string, string> = {
+        bio: `Write a concise 2-3 sentence professional bio for: ${profileData?.firstName || ''} ${profileData?.lastName || ''}, ${profileData?.position || 'Professional'} at ${profileData?.company || 'Company'}. Current: "${currentValue}". Make it engaging and networking-focused.`,
+        networkingGoals: `List 3 specific networking goals for a ${profileData?.position || 'professional'} in ${profileData?.industries?.join('/') || 'tech'}. Current: "${currentValue}". Be specific and actionable.`,
+        skills: `List 8-12 relevant skills for ${profileData?.position || 'professional'} at ${profileData?.company || 'tech company'}. Current: "${currentValue}". Return comma-separated list.`,
+        industries: `List 4-6 relevant industries for ${profileData?.company || 'technology company'}. Current: "${currentValue}". Return comma-separated list.`
+      };
+
+      const prompt = prompts[field] || `Enhance this ${field}: "${currentValue}" for a professional profile. Be concise.`;
+
+      const openai = await import('openai');
+      const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+
+      const response = await client.chat.completions.create({
+        model: "gpt-4o", // Latest model as per blueprint
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 200, // Keep responses short and efficient
+        temperature: 0.7,
+      });
+
+      const enhancedValue = response.choices[0]?.message?.content?.trim() || currentValue;
+
+      res.json({ enhancedValue });
+    } catch (error) {
+      console.error('AI enhancement error:', error);
+      res.status(500).json({ error: 'AI enhancement failed' });
+    }
+  });
+
   return httpServer;
 }

@@ -987,22 +987,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(events).where(eq(events.id, eventId));
   }
 
-  // Event management methods for API
-  async getAllEvents(): Promise<Event[]> {
-    return await db
-      .select()
-      .from(events)
-      .orderBy(desc(events.startDate));
-  }
-
-  async getEvent(eventId: string): Promise<Event | undefined> {
-    const [event] = await db
-      .select()
-      .from(events)
-      .where(eq(events.id, eventId));
-    
-    return event;
-  }
+  // Event management methods for API - updated to avoid duplicates
 
   async getEventRegistrationCount(eventId: string): Promise<number> {
     const [result] = await db
