@@ -5,7 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
-import { Brain, MessageSquare, Calendar, Users, TrendingUp, Award, ExternalLink, BarChart3, Filter, ArrowUpDown, AlertCircle, Clock } from "lucide-react";
+import { Brain, MessageSquare, Calendar, Users, TrendingUp, Award, ExternalLink, BarChart3, Filter, ArrowUpDown, AlertCircle, Clock, Info, HelpCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 
 interface UserStats {
@@ -28,7 +34,7 @@ export default function Home() {
   useEffect(() => {
     const fetchUserStats = async () => {
       try {
-        const stats = await apiRequest('GET', '/api/user/stats') as UserStats;
+        const stats = await apiRequest('GET', '/api/user/stats') as unknown as UserStats;
         setUserStats(stats);
       } catch (error) {
         console.error('Error fetching user stats:', error);
@@ -39,15 +45,55 @@ export default function Home() {
   }, []);
 
   const stats = userStats ? [
-    { label: "Connections", value: (userStats.connections || 0).toString(), icon: Users },
-    { label: "Match Score", value: userStats.matchScore || "0%", icon: TrendingUp },
-    { label: "Meetings", value: (userStats.meetings || 0).toString(), icon: Calendar },
-    { label: "Messages", value: (userStats.messages || 0).toString(), icon: MessageSquare },
+    { 
+      label: "Connections", 
+      value: (userStats.connections || 0).toString(), 
+      icon: Users,
+      tooltip: "Your verified professional connections within the STAK ecosystem. This number represents mutual connections where both parties have accepted the connection request. Quality over quantity - each connection is vetted through our AI matching system."
+    },
+    { 
+      label: "Match Score", 
+      value: userStats.matchScore || "0%", 
+      icon: TrendingUp,
+      tooltip: "AI-calculated compatibility score based on your networking goals, industry alignment, geographic preferences, investment focus, and communication style. Higher scores indicate stronger potential for meaningful professional relationships. Updated in real-time as you engage with the platform."
+    },
+    { 
+      label: "Meetings", 
+      value: (userStats.meetings || 0).toString(), 
+      icon: Calendar,
+      tooltip: "Total scheduled meetings and events you've arranged through STAK Signal. Includes completed video calls, in-person meetings, and event networking sessions. Tracked to measure your active networking engagement and relationship building progress."
+    },
+    { 
+      label: "Messages", 
+      value: (userStats.messages || 0).toString(), 
+      icon: MessageSquare,
+      tooltip: "Total messages exchanged with your connections. Our AI monitors engagement patterns to suggest optimal communication timing and helps maintain professional relationship momentum. Quality conversations lead to stronger business outcomes."
+    },
   ] : [
-    { label: "Connections", value: "0", icon: Users },
-    { label: "Match Score", value: "0%", icon: TrendingUp },
-    { label: "Meetings", value: "0", icon: Calendar },
-    { label: "Messages", value: "0", icon: MessageSquare },
+    { 
+      label: "Connections", 
+      value: "0", 
+      icon: Users,
+      tooltip: "Your verified professional connections within the STAK ecosystem. Complete your profile to start receiving AI-matched connection suggestions."
+    },
+    { 
+      label: "Match Score", 
+      value: "0%", 
+      icon: TrendingUp,
+      tooltip: "AI-calculated compatibility score. Complete your questionnaire and add more details to your profile to improve your match score and receive better connection recommendations."
+    },
+    { 
+      label: "Meetings", 
+      value: "0", 
+      icon: Calendar,
+      tooltip: "Total scheduled meetings and events. Start connecting with others to begin scheduling valuable networking meetings."
+    },
+    { 
+      label: "Messages", 
+      value: "0", 
+      icon: MessageSquare,
+      tooltip: "Total messages exchanged. Begin conversations with your matches to start building meaningful professional relationships."
+    },
   ];
 
   const handleMetricClick = async (metricType: string) => {
@@ -226,24 +272,36 @@ export default function Home() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat) => (
-            <Card 
-              key={stat.label} 
-              className="bg-white shadow-md hover:shadow-lg border border-gray-200 text-center cursor-pointer transition-all duration-200 group"
-              onClick={() => handleMetricClick(stat.label)}
-            >
-              <CardContent className="p-6">
-                <stat.icon className="w-8 h-8 text-gray-600 mx-auto mb-3 group-hover:text-stak-copper transition-colors" />
-                <div className="text-2xl font-bold text-gray-900 mb-1 group-hover:text-stak-copper transition-colors">{stat.value}</div>
-                <div className="text-sm text-gray-600 flex items-center justify-center gap-1">
-                  {stat.label}
-                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <TooltipProvider>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {stats.map((stat) => (
+              <Card 
+                key={stat.label} 
+                className="bg-white shadow-md hover:shadow-lg border border-gray-200 text-center cursor-pointer transition-all duration-200 group"
+                onClick={() => handleMetricClick(stat.label)}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-center mb-3">
+                    <stat.icon className="w-8 h-8 text-gray-600 group-hover:text-stak-copper transition-colors" />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-4 h-4 text-gray-400 hover:text-stak-copper ml-2 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg border border-gray-700">
+                        <p className="text-sm leading-relaxed">{stat.tooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 mb-1 group-hover:text-stak-copper transition-colors">{stat.value}</div>
+                  <div className="text-sm text-gray-600 flex items-center justify-center gap-1">
+                    {stat.label}
+                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TooltipProvider>
 
         {/* Quick Actions */}
         <div className="space-y-4">
@@ -303,7 +361,19 @@ export default function Home() {
               <div className="space-y-4">
                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">Profile Optimization</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">Profile Optimization</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-4 h-4 text-gray-400 hover:text-stak-copper cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg border border-gray-700">
+                          <p className="text-sm leading-relaxed">
+                            AI analyzes your profile completeness, keyword optimization, industry alignment, and engagement patterns. Factors include: professional summary quality, skills relevance, education details, and response to messages. Higher scores lead to better match recommendations.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <Badge className="bg-green-600 text-white">94%</Badge>
                   </div>
                   <p className="text-sm text-gray-600">
@@ -313,7 +383,19 @@ export default function Home() {
                 
                 <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">Networking Goal</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">Networking Goal</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-4 h-4 text-gray-400 hover:text-stak-copper cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg border border-gray-700">
+                          <p className="text-sm leading-relaxed">
+                            Tracks progress toward your specified networking objectives. AI matches you with relevant professionals based on your goals (funding, partnerships, mentorship, etc.) and monitors completion through successful connections and meeting outcomes.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <Badge className="bg-yellow-600 text-white">Active</Badge>
                   </div>
                   <p className="text-sm text-gray-600">
@@ -323,7 +405,19 @@ export default function Home() {
 
                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">Best Time to Connect</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">Best Time to Connect</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-4 h-4 text-gray-400 hover:text-stak-copper cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg border border-gray-700">
+                          <p className="text-sm leading-relaxed">
+                            AI analyzes when your connections are most active and responsive. Based on login patterns, message response times, and successful interaction data across the STAK network to optimize your outreach timing.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <Badge className="bg-gray-600 text-white">2-4 PM</Badge>
                   </div>
                   <p className="text-sm text-gray-600">
@@ -352,11 +446,11 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600">{drillDownData.length} records found</p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="border-gray-300 text-gray-700">
+                <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
                   <Filter className="h-4 w-4 mr-2" />
                   Filter
                 </Button>
-                <Button variant="outline" size="sm" className="border-gray-300 text-gray-700">
+                <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
                   <ArrowUpDown className="h-4 w-4 mr-2" />
                   Sort
                 </Button>
