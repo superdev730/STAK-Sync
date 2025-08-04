@@ -1105,14 +1105,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
-      const result = await storage.getAllUsers(page, limit);
+      const search = req.query.search as string;
+      
+      let result;
+      if (search && search.trim()) {
+        const searchResults = await storage.searchUsers(search.trim());
+        result = {
+          users: searchResults,
+          total: searchResults.length
+        };
+      } else {
+        result = await storage.getAllUsers(page, limit);
+      }
 
       // Log admin action
       await storage.logAdminAction({
         adminUserId: user!.id,
         action: 'view_users',
         targetType: 'users',
-        details: { page, limit },
+        details: { page, limit, search },
         ipAddress: req.ip,
         userAgent: req.get('User-Agent') || 'unknown',
       });
@@ -1121,6 +1132,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching users:', error);
       res.status(500).json({ message: 'Failed to fetch users' });
+    }
+  });
+
+  // Search users endpoint
+  app.get('/api/admin/users/search', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.trim().length < 2) {
+        return res.json([]);
+      }
+
+      const results = await storage.searchUsers(query.trim());
+      res.json(results.slice(0, 10)); // Limit to 10 suggestions
+    } catch (error) {
+      console.error('Error searching users:', error);
+      res.status(500).json({ message: 'Failed to search users' });
     }
   });
 

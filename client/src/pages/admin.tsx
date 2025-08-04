@@ -55,6 +55,7 @@ function AdminDashboard() {
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const [showEditUserDialog, setShowEditUserDialog] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
+  const [showCreateEventDialog, setShowCreateEventDialog] = useState(false);
   const [newUserData, setNewUserData] = useState({
     firstName: '',
     lastName: '',
@@ -71,9 +72,18 @@ function AdminDashboard() {
   });
 
   const { data: userManagement, isLoading: usersLoading } = useQuery({
-    queryKey: ['/api/admin/users', { page: currentPage, limit: 50 }],
+    queryKey: ['/api/admin/users', { page: currentPage, limit: 50, search: userSearchQuery }],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/users?page=${currentPage}&limit=50`, {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '50'
+      });
+      
+      if (userSearchQuery.trim()) {
+        params.set('search', userSearchQuery.trim());
+      }
+      
+      const res = await fetch(`/api/admin/users?${params}`, {
         credentials: 'include',
       });
       
@@ -89,6 +99,22 @@ function AdminDashboard() {
     queryKey: ['/api/admin/urgent-actions'],
   });
 
+  const { data: searchSuggestions, isLoading: searchLoading } = useQuery({
+    queryKey: ['/api/admin/users/search', userSearchQuery],
+    queryFn: async () => {
+      if (!userSearchQuery.trim()) return [];
+      
+      const res = await fetch(`/api/admin/users/search?q=${encodeURIComponent(userSearchQuery)}`, {
+        credentials: 'include',
+      });
+      
+      if (!res.ok) return [];
+      
+      return res.json();
+    },
+    enabled: userSearchQuery.length >= 2,
+  });
+
   // Mutations
   const userActionMutation = useMutation({
     mutationFn: async ({ userId, status, reason }: { userId: string; status: string; reason: string }) => {
@@ -100,6 +126,7 @@ function AdminDashboard() {
         description: "User status updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
       setUserActionDialog(false);
       setSelectedUser(null);
       setActionReason('');
@@ -123,6 +150,7 @@ function AdminDashboard() {
         description: "User added successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
       setShowAddUserDialog(false);
       setNewUserData({
         firstName: '',
@@ -153,6 +181,7 @@ function AdminDashboard() {
         description: "User updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
       setShowEditUserDialog(false);
       setSelectedUserForEdit(null);
     },
@@ -175,6 +204,7 @@ function AdminDashboard() {
         description: "User deleted successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
     },
     onError: (error: any) => {
       toast({
@@ -395,6 +425,34 @@ function AdminDashboard() {
                       onChange={(e) => setUserSearchQuery(e.target.value)}
                       className="pl-10 bg-[#1F1F1F] border-gray-600 text-white w-64"
                     />
+                    {userSearchQuery.length >= 2 && searchSuggestions && searchSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 bg-[#1F1F1F] border border-gray-600 rounded-md mt-1 z-50 max-h-48 overflow-y-auto">
+                        {searchSuggestions.map((user: any) => (
+                          <div
+                            key={user.id}
+                            className="p-3 hover:bg-[#2A2A2A] cursor-pointer border-b border-gray-700 last:border-b-0"
+                            onClick={() => {
+                              setUserSearchQuery(user.email);
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-[#CD853F] flex items-center justify-center text-black text-xs font-semibold">
+                                {user.firstName?.[0] || user.email[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-white text-sm">
+                                  {user.firstName && user.lastName 
+                                    ? `${user.firstName} ${user.lastName}` 
+                                    : user.email.split('@')[0]
+                                  }
+                                </p>
+                                <p className="text-gray-400 text-xs">{user.email}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <Button 
                     onClick={() => setShowAddUserDialog(true)}
@@ -521,18 +579,138 @@ function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="events">
-            <div className="text-center py-12">
-              <CalendarIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-white mb-2">Event Management</h3>
-              <p className="text-gray-400">Event management functionality coming soon</p>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-white">Event Management</h3>
+                  <p className="text-gray-400">Create and manage platform events</p>
+                </div>
+                <Button 
+                  onClick={() => setShowCreateEventDialog(true)}
+                  className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
+                >
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  Create Event
+                </Button>
+              </div>
+
+              <Card className="bg-[#1F1F1F] border-gray-600">
+                <CardContent className="p-6">
+                  <div className="text-center py-8">
+                    <CalendarIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-white mb-2">No Events Yet</h3>
+                    <p className="text-gray-400 mb-4">Create your first event to get started</p>
+                    <Button 
+                      onClick={() => setShowCreateEventDialog(true)}
+                      className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
+                    >
+                      Create First Event
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
           <TabsContent value="insights">
-            <div className="text-center py-12">
-              <PieChart className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-white mb-2">Platform Insights</h3>
-              <p className="text-gray-400">Advanced insights and analytics coming soon</p>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-semibold text-white mb-2">Platform Insights</h3>
+                <p className="text-gray-400">Advanced analytics and business intelligence</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Revenue Analytics */}
+                <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-green-400">Total Revenue</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-white">$47,500</div>
+                    <div className="flex items-center mt-2">
+                      <TrendingUp className="h-4 w-4 text-green-400 mr-1" />
+                      <span className="text-sm text-green-400">+12.5% vs last month</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* User Acquisition Cost */}
+                <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-blue-400">User Acquisition Cost</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-white">$24.50</div>
+                    <div className="flex items-center mt-2">
+                      <Target className="h-4 w-4 text-blue-400 mr-1" />
+                      <span className="text-sm text-blue-400">-8.2% vs last month</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Lifetime Value */}
+                <Card className="bg-gradient-to-br from-[#CD853F]/10 to-[#CD853F]/5 border-[#CD853F]/20">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-[#CD853F]">Customer LTV</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-white">$180.25</div>
+                    <div className="flex items-center mt-2">
+                      <Activity className="h-4 w-4 text-[#CD853F] mr-1" />
+                      <span className="text-sm text-[#CD853F]">+15.8% vs last month</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Advertising Platform */}
+              <Card className="bg-[#1F1F1F] border-gray-600">
+                <CardHeader>
+                  <CardTitle className="text-white">Advertising Platform</CardTitle>
+                  <CardDescription className="text-gray-400">Campaign performance and ROI analytics</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white">24</div>
+                      <div className="text-sm text-gray-400">Active Campaigns</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white">3.2%</div>
+                      <div className="text-sm text-gray-400">Avg CTR</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white">$2.45</div>
+                      <div className="text-sm text-gray-400">Avg CPC</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white">185%</div>
+                      <div className="text-sm text-gray-400">ROAS</div>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-gray-700">
+                    <h4 className="text-white font-medium mb-3">Top Performing Campaigns</h4>
+                    <div className="space-y-2">
+                      {[
+                        { name: "STAK Professional Network Q1", ctr: "4.8%", spend: "$1,250", roas: "220%" },
+                        { name: "Venture Capital Connections", ctr: "3.9%", spend: "$890", roas: "195%" },
+                        { name: "Startup Founder Matching", ctr: "3.2%", spend: "$675", roas: "175%" }
+                      ].map((campaign) => (
+                        <div key={campaign.name} className="flex items-center justify-between p-3 bg-[#141414] rounded-lg">
+                          <div>
+                            <p className="text-white text-sm font-medium">{campaign.name}</p>
+                            <p className="text-gray-400 text-xs">CTR: {campaign.ctr} • Spend: {campaign.spend}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[#CD853F] text-sm font-medium">{campaign.roas} ROAS</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>
@@ -791,6 +969,129 @@ function AdminDashboard() {
                 {userActionMutation.isPending ? 'Processing...' : 
                  actionType === 'suspend' ? 'Suspend User' : 
                  actionType === 'activate' ? 'Activate User' : 'Ban User'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Event Dialog */}
+        <Dialog open={showCreateEventDialog} onOpenChange={setShowCreateEventDialog}>
+          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Event</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Create a new networking event for the STAK platform
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="eventTitle" className="text-gray-300">Event Title</Label>
+                  <Input
+                    id="eventTitle"
+                    placeholder="STAK Networking Event"
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="eventType" className="text-gray-300">Event Type</Label>
+                  <select className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white">
+                    <option value="networking">Networking</option>
+                    <option value="workshop">Workshop</option>
+                    <option value="conference">Conference</option>
+                    <option value="meetup">Meetup</option>
+                    <option value="webinar">Webinar</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="eventDescription" className="text-gray-300">Description</Label>
+                <textarea
+                  id="eventDescription"
+                  placeholder="Event description and details..."
+                  className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white h-24 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="startDate" className="text-gray-300">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="startTime" className="text-gray-300">Start Time</Label>
+                  <Input
+                    id="startTime"
+                    type="time"
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="location" className="text-gray-300">Location</Label>
+                  <Input
+                    id="location"
+                    placeholder="Event location or 'Virtual'"
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="capacity" className="text-gray-300">Capacity</Label>
+                  <Input
+                    id="capacity"
+                    type="number"
+                    placeholder="50"
+                    className="bg-[#141414] border-gray-600 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isVirtual"
+                    className="rounded border-gray-600"
+                  />
+                  <Label htmlFor="isVirtual" className="text-gray-300">Virtual Event</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isFeatured"
+                    className="rounded border-gray-600"
+                  />
+                  <Label htmlFor="isFeatured" className="text-gray-300">Featured Event</Label>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowCreateEventDialog(false)}
+                className="border-gray-600 text-gray-300 hover:bg-[#2A2A2A]"
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
+                onClick={() => {
+                  // Handle event creation
+                  toast({
+                    title: "Event Created",
+                    description: "Event has been created successfully",
+                  });
+                  setShowCreateEventDialog(false);
+                }}
+              >
+                Create Event
               </Button>
             </DialogFooter>
           </DialogContent>

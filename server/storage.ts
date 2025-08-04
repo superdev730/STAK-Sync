@@ -462,7 +462,6 @@ export class DatabaseStorage implements IStorage {
       .from(events)
       .leftJoin(users, eq(events.organizerId, users.id))
       .leftJoin(eventRegistrations, eq(events.id, eventRegistrations.eventId))
-      .where(eq(events.status, "active"))
       .groupBy(events.id, users.id)
       .orderBy(desc(events.startDate));
 
@@ -996,6 +995,18 @@ export class DatabaseStorage implements IStorage {
       users: usersData,
       total: totalCount[0]?.count || 0
     };
+  }
+
+  // Search users by name, email, company (case-insensitive)
+  async searchUsers(query: string): Promise<User[]> {
+    const searchTerm = `%${query.toLowerCase()}%`;
+    return await db
+      .select()
+      .from(users)
+      .where(
+        sql`LOWER(COALESCE(${users.firstName}, '') || ' ' || COALESCE(${users.lastName}, '') || ' ' || ${users.email} || ' ' || COALESCE(${users.company}, '')) LIKE ${searchTerm}`
+      )
+      .limit(10);
   }
 
   async updateUserAccountStatus(userId: string, statusData: InsertUserAccountStatus): Promise<UserAccountStatus> {
