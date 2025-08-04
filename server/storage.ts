@@ -995,6 +995,15 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(events.startDate));
   }
 
+  async getEvent(eventId: string): Promise<Event | undefined> {
+    const [event] = await db
+      .select()
+      .from(events)
+      .where(eq(events.id, eventId));
+    
+    return event;
+  }
+
   async getEventRegistrationCount(eventId: string): Promise<number> {
     const [result] = await db
       .select({ count: sql<number>`count(*)` })

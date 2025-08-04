@@ -702,14 +702,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.claims?.sub;
       const { eventId } = req.params;
-      const { interests, networkingGoals } = req.body;
 
-      const registration = await storage.registerForEvent({
-        eventId,
-        userId,
-        interests: interests || [],
-        networkingGoals: networkingGoals || []
-      });
+      const registration = await storage.registerForEvent(eventId, userId);
 
       res.json(registration);
     } catch (error) {
@@ -1053,14 +1047,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analytics = await storage.getAdminAnalytics(timeRange);
       
       // Log admin action
-      await storage.logAdminAction({
-        adminUserId: user.id,
-        action: 'view_analytics',
-        targetType: 'analytics',
-        details: { timeRange },
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent') || 'unknown',
-      });
+      if (user) {
+        await storage.logAdminAction({
+          adminUserId: user.id,
+          action: 'view_analytics',
+          targetType: 'analytics',
+          details: { timeRange },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || 'unknown',
+        });
+      }
 
       res.json(analytics);
     } catch (error) {
@@ -1656,6 +1652,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching advertising performance:', error);
       res.status(500).json({ message: 'Failed to fetch advertising performance' });
+    }
+  });
+
+  // Events API routes
+  app.get('/api/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const events = await storage.getAllEvents();
+      
+      // Enrich events with registration data for the current user
+      const enrichedEvents = await Promise.all(events.map(async (event) => {
+        const registrationCount = await storage.getEventRegistrationCount(event.id);
+        const userRegistration = await storage.getUserEventRegistration(event.id, userId);
+        
+        return {
+          ...event,
+          registered: registrationCount,
+          isUserRegistered: !!userRegistration,
+          tags: []
+        };
+      }));
+
+      res.json(enrichedEvents);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      res.status(500).json({ message: 'Failed to fetch events' });
+    }
+  });
+
+  app.post('/api/events/:eventId/register', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+
+      // Check if user is already registered
+      const existingRegistration = await storage.getUserEventRegistration(eventId, userId);
+      if (existingRegistration) {
+        return res.status(400).json({ message: 'Already registered for this event' });
+      }
+
+      // Check if event has capacity
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      const registrationCount = await storage.getEventRegistrationCount(eventId);
+      if (registrationCount >= event.capacity) {
+        return res.status(400).json({ message: 'Event is at capacity' });
+      }
+
+      // Register user for event
+      const registration = await storage.registerForEvent(eventId, userId);
+      res.json(registration);
+    } catch (error) {
+      console.error('Error registering for event:', error);
+      res.status(500).json({ message: 'Failed to register for event' });
     }
   });
 

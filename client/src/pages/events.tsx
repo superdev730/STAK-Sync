@@ -3,12 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Search, Calendar, MapPin, Users, Clock, ExternalLink, Star, Sparkles } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
 
 interface Event {
   id: string;
@@ -40,9 +39,7 @@ export default function Events() {
 
   const registerMutation = useMutation({
     mutationFn: async (eventId: string) => {
-      return await apiRequest(`/api/events/${eventId}/register`, {
-        method: "POST",
-      });
+      return await apiRequest("POST", `/api/events/${eventId}/register`, {});
     },
     onSuccess: () => {
       toast({
@@ -76,6 +73,32 @@ export default function Events() {
 
   const handleRegister = (eventId: string) => {
     registerMutation.mutate(eventId);
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } catch {
+      return '';
+    }
   };
 
   const getEventStatusBadge = (event: Event) => {
@@ -117,14 +140,14 @@ export default function Events() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className="container mx-auto py-8 space-y-8 bg-background text-foreground">
       {/* Header */}
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <Sparkles className="h-8 w-8 text-copper-600" />
-          <h1 className="text-4xl font-bold font-playfair">STAK Signal Events</h1>
+          <Sparkles className="h-8 w-8 text-stak-copper" />
+          <h1 className="text-4xl font-bold font-playfair text-stak-white">STAK Signal Events</h1>
         </div>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+        <p className="text-lg text-stak-light-gray max-w-2xl mx-auto">
           Connect with industry leaders, investors, and innovators at exclusive STAK events designed to accelerate your professional growth.
         </p>
       </div>
@@ -132,19 +155,19 @@ export default function Events() {
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stak-light-gray h-4 w-4" />
           <Input
             placeholder="Search events..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 bg-stak-gray border-stak-gray text-stak-white"
           />
         </div>
         <Tabs value={selectedFilter} onValueChange={setSelectedFilter} className="w-auto">
-          <TabsList>
-            <TabsTrigger value="all">All Events</TabsTrigger>
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="registered">My Events</TabsTrigger>
+          <TabsList className="bg-stak-gray">
+            <TabsTrigger value="all" className="text-stak-white data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">All Events</TabsTrigger>
+            <TabsTrigger value="upcoming" className="text-stak-white data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">Upcoming</TabsTrigger>
+            <TabsTrigger value="registered" className="text-stak-white data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">My Events</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -152,16 +175,16 @@ export default function Events() {
       {/* Events Grid */}
       {filteredEvents.length === 0 ? (
         <div className="text-center py-12">
-          <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">No Events Found</h3>
-          <p className="text-muted-foreground">
+          <Calendar className="h-16 w-16 text-stak-light-gray mx-auto mb-4" />
+          <h3 className="text-xl font-semibold mb-2 text-stak-white">No Events Found</h3>
+          <p className="text-stak-light-gray">
             {searchQuery ? "Try adjusting your search terms" : "Check back soon for upcoming events"}
           </p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredEvents.map((event) => (
-            <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden">
+            <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden bg-stak-gray border-stak-gray">
               {/* Event Image */}
               {event.imageUrl && (
                 <div className="relative h-48 overflow-hidden">
@@ -178,7 +201,7 @@ export default function Events() {
               
               <CardHeader className="space-y-2">
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-xl font-playfair line-clamp-2 flex-1">
+                  <CardTitle className="text-xl font-playfair line-clamp-2 flex-1 text-stak-white">
                     {event.title}
                   </CardTitle>
                   {!event.imageUrl && (
@@ -187,7 +210,7 @@ export default function Events() {
                     </div>
                   )}
                 </div>
-                <CardDescription className="line-clamp-3">
+                <CardDescription className="line-clamp-3 text-stak-light-gray">
                   {event.description}
                 </CardDescription>
               </CardHeader>
@@ -195,19 +218,19 @@ export default function Events() {
               <CardContent className="space-y-4">
                 {/* Event Details */}
                 <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="flex items-center gap-2 text-stak-light-gray">
                     <Calendar className="h-4 w-4" />
-                    <span>{format(new Date(event.startDate), "MMM dd, yyyy")}</span>
+                    <span>{formatDate(event.startDate)}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="flex items-center gap-2 text-stak-light-gray">
                     <Clock className="h-4 w-4" />
-                    <span>{format(new Date(event.startDate), "h:mm a")}</span>
+                    <span>{formatTime(event.startDate)}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="flex items-center gap-2 text-stak-light-gray">
                     <MapPin className="h-4 w-4" />
                     <span className="line-clamp-1">{event.location}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="flex items-center gap-2 text-stak-light-gray">
                     <Users className="h-4 w-4" />
                     <span>{event.registered} / {event.capacity} registered</span>
                   </div>
@@ -217,12 +240,12 @@ export default function Events() {
                 {event.tags && event.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {event.tags.slice(0, 3).map((tag, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
+                      <Badge key={index} variant="outline" className="text-xs border-stak-light-gray text-stak-light-gray">
                         {tag}
                       </Badge>
                     ))}
                     {event.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs border-stak-light-gray text-stak-light-gray">
                         +{event.tags.length - 3} more
                       </Badge>
                     )}
@@ -235,12 +258,12 @@ export default function Events() {
                     <Button
                       onClick={() => handleRegister(event.id)}
                       disabled={registerMutation.isPending}
-                      className="flex-1 bg-copper-600 hover:bg-copper-700 text-white"
+                      className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
                     >
                       {registerMutation.isPending ? "Registering..." : "Register"}
                     </Button>
                   ) : (
-                    <Button variant="outline" className="flex-1" disabled>
+                    <Button variant="outline" className="flex-1 border-stak-light-gray text-stak-light-gray" disabled>
                       {event.isUserRegistered ? "Registered" : 
                        event.registered >= event.capacity ? "Full" : "Past Event"}
                     </Button>
@@ -254,7 +277,7 @@ export default function Events() {
                           variant="ghost"
                           size="sm"
                           onClick={() => window.open(event.lumaUrl, '_blank')}
-                          className="px-2"
+                          className="px-2 text-stak-light-gray hover:text-stak-white"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
@@ -264,7 +287,7 @@ export default function Events() {
                           variant="ghost"
                           size="sm"
                           onClick={() => window.open(event.eventbriteUrl, '_blank')}
-                          className="px-2"
+                          className="px-2 text-stak-light-gray hover:text-stak-white"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
@@ -275,13 +298,13 @@ export default function Events() {
 
                 {/* Registration Progress */}
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
+                  <div className="flex justify-between text-xs text-stak-light-gray">
                     <span>Registration</span>
                     <span>{Math.round((event.registered / event.capacity) * 100)}% full</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                  <div className="w-full bg-stak-black rounded-full h-1.5">
                     <div
-                      className="bg-copper-600 h-1.5 rounded-full transition-all duration-300"
+                      className="bg-stak-copper h-1.5 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min((event.registered / event.capacity) * 100, 100)}%` }}
                     ></div>
                   </div>
@@ -293,15 +316,15 @@ export default function Events() {
       )}
 
       {/* CTA Section */}
-      <div className="text-center py-12 border-t">
-        <h2 className="text-2xl font-bold font-playfair mb-4">Ready to Network?</h2>
-        <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+      <div className="text-center py-12 border-t border-stak-gray">
+        <h2 className="text-2xl font-bold font-playfair mb-4 text-stak-white">Ready to Network?</h2>
+        <p className="text-stak-light-gray mb-6 max-w-2xl mx-auto">
           Join STAK Signal events to connect with vetted investors, successful founders, and industry experts. 
           Every connection is an opportunity to accelerate your journey.
         </p>
         <div className="flex items-center justify-center gap-2">
-          <Star className="h-5 w-5 text-copper-600" />
-          <span className="text-sm text-muted-foreground">
+          <Star className="h-5 w-5 text-stak-copper" />
+          <span className="text-sm text-stak-light-gray">
             Curated for STAK's exclusive membership community
           </span>
         </div>
