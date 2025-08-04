@@ -44,7 +44,7 @@ export const users = pgTable("users", {
   location: text("location"),
   linkedinUrl: text("linkedin_url"),
   twitterUrl: text("twitter_url"),
-  websiteUrl: text("website_url"),
+  websiteUrls: text("website_urls").array(), // Support multiple website URLs for AI data gathering
   githubUrl: text("github_url"),
   networkingGoal: text("networking_goal"),
   industries: text("industries").array(),

@@ -1712,6 +1712,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Guide API route
+  app.post('/api/ai/guide', isAuthenticated, async (req: any, res) => {
+    try {
+      const { message, profileData, conversationHistory } = req.body;
+      
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: 'AI service not configured' });
+      }
+
+      const openai = await import('openai');
+      const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+
+      // Build conversation context
+      const systemPrompt = `You are an expert networking profile consultant for STAK Signal, a premium professional networking platform. Your role is to help users create compelling profiles that maximize their networking potential.
+
+Current user profile: ${JSON.stringify(profileData || {})}
+
+Guidelines:
+1. Ask thoughtful questions to understand their goals, expertise, and networking objectives
+2. Provide specific, actionable suggestions for profile improvement
+3. Focus on STAK's audience: VCs, founders, executives, and industry leaders
+4. Suggest concrete profile updates when appropriate
+5. Be encouraging and professional
+6. If you suggest profile changes, format them as JSON in a "PROFILE_UPDATES:" section
+
+Keep responses conversational and helpful.`;
+
+      const messages = [
+        { role: "system", content: systemPrompt },
+        ...conversationHistory.slice(-6), // Keep last 6 messages for context
+        { role: "user", content: message }
+      ];
+
+      const response = await client.chat.completions.create({
+        model: "gpt-4o",
+        messages,
+        max_tokens: 500,
+        temperature: 0.7,
+      });
+
+      const assistantResponse = response.choices[0]?.message?.content?.trim() || "I'm here to help with your profile!";
+      
+      // Check if response contains profile updates
+      let profileUpdates = null;
+      const updateMatch = assistantResponse.match(/PROFILE_UPDATES:\s*({[\s\S]*?})/);
+      if (updateMatch) {
+        try {
+          profileUpdates = JSON.parse(updateMatch[1]);
+        } catch (e) {
+          console.log('Failed to parse profile updates:', e);
+        }
+      }
+
+      res.json({ 
+        response: assistantResponse.replace(/PROFILE_UPDATES:\s*{[\s\S]*?}/, '').trim(),
+        profileUpdates 
+      });
+    } catch (error) {
+      console.error('AI guide error:', error);
+      res.status(500).json({ error: 'AI guide failed' });
+    }
+  });
+
   // AI Enhancement API routes
   app.post('/api/ai/enhance', isAuthenticated, async (req: any, res) => {
     try {

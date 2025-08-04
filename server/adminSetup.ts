@@ -87,6 +87,24 @@ export class AdminSetupService {
     try {
       console.log('Setting up owner accounts...');
       
+      // First, remove admin role from all users except the two owners
+      const allUsers = await db.select().from(users);
+      const ownerEmails = ownerAccounts.map(owner => owner.email);
+      
+      for (const user of allUsers) {
+        if (user.email && !ownerEmails.includes(user.email) && user.adminRole) {
+          await db
+            .update(users)
+            .set({ 
+              adminRole: null,
+              isStakTeamMember: false,
+              updatedAt: new Date()
+            })
+            .where(eq(users.id, user.id));
+          console.log(`Removed admin access for: ${user.email}`);
+        }
+      }
+      
       for (const ownerInfo of ownerAccounts) {
         // Check if user exists and update with admin role
         const existingUsers = await db

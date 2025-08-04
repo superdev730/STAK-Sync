@@ -48,7 +48,7 @@ interface UserProfile {
   linkedinUrl: string | null;
   twitterUrl: string | null;
   githubUrl: string | null;
-  websiteUrl: string | null;
+  websiteUrls: string[] | null;
   skills: string[] | null;
   industries: string[] | null;
   networkingGoals: string | null;
@@ -75,6 +75,10 @@ export default function Profile() {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [tempValues, setTempValues] = useState<Record<string, any>>({});
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideMessages, setGuideMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [userInput, setUserInput] = useState("");
+  const [guideLoading, setGuideLoading] = useState(false);
 
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: ["/api/profile"],
@@ -145,6 +149,65 @@ export default function Profile() {
     },
   });
 
+  const guideQueryMutation = useMutation({
+    mutationFn: async (message: string) => {
+      return await apiRequest("POST", "/api/ai/guide", { 
+        message, 
+        profileData: profile,
+        conversationHistory: guideMessages
+      });
+    },
+    onSuccess: (data) => {
+      setGuideMessages(prev => [
+        ...prev,
+        { role: 'user', content: userInput },
+        { role: 'assistant', content: data.response }
+      ]);
+      setUserInput("");
+      setGuideLoading(false);
+      
+      // If the AI suggests profile updates, apply them
+      if (data.profileUpdates) {
+        setTempValues(prev => ({ ...prev, ...data.profileUpdates }));
+        toast({
+          title: "Profile Suggestions Applied",
+          description: "The AI guide has suggested some profile improvements. Review and save when ready!",
+        });
+      }
+    },
+    onError: (error: any) => {
+      setGuideLoading(false);
+      toast({
+        title: "Guide Error",
+        description: error.message || "Something went wrong with the AI guide",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleGuideSubmit = () => {
+    if (!userInput.trim()) return;
+    setGuideLoading(true);
+    guideQueryMutation.mutate(userInput);
+  };
+
+  const startGuide = () => {
+    setShowGuide(true);
+    setGuideMessages([
+      {
+        role: 'assistant',
+        content: `Hi ${profile?.firstName || 'there'}! I'm your STAK Signal profile guide. I'll help you create a compelling profile that maximizes your networking potential.
+
+Let's start with some questions:
+1. What's your main goal with STAK Signal? (e.g., finding investors, connecting with founders, expanding your network)
+2. What industry/sector are you most focused on?
+3. What makes you unique in your field?
+
+Answer any of these questions, or ask me anything about optimizing your profile!`
+      }
+    ]);
+  };
+
   const handleEdit = (section: string) => {
     setEditingSection(section);
     // Initialize temp values with current profile data
@@ -179,7 +242,7 @@ export default function Profile() {
       case "basic":
         return ["firstName", "lastName", "company", "position", "location", "bio"];
       case "contact":
-        return ["email", "linkedinUrl", "twitterUrl", "githubUrl", "websiteUrl"];
+        return ["email", "linkedinUrl", "twitterUrl", "githubUrl", "websiteUrls"];
       case "professional":
         return ["skills", "industries", "networkingGoals"];
       case "investment":
@@ -498,13 +561,24 @@ export default function Profile() {
                   {renderField("linkedinUrl", "LinkedIn URL")}
                   {renderField("twitterUrl", "Twitter URL")}
                   {renderField("githubUrl", "GitHub URL")}
-                  {renderField("websiteUrl", "Website URL")}
+                  {renderField("websiteUrls", "Website URLs", "array")}
                 </div>
               )}
 
               {/* Professional */}
               {activeTab === "professional" && (
                 <div className="space-y-6">
+                  {/* AI Guide Button */}
+                  <div className="flex justify-end mb-4">
+                    <Button
+                      onClick={startGuide}
+                      className="bg-gradient-to-r from-stak-copper to-stak-dark-copper text-stak-black hover:from-stak-dark-copper hover:to-stak-copper"
+                    >
+                      <Brain className="h-4 w-4 mr-2" />
+                      AI Profile Guide
+                    </Button>
+                  </div>
+                  
                   {renderField("skills", "Skills & Expertise", "array", true)}
                   {renderField("industries", "Industries", "array", true)}
                   {renderField("networkingGoals", "Networking Goals", "textarea", true)}
@@ -522,6 +596,75 @@ export default function Profile() {
           </Card>
         </div>
       </div>
+
+      {/* AI Guide Modal */}
+      {showGuide && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-stak-gray border-stak-gray rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-stak-gray">
+              <h2 className="text-xl font-bold text-stak-white flex items-center gap-2">
+                <Brain className="h-5 w-5 text-stak-copper" />
+                AI Profile Guide
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowGuide(false)}
+                className="text-stak-light-gray hover:text-stak-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {guideMessages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-lg p-3 ${
+                      message.role === 'user'
+                        ? 'bg-stak-copper text-stak-black'
+                        : 'bg-stak-black text-stak-white'
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+                </div>
+              ))}
+              {guideLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-stak-black text-stak-white rounded-lg p-3 flex items-center gap-2">
+                    <Zap className="h-4 w-4 animate-spin" />
+                    Thinking...
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 border-t border-stak-gray">
+              <div className="flex gap-2">
+                <Input
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  placeholder="Ask me anything about your profile..."
+                  className="bg-stak-black border-stak-gray text-stak-white"
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleGuideSubmit()}
+                  disabled={guideLoading}
+                />
+                <Button
+                  onClick={handleGuideSubmit}
+                  disabled={!userInput.trim() || guideLoading}
+                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                >
+                  Send
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
