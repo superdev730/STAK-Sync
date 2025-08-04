@@ -686,7 +686,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/events', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
-      const eventData = { ...req.body, organizerId: userId };
+      const eventData = { 
+        ...req.body, 
+        organizerId: userId,
+        price: req.body.price || "0"
+      };
+      const event = await storage.createEvent(eventData);
+      res.json(event);
+    } catch (error) {
+      console.error('Error creating event:', error);
+      res.status(500).json({ message: 'Failed to create event' });
+    }
+  });
+
+  // Also add a general events endpoint for non-admin users
+  app.post('/api/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const eventData = { 
+        ...req.body, 
+        organizerId: userId,
+        price: req.body.price || "0"
+      };
       const event = await storage.createEvent(eventData);
       res.json(event);
     } catch (error) {
@@ -2074,6 +2095,36 @@ Keep responses conversational and helpful.`;
     } catch (error) {
       console.error('AI enhancement error:', error);
       res.status(500).json({ error: 'AI enhancement failed' });
+    }
+  });
+
+  // Fix conversation read endpoint
+  app.put('/api/conversations/:userId/read', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = req.user?.claims?.sub;
+      const otherUserId = req.params.userId;
+      
+      await storage.markMessagesAsRead(currentUserId, otherUserId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+      res.status(500).json({ error: 'Failed to mark messages as read' });
+    }
+  });
+
+  // Search users endpoint
+  app.get('/api/admin/users/search', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.length < 2) {
+        return res.json([]);
+      }
+      
+      const users = await storage.searchUsers(query);
+      res.json(users);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      res.status(500).json({ error: 'Failed to search users' });
     }
   });
 

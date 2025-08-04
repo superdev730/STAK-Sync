@@ -56,6 +56,18 @@ function AdminDashboard() {
   const [showEditUserDialog, setShowEditUserDialog] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
   const [showCreateEventDialog, setShowCreateEventDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("analytics");
+  const [eventData, setEventData] = useState({
+    title: '',
+    description: '',
+    eventType: 'networking',
+    startDate: '',
+    startTime: '09:00',
+    location: '',
+    capacity: 50,
+    isVirtual: false,
+    isFeatured: false
+  });
   const [newUserData, setNewUserData] = useState({
     firstName: '',
     lastName: '',
@@ -205,11 +217,53 @@ function AdminDashboard() {
       });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
+      // Stay on users tab after deletion
+      setActiveTab("users");
     },
     onError: (error: any) => {
       toast({
         title: "Error",
         description: error.message || "Failed to delete user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createEventMutation = useMutation({
+    mutationFn: async (eventData: any) => {
+      // Combine date and time into proper format
+      const startDateTime = new Date(`${eventData.startDate}T${eventData.startTime}`);
+      const eventPayload = {
+        ...eventData,
+        startDate: startDateTime.toISOString(),
+        endDate: new Date(startDateTime.getTime() + 2 * 60 * 60 * 1000).toISOString(), // Default 2 hours
+      };
+      return apiRequest('/api/events', 'POST', eventPayload);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Event created successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
+      setShowCreateEventDialog(false);
+      setEventData({
+        title: '',
+        description: '',
+        eventType: 'networking',
+        startDate: '',
+        startTime: '09:00',
+        location: '',
+        capacity: 50,
+        isVirtual: false,
+        isFeatured: false
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create event",
         variant: "destructive",
       });
     },
@@ -303,7 +357,7 @@ function AdminDashboard() {
           <p className="text-gray-400">Comprehensive platform management and analytics</p>
         </div>
 
-        <Tabs defaultValue="analytics" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-[#1F1F1F] border-gray-600">
             <TabsTrigger value="analytics" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
               <BarChart3 className="h-4 w-4 mr-2" />
@@ -848,6 +902,44 @@ function AdminDashboard() {
                     className="bg-[#141414] border-gray-600 text-white"
                   />
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editAdminRole" className="text-gray-300">Admin Role</Label>
+                    <select 
+                      id="editAdminRole"
+                      defaultValue={selectedUserForEdit?.adminRole || ''}
+                      className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white"
+                    >
+                      <option value="">No Admin Role</option>
+                      <option value="admin">Admin</option>
+                      <option value="moderator">Moderator</option>
+                      <option value="owner">Owner</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="editStatus" className="text-gray-300">Account Status</Label>
+                    <select 
+                      id="editStatus"
+                      defaultValue="active"
+                      className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white"
+                    >
+                      <option value="active">Active</option>
+                      <option value="suspended">Suspended</option>
+                      <option value="banned">Banned</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="editIsStakTeamMember"
+                    defaultChecked={selectedUserForEdit?.isStakTeamMember || false}
+                    className="rounded border-gray-600"
+                  />
+                  <Label htmlFor="editIsStakTeamMember" className="text-gray-300">STAK Team Member</Label>
+                </div>
                 
                 {/* Password Reset Section */}
                 <div className="border-t border-gray-600 pt-4">
@@ -911,6 +1003,8 @@ function AdminDashboard() {
                         lastName: (document.getElementById('editLastName') as HTMLInputElement)?.value,
                         company: (document.getElementById('editCompany') as HTMLInputElement)?.value,
                         title: (document.getElementById('editTitle') as HTMLInputElement)?.value,
+                        adminRole: (document.getElementById('editAdminRole') as HTMLSelectElement)?.value || null,
+                        isStakTeamMember: (document.getElementById('editIsStakTeamMember') as HTMLInputElement)?.checked || false,
                       }
                     });
                   }
@@ -990,12 +1084,18 @@ function AdminDashboard() {
                   <Input
                     id="eventTitle"
                     placeholder="STAK Networking Event"
+                    value={eventData.title}
+                    onChange={(e) => setEventData({...eventData, title: e.target.value})}
                     className="bg-[#141414] border-gray-600 text-white"
                   />
                 </div>
                 <div>
                   <Label htmlFor="eventType" className="text-gray-300">Event Type</Label>
-                  <select className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white">
+                  <select 
+                    value={eventData.eventType}
+                    onChange={(e) => setEventData({...eventData, eventType: e.target.value})}
+                    className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white"
+                  >
                     <option value="networking">Networking</option>
                     <option value="workshop">Workshop</option>
                     <option value="conference">Conference</option>
@@ -1010,6 +1110,8 @@ function AdminDashboard() {
                 <textarea
                   id="eventDescription"
                   placeholder="Event description and details..."
+                  value={eventData.description}
+                  onChange={(e) => setEventData({...eventData, description: e.target.value})}
                   className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white h-24 resize-none"
                 />
               </div>
@@ -1020,16 +1122,32 @@ function AdminDashboard() {
                   <Input
                     id="startDate"
                     type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    value={eventData.startDate}
+                    onChange={(e) => setEventData({...eventData, startDate: e.target.value})}
                     className="bg-[#141414] border-gray-600 text-white"
                   />
                 </div>
                 <div>
                   <Label htmlFor="startTime" className="text-gray-300">Start Time</Label>
-                  <Input
+                  <select 
                     id="startTime"
-                    type="time"
-                    className="bg-[#141414] border-gray-600 text-white"
-                  />
+                    value={eventData.startTime}
+                    onChange={(e) => setEventData({...eventData, startTime: e.target.value})}
+                    className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white"
+                  >
+                    {Array.from({ length: 96 }, (_, i) => {
+                      const hour = Math.floor(i / 4);
+                      const minute = (i % 4) * 15;
+                      const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                      const displayTime = new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+                      return <option key={time} value={time}>{displayTime}</option>;
+                    })}
+                  </select>
                 </div>
               </div>
 
@@ -1039,6 +1157,8 @@ function AdminDashboard() {
                   <Input
                     id="location"
                     placeholder="Event location or 'Virtual'"
+                    value={eventData.location}
+                    onChange={(e) => setEventData({...eventData, location: e.target.value})}
                     className="bg-[#141414] border-gray-600 text-white"
                   />
                 </div>
@@ -1048,6 +1168,8 @@ function AdminDashboard() {
                     id="capacity"
                     type="number"
                     placeholder="50"
+                    value={eventData.capacity}
+                    onChange={(e) => setEventData({...eventData, capacity: parseInt(e.target.value) || 50})}
                     className="bg-[#141414] border-gray-600 text-white"
                   />
                 </div>
@@ -1058,6 +1180,8 @@ function AdminDashboard() {
                   <input
                     type="checkbox"
                     id="isVirtual"
+                    checked={eventData.isVirtual}
+                    onChange={(e) => setEventData({...eventData, isVirtual: e.target.checked})}
                     className="rounded border-gray-600"
                   />
                   <Label htmlFor="isVirtual" className="text-gray-300">Virtual Event</Label>
@@ -1066,6 +1190,8 @@ function AdminDashboard() {
                   <input
                     type="checkbox"
                     id="isFeatured"
+                    checked={eventData.isFeatured}
+                    onChange={(e) => setEventData({...eventData, isFeatured: e.target.checked})}
                     className="rounded border-gray-600"
                   />
                   <Label htmlFor="isFeatured" className="text-gray-300">Featured Event</Label>
@@ -1082,16 +1208,10 @@ function AdminDashboard() {
               </Button>
               <Button 
                 className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
-                onClick={() => {
-                  // Handle event creation
-                  toast({
-                    title: "Event Created",
-                    description: "Event has been created successfully",
-                  });
-                  setShowCreateEventDialog(false);
-                }}
+                onClick={() => createEventMutation.mutate(eventData)}
+                disabled={createEventMutation.isPending || !eventData.title || !eventData.startDate}
               >
-                Create Event
+                {createEventMutation.isPending ? 'Creating...' : 'Create Event'}
               </Button>
             </DialogFooter>
           </DialogContent>

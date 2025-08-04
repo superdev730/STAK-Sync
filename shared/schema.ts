@@ -136,7 +136,7 @@ export const events = pgTable("events", {
   isVirtual: boolean("is_virtual").default(false),
   capacity: integer("capacity").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).default("0"),
-  coverImage: varchar("cover_image"),
+  coverImageUrl: varchar("cover_image_url"),
   externalPlatform: varchar("external_platform"), // none, luma, eventbrite
   externalUrl: varchar("external_url"),
   organizerId: varchar("organizer_id").notNull().references(() => users.id),

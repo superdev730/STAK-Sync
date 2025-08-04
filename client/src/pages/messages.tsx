@@ -66,7 +66,9 @@ export default function Messages() {
     });
   };
 
-  // Dummy conversations for demonstration
+
+
+  // Dummy conversations for demonstration when no real conversations exist
   const dummyConversations = [
     {
       user: {
@@ -240,29 +242,44 @@ export default function Messages() {
                         }`}
                         onClick={() => setSelectedUser(user)}
                       >
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="w-10 h-10">
+                        <div className="flex items-start space-x-3">
+                          <Avatar className="w-12 h-12 border-2 border-gray-200">
                             <AvatarImage src={user.profileImageUrl || ""} alt={user.firstName || ""} />
-                            <AvatarFallback className="bg-navy text-white">
+                            <AvatarFallback className="bg-navy text-white font-semibold">
                               {user.firstName?.[0]}{user.lastName?.[0]}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium text-charcoal truncate">
-                                {user.firstName} {user.lastName}
-                              </p>
-                              {unreadCount > 0 && (
-                                <Badge className="bg-gold text-navy ml-2">
-                                  {unreadCount}
+                            <div className="flex items-center justify-between mb-1">
+                              <div>
+                                <p className="font-bold text-navy text-sm">
+                                  {user.firstName} {user.lastName}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  {user.title} • {user.company}
+                                </p>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Badge variant="secondary" className="bg-copper/10 text-copper border-copper/20 text-xs">
+                                  85% match
                                 </Badge>
-                              )}
+                                {unreadCount > 0 && (
+                                  <Badge className="bg-green text-white text-xs">
+                                    {unreadCount}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-sm text-gray-600 truncate">
+                            <div className="bg-gray-50 p-2 rounded text-xs text-charcoal line-clamp-2 mb-1">
                               {lastMessage.content}
-                            </p>
+                            </div>
                             <p className="text-xs text-gray-500">
-                              {new Date(lastMessage.createdAt).toLocaleDateString()}
+                              {new Date(lastMessage.createdAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit'
+                              })}
                             </p>
                           </div>
                         </div>
