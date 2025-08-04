@@ -457,6 +457,14 @@ export default function Admin() {
                     </tr>
                   </thead>
                   <tbody>
+                    {console.log('userManagement data:', userManagement)}
+                    {userManagement?.users?.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-gray-400">
+                          No users found. Try adjusting your search or check the system.
+                        </td>
+                      </tr>
+                    )}
                     {userManagement?.users?.map((user: User) => (
                       <tr key={user.id} className="border-b border-gray-700 hover:bg-[#2A2A2A]">
                         <td className="p-4">

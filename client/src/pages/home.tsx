@@ -38,7 +38,7 @@ export default function Home() {
   useEffect(() => {
     const fetchUserStats = async () => {
       try {
-        const stats = await apiRequest('GET', '/api/user/stats') as unknown as UserStats;
+        const stats = await apiRequest('/api/user/stats', 'GET') as unknown as UserStats;
         setUserStats(stats);
       } catch (error) {
         console.error('Error fetching user stats:', error);
