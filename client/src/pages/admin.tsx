@@ -9,11 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { 
   Users, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   TrendingUp, 
   Activity, 
   MessageSquare, 
@@ -37,7 +41,10 @@ import {
   ArrowUpDown,
   Filter,
   X,
-  ExternalLink
+  ExternalLink,
+  Upload,
+  Image,
+  Video
 } from "lucide-react";
 
 interface AdminAnalytics {
@@ -197,7 +204,7 @@ export default function Admin() {
   const { data: userManagement, isLoading: usersLoading } = useQuery<UserManagementData>({
     queryKey: ['/api/admin/users', currentPage.toString()],
     queryFn: async () => {
-      const response = await fetch(`/api/admin/users/${currentPage}`, {
+      const response = await fetch(`/api/admin/users?page=${currentPage}&limit=50`, {
         credentials: 'include',
       });
       if (!response.ok) {
@@ -372,7 +379,7 @@ export default function Admin() {
           title: "Success",
           description: "User added successfully",
         });
-        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/users', currentPage.toString()] });
         setShowAddUserDialog(false);
         setNewUserData({
           firstName: '',
@@ -402,7 +409,7 @@ export default function Admin() {
           title: "Success",
           description: "User updated successfully",
         });
-        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/users', currentPage.toString()] });
         setShowEditUserDialog(false);
         setSelectedUserForEdit(null);
       },
@@ -761,11 +768,14 @@ export default function Admin() {
     const [newEventData, setNewEventData] = useState({
       title: '',
       description: '',
-      startTime: '',
-      endTime: '',
+      startDate: undefined as Date | undefined,
+      startTime: '09:00',
+      endDate: undefined as Date | undefined,
+      endTime: '17:00',
       location: '',
       capacity: 50,
-      coverImageUrl: ''
+      imageUrl: '',
+      videoUrl: ''
     });
 
     const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
@@ -775,7 +785,19 @@ export default function Admin() {
 
     const addEventMutation = useMutation({
       mutationFn: async (eventData: any) => {
-        return apiRequest('/api/admin/events', 'POST', eventData);
+        // Convert date/time data to the expected format
+        const processedData = {
+          ...eventData,
+          startTime: eventData.startDate && eventData.startTime ? 
+            new Date(`${eventData.startDate.toDateString()} ${eventData.startTime}`).toISOString() : 
+            new Date().toISOString(),
+          endTime: eventData.endDate && eventData.endTime ? 
+            new Date(`${eventData.endDate.toDateString()} ${eventData.endTime}`).toISOString() : 
+            new Date().toISOString(),
+        };
+        delete processedData.startDate;
+        delete processedData.endDate;
+        return apiRequest('/api/admin/events', 'POST', processedData);
       },
       onSuccess: () => {
         toast({
@@ -787,11 +809,14 @@ export default function Admin() {
         setNewEventData({
           title: '',
           description: '',
-          startTime: '',
-          endTime: '',
+          startDate: undefined,
+          startTime: '09:00',
+          endDate: undefined,
+          endTime: '17:00',
           location: '',
           capacity: 50,
-          coverImageUrl: ''
+          imageUrl: '',
+          videoUrl: ''
         });
       },
       onError: (error: any) => {
@@ -876,7 +901,7 @@ export default function Admin() {
             onClick={() => setShowAddEventDialog(true)}
             className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
           >
-            <Calendar className="h-4 w-4 mr-2" />
+            <CalendarIcon className="h-4 w-4 mr-2" />
             Add Event
           </Button>
         </div>
@@ -1179,7 +1204,7 @@ export default function Admin() {
               User Management
             </TabsTrigger>
             <TabsTrigger value="events" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
-              <Calendar className="h-4 w-4 mr-2" />
+              <CalendarIcon className="h-4 w-4 mr-2" />
               Events
             </TabsTrigger>
             <TabsTrigger value="matching" className="data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">
