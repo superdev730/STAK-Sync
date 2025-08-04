@@ -1188,8 +1188,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create new user
+      const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const newUser = await storage.createUser({
-        id: `admin_${Date.now()}`, // Temporary ID for admin-created users
+        id: userId,
         email,
         firstName,
         lastName,
@@ -1199,7 +1200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isStakTeamMember: isStakTeamMember || false,
         profileImageUrl: null,
         bio: '',
-        networkingGoals: '',
+        networkingGoal: '',
         skills: [],
         industries: [],
         websiteUrls: [],
@@ -1207,7 +1208,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         twitterUrl: '',
         githubUrl: '',
         location: '',
-        privacy: 'public',
         personalityProfile: null,
         goalAnalysis: null,
         signalScore: 0,
