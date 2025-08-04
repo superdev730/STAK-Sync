@@ -58,6 +58,18 @@ export default {
         'stak-white': "hsl(0, 0%, 98%)",
         'stak-gray': "hsl(0, 0%, 20%)",
         'stak-light-gray': "hsl(0, 0%, 85%)",
+        copper: {
+          50: "#fdf8f6",
+          100: "#f2e8e5",
+          200: "#eaddd7",
+          300: "#e0cec7",
+          400: "#d2bab0",
+          500: "#cd853f",
+          600: "#a0652c",
+          700: "#8b5a1f",
+          800: "#724a1a",
+          900: "#5d3e17",
+        },
         sidebar: {
           DEFAULT: "var(--sidebar-background)",
           foreground: "var(--sidebar-foreground)",

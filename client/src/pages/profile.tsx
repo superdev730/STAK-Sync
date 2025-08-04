@@ -74,6 +74,71 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
+// Enhanced Input Component with AI Enhancement Icon
+interface EnhancedInputProps {
+  label: string;
+  name: string;
+  placeholder?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  multiline?: boolean;
+  onEnhance?: () => void;
+  isEnhancing?: boolean;
+}
+
+const EnhancedInput: React.FC<EnhancedInputProps> = ({
+  label,
+  name,
+  placeholder,
+  value,
+  onChange,
+  multiline = false,
+  onEnhance,
+  isEnhancing = false
+}) => {
+  return (
+    <div className="relative">
+      <Label htmlFor={name} className="text-sm font-medium text-gray-700 mb-2 block">
+        {label}
+      </Label>
+      <div className="relative">
+        {multiline ? (
+          <Textarea
+            id={name}
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => onChange?.(e.target.value)}
+            className="pr-12 border-gray-300 focus:border-copper-500 focus:ring-copper-500"
+            rows={4}
+          />
+        ) : (
+          <Input
+            id={name}
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => onChange?.(e.target.value)}
+            className="pr-12 border-gray-300 focus:border-copper-500 focus:ring-copper-500"
+          />
+        )}
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={onEnhance}
+          disabled={isEnhancing}
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-8 w-8 text-copper-600 hover:text-copper-700 hover:bg-copper-50"
+        >
+          {isEnhancing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 export default function Profile() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -82,6 +147,9 @@ export default function Profile() {
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [isEnhancingProfile, setIsEnhancingProfile] = useState(false);
   const [showLinkedinDialog, setShowLinkedinDialog] = useState(false);
+  const [showEnhancementDialog, setShowEnhancementDialog] = useState(false);
+  const [enhancementResult, setEnhancementResult] = useState<any>(null);
+  const [currentEnhancingField, setCurrentEnhancingField] = useState<string>("");
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -156,19 +224,31 @@ export default function Profile() {
     },
   });
 
+  const enhanceFieldMutation = useMutation({
+    mutationFn: async ({ fieldName, currentValue }: { fieldName: string; currentValue: string }) => {
+      return await apiRequest("POST", "/api/profile/enhance-field", { fieldName, currentValue });
+    },
+    onSuccess: (data: any) => {
+      setEnhancementResult(data);
+      setShowEnhancementDialog(true);
+    },
+    onError: (error) => {
+      toast({
+        title: "Enhancement Failed",
+        description: "Could not enhance field. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const enhanceProfileMutation = useMutation({
     mutationFn: async (linkedinUrl: string) => {
       return await apiRequest("POST", "/api/profile/enhance-from-linkedin", { linkedinUrl });
     },
     onSuccess: (data: any) => {
-      // Update form with enhanced profile data
-      form.reset({
-        ...form.getValues(),
-        ...data.profile,
-      });
       toast({
-        title: "Profile Enhanced",
-        description: "Your profile has been enhanced with AI-powered insights from your LinkedIn.",
+        title: "LinkedIn URL Saved",
+        description: data.message,
       });
       setShowLinkedinDialog(false);
       setIsEnhancingProfile(false);
@@ -177,7 +257,7 @@ export default function Profile() {
     onError: (error) => {
       toast({
         title: "Enhancement Failed",
-        description: "Could not enhance profile from LinkedIn. Please try manually.",
+        description: "Could not save LinkedIn URL. Please try again.",
         variant: "destructive",
       });
       setIsEnhancingProfile(false);
@@ -206,6 +286,24 @@ export default function Profile() {
       await enhanceProfileMutation.mutateAsync(linkedinUrl);
     } catch (error) {
       console.error("LinkedIn enhancement error:", error);
+    }
+  };
+
+  const handleFieldEnhancement = (fieldName: string, currentValue: string) => {
+    setCurrentEnhancingField(fieldName);
+    enhanceFieldMutation.mutate({ fieldName, currentValue });
+  };
+
+  const applyEnhancement = () => {
+    if (enhancementResult && currentEnhancingField) {
+      form.setValue(currentEnhancingField as any, enhancementResult.enhancedValue);
+      setShowEnhancementDialog(false);
+      setEnhancementResult(null);
+      setCurrentEnhancingField("");
+      toast({
+        title: "Enhancement Applied",
+        description: `Your ${currentEnhancingField} has been enhanced with AI insights.`,
+      });
     }
   };
 
@@ -342,12 +440,16 @@ export default function Profile() {
                       name="bio"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700">Professional Bio</FormLabel>
                           <FormControl>
-                            <Textarea 
-                              {...field} 
+                            <EnhancedInput
+                              label="Professional Bio"
+                              name="bio"
                               placeholder="Tell the STAK community about your expertise, interests, and what you're looking to achieve..."
-                              className="bg-gray-50 border-gray-200 focus:border-blue-500 min-h-[120px] text-gray-900"
+                              value={field.value}
+                              onChange={field.onChange}
+                              multiline={true}
+                              onEnhance={() => handleFieldEnhancement('bio', field.value || '')}
+                              isEnhancing={enhanceFieldMutation.isPending && currentEnhancingField === 'bio'}
                             />
                           </FormControl>
                           <FormMessage />
@@ -452,12 +554,16 @@ export default function Profile() {
                       name="networkingGoal"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700">Networking Goals</FormLabel>
                           <FormControl>
-                            <Textarea 
-                              {...field} 
+                            <EnhancedInput
+                              label="Networking Goals"
+                              name="networkingGoal"
                               placeholder="What are you hoping to achieve through networking in the STAK community?"
-                              className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900"
+                              value={field.value}
+                              onChange={field.onChange}
+                              multiline={true}
+                              onEnhance={() => handleFieldEnhancement('networkingGoal', field.value || '')}
+                              isEnhancing={enhanceFieldMutation.isPending && currentEnhancingField === 'networkingGoal'}
                             />
                           </FormControl>
                           <FormMessage />
@@ -651,6 +757,57 @@ export default function Profile() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Enhancement Result Dialog */}
+        <Dialog open={showEnhancementDialog} onOpenChange={setShowEnhancementDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center">
+                <Sparkles className="w-5 h-5 mr-2 text-copper-600" />
+                AI Enhancement Results
+              </DialogTitle>
+              <DialogDescription>
+                Review the AI-generated enhancement for your {currentEnhancingField} field.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {enhancementResult && (
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-slate-900 mb-2">Enhanced Content:</h4>
+                  <p className="text-slate-700 whitespace-pre-wrap">{enhancementResult.enhancedValue}</p>
+                </div>
+                
+                {enhancementResult.sources && enhancementResult.sources.length > 0 && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Sources Used:</h4>
+                    {enhancementResult.sources.map((source: string, index: number) => (
+                      <div key={index} className="text-sm text-blue-700 flex items-center">
+                        <ExternalLink className="w-3 h-3 mr-1" />
+                        {source}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowEnhancementDialog(false)}
+                  >
+                    Keep Original
+                  </Button>
+                  <Button
+                    onClick={applyEnhancement}
+                    className="bg-copper-600 hover:bg-copper-700 text-white"
+                  >
+                    Apply Enhancement
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

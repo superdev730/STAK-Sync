@@ -313,6 +313,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Individual field enhancement
+  app.post('/api/profile/enhance-field', isAuthenticated, async (req: any, res) => {
+    try {
+      const { fieldName, currentValue } = req.body;
+      
+      if (!fieldName) {
+        return res.status(400).json({ error: "Field name is required" });
+      }
+      
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Build user context for AI enhancement
+      const userContext = {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        company: user.company,
+        title: user.title,
+        linkedinUrl: user.linkedinUrl,
+        currentValue
+      };
+      
+      // Use AI to enhance the specific field
+      const { enhanceProfileField } = await import('./aiProfileEnhancer');
+      const enhancement = await enhanceProfileField(fieldName, currentValue, userContext);
+      
+      res.json(enhancement);
+    } catch (error) {
+      console.error("Error enhancing field:", error);
+      res.status(500).json({ message: "Failed to enhance field" });
+    }
+  });
+
   // AI Profile Enhancement endpoints
   app.post('/api/profile/enhance-from-linkedin', isAuthenticated, async (req: any, res) => {
     try {
@@ -329,25 +367,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use AI to analyze LinkedIn and enhance profile
       const enhancedProfile = await enhanceProfileFromLinkedIn(linkedinUrl);
       
-      // Update user profile with enhanced data (auto-complete all fields)
+      // Just save the LinkedIn URL without overwriting user data
       await storage.updateUser(userId, {
-        firstName: enhancedProfile.firstName || undefined,
-        lastName: enhancedProfile.lastName || undefined,
-        bio: enhancedProfile.bio,
-        networkingGoal: enhancedProfile.networkingGoal,
-        title: enhancedProfile.title || undefined,
-        company: enhancedProfile.company || undefined,
-        location: enhancedProfile.location || undefined,
-        skills: enhancedProfile.skills || undefined,
-        industries: enhancedProfile.industries || undefined,
-        meetingPreference: enhancedProfile.meetingPreference || undefined,
         linkedinUrl: linkedinUrl
       });
 
       res.json({ 
         success: true, 
-        profile: enhancedProfile,
-        message: "Profile successfully enhanced with LinkedIn data"
+        profile: { linkedinUrl },
+        message: "LinkedIn URL saved. Use individual field enhancement icons for AI improvements."
       });
     } catch (error) {
       console.error("Error enhancing profile from LinkedIn:", error);
