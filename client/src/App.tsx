@@ -21,25 +21,38 @@ import Layout from "@/components/Layout";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#141414] flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
+      {!isAuthenticated ? (
+        <Switch>
+          <Route path="/" component={Landing} />
+          <Route component={Landing} />
+        </Switch>
       ) : (
         <Layout>
-          <Route path="/" component={Home} />
-          <Route path="/discover" component={Discover} />
-          <Route path="/matches" component={Matches} />
-          <Route path="/messages" component={Messages} />
-          <Route path="/events" component={Events} />
-          <Route path="/live-dashboard" component={LiveDashboard} />
-          <Route path="/admin" component={Admin} />
-          <Route path="/admin/events" component={AdminEvents} />
-          <Route path="/profile" component={Profile} />
-          <Route path="/questionnaire" component={Questionnaire} />
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/discover" component={Discover} />
+            <Route path="/matches" component={Matches} />
+            <Route path="/messages" component={Messages} />
+            <Route path="/events" component={Events} />
+            <Route path="/live-dashboard" component={LiveDashboard} />
+            <Route path="/admin" component={Admin} />
+            <Route path="/admin/events" component={AdminEvents} />
+            <Route path="/profile" component={Profile} />
+            <Route path="/questionnaire" component={Questionnaire} />
+            <Route component={NotFound} />
+          </Switch>
         </Layout>
       )}
-      <Route component={NotFound} />
     </Switch>
   );
 }
