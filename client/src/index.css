@@ -99,3 +99,8 @@
     text-wrap: balance;
   }
 }
+
+/* Progress component override for green styling */
+[data-radix-progress-indicator] {
+  background: linear-gradient(to right, #10b981, #059669) !important;
+}

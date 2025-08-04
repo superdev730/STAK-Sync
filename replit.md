@@ -20,6 +20,13 @@ Preferred communication style: Simple, everyday language.
 - **Market Intelligence**: Brand awareness, competitive position, Net Promoter Score
 - **Revenue Breakdown**: Subscription, advertising, events revenue streams with detailed analytics
 
+# Gamification & Engagement Features
+- **Profile Completion Tracking**: Visual progress bar with percentage completion on main dashboard
+- **Signal Score System**: 0-1000 point system based on profile completion and platform activity
+- **Signal Level Badges**: Progressive tiers from Signal Starter to Signal Master with rewards
+- **Referral System**: Share STAK Signal with colleagues to encourage platform growth
+- **Activity Scoring**: Points for connections (10pts), meetings (15pts), messages (2pts)
+
 # Interactive Features & UI Enhancements
 - **Clickable Match Statistics**: Total matches, connected, and pending stats with drill-down data tables
 - **AI Insights Tooltips**: Comprehensive explanations for match scores and profile optimization
@@ -81,10 +88,11 @@ The application implements an intelligent matching algorithm that considers:
 - Proper authorization checks on all API endpoints
 
 ## Design & Branding
-- STAK Signal branding with light theme for better readability
-- Profile pages use light background with STAK copper accents (#CD853F)
-- Sophisticated color palette: white (#FAFAFA), blue (#3B82F6), gray gradients, copper accents
-- Professional typography with clean, modern layout
+- STAK Signal branding with luxury real estate aesthetic
+- STAK brand color palette: black/gray/metals (gold/silver/copper) with green accents
+- Copper accents for premium features and Signal Score elements (#CD853F)
+- Green accents for progress indicators and completion metrics (#10b981)
+- Professional typography with clean, modern layout using white backgrounds
 - Emphasizes "Find Signal, Cut the Noise" and "Ecosystems are more valuable than products" philosophy
 
 # LinkedIn Integration & AI Profile Enhancement
