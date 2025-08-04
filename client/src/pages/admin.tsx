@@ -195,8 +195,19 @@ export default function Admin() {
   });
 
   const { data: userManagement, isLoading: usersLoading } = useQuery<UserManagementData>({
-    queryKey: ['/api/admin/users', currentPage],
+    queryKey: ['/api/admin/users', currentPage.toString()],
+    queryFn: async () => {
+      const response = await fetch(`/api/admin/users/${currentPage}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    },
     retry: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: platformInsights, isLoading: insightsLoading } = useQuery<PlatformInsights>({
@@ -457,7 +468,13 @@ export default function Admin() {
                     </tr>
                   </thead>
                   <tbody>
-                    {console.log('userManagement data:', userManagement)}
+                    {!userManagement && !usersLoading && (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-gray-400">
+                          Unable to load user data. Please refresh the page.
+                        </td>
+                      </tr>
+                    )}
                     {userManagement?.users?.length === 0 && (
                       <tr>
                         <td colSpan={6} className="p-8 text-center text-gray-400">
