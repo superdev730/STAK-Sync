@@ -1241,7 +1241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         personalityProfile: null,
         goalAnalysis: null,
 
-        signalLevel: 'Signal Starter',
+
         isOnboarded: false,
       });
 
@@ -1275,15 +1275,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      // Update user
-      const updatedUser = await storage.updateUser(userId, {
+      // Handle admin role update - convert 'none' to null
+      const updateData: any = {
         firstName,
         lastName,
         company,
         title,
-        adminRole: adminRole || null,
         isStakTeamMember: isStakTeamMember || false,
-      });
+      };
+      
+      if (adminRole !== undefined) {
+        updateData.adminRole = adminRole === 'none' ? null : adminRole;
+      }
+      
+      // Update user
+      const updatedUser = await storage.updateUser(userId, updateData);
 
       // Log admin action
       await storage.logAdminAction({

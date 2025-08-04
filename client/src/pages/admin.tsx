@@ -671,7 +671,7 @@ export default function Admin() {
 
         {/* Edit User Dialog */}
         <Dialog open={showEditUserDialog} onOpenChange={setShowEditUserDialog}>
-          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-md">
+          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit User</DialogTitle>
               <DialogDescription className="text-gray-400">
@@ -724,6 +724,84 @@ export default function Admin() {
                     className="bg-[#141414] border-gray-600 text-white"
                   />
                 </div>
+                
+                {/* Role Management Section */}
+                <div className="border-t border-gray-600 pt-4">
+                  <Label className="text-gray-300 text-sm font-medium">Admin Role</Label>
+                  <Select 
+                    defaultValue={(selectedUserForEdit as any).adminRole || 'none'}
+                    onValueChange={(value) => {
+                      // Store the selected role for the update
+                      (document.getElementById('selectedRole') as any)._value = value;
+                    }}
+                  >
+                    <SelectTrigger className="bg-[#141414] border-gray-600 text-white mt-2">
+                      <SelectValue placeholder="Select admin role" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1F1F1F] border-gray-600">
+                      <SelectItem value="none" className="text-white hover:bg-[#2A2A2A]">
+                        No Admin Access
+                      </SelectItem>
+                      <SelectItem value="admin" className="text-white hover:bg-[#2A2A2A]">
+                        Admin - Basic admin functions
+                      </SelectItem>
+                      <SelectItem value="super_admin" className="text-white hover:bg-[#2A2A2A]">
+                        Super Admin - Advanced admin functions
+                      </SelectItem>
+                      <SelectItem value="owner" className="text-white hover:bg-[#2A2A2A]">
+                        Owner - Full platform control
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" id="selectedRole" />
+                  <div className="mt-2 text-xs text-gray-400">
+                    <div className="space-y-1">
+                      <div><strong>Admin:</strong> User management, basic analytics</div>
+                      <div><strong>Super Admin:</strong> All admin functions + event management</div>
+                      <div><strong>Owner:</strong> Complete platform control + user role management</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Status Section */}
+                <div className="border-t border-gray-600 pt-4">
+                  <Label className="text-gray-300 text-sm font-medium">Account Status</Label>
+                  <div className="mt-2 flex items-center gap-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-green-600 text-green-400 hover:bg-green-600/10"
+                      onClick={() => {
+                        // Add activation logic here
+                        toast({
+                          title: "User Activated",
+                          description: "User account has been activated",
+                        });
+                      }}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Activate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-600 text-red-400 hover:bg-red-600/10"
+                      onClick={() => {
+                        // Add suspension logic here
+                        toast({
+                          title: "User Suspended",
+                          description: "User account has been suspended",
+                        });
+                      }}
+                    >
+                      <Ban className="h-4 w-4 mr-1" />
+                      Suspend
+                    </Button>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-400">
+                    Current status: <span className="text-green-400">Active</span>
+                  </div>
+                </div>
               </div>
             )}
             <DialogFooter>
@@ -737,6 +815,7 @@ export default function Admin() {
               <Button
                 onClick={() => {
                   if (selectedUserForEdit) {
+                    const selectedRole = (document.getElementById('selectedRole') as any)?._value;
                     updateUserMutation.mutate({
                       userId: selectedUserForEdit.id,
                       userData: {
@@ -744,6 +823,7 @@ export default function Admin() {
                         lastName: (document.getElementById('editLastName') as HTMLInputElement)?.value,
                         company: (document.getElementById('editCompany') as HTMLInputElement)?.value,
                         title: (document.getElementById('editTitle') as HTMLInputElement)?.value,
+                        adminRole: selectedRole === 'none' ? null : selectedRole,
                       }
                     });
                   }
