@@ -44,7 +44,12 @@ import {
   Wand2,
   Sparkles,
   Target,
-  Trophy
+  Trophy,
+  LogOut,
+  Settings,
+  Shield,
+  Bell,
+  Loader2
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -139,11 +144,122 @@ const EnhancedInput: React.FC<EnhancedInputProps> = ({
   );
 };
 
+// Profile Settings Component
+const ProfileSettings: React.FC<{ user: UserType }> = ({ user }) => {
+  const { toast } = useToast();
+
+  const handleLogout = () => {
+    toast({
+      title: "Logging out...",
+      description: "Redirecting to logout",
+    });
+    setTimeout(() => {
+      window.location.href = "/api/logout";
+    }, 500);
+  };
+
+  return (
+    <Card className="bg-white border-0 shadow-lg">
+      <CardHeader>
+        <CardTitle className="text-gray-900 flex items-center">
+          <Settings className="w-5 h-5 mr-2" />
+          Account Settings
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Admin Badge */}
+        {user.adminRole && (
+          <div className="p-4 bg-gradient-to-r from-copper-50 to-amber-50 border border-copper-200 rounded-lg">
+            <div className="flex items-center">
+              <Shield className="w-5 h-5 text-copper-600 mr-2" />
+              <div>
+                <h3 className="font-semibold text-copper-800">STAK Team Member</h3>
+                <p className="text-sm text-copper-600">Admin Role: {user.adminRole?.replace('_', ' ').toUpperCase()}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Privacy Settings */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Privacy Settings</h3>
+          
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center">
+              <Eye className="w-5 h-5 text-gray-600 mr-3" />
+              <div>
+                <p className="font-medium text-gray-900">Profile Visibility</p>
+                <p className="text-sm text-gray-600">Show your profile to other members</p>
+              </div>
+            </div>
+            <Switch defaultChecked={user.profileVisible} />
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center">
+              <Users className="w-5 h-5 text-gray-600 mr-3" />
+              <div>
+                <p className="font-medium text-gray-900">Online Status</p>
+                <p className="text-sm text-gray-600">Show when you're active</p>
+              </div>
+            </div>
+            <Switch defaultChecked={user.showOnlineStatus} />
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center">
+              <Bell className="w-5 h-5 text-gray-600 mr-3" />
+              <div>
+                <p className="font-medium text-gray-900">Email Notifications</p>
+                <p className="text-sm text-gray-600">Receive updates via email</p>
+              </div>
+            </div>
+            <Switch defaultChecked={user.emailNotifications} />
+          </div>
+        </div>
+
+        {/* Account Actions */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Account Actions</h3>
+          
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
+
+        {/* Account Info */}
+        <div className="pt-6 border-t border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Member since:</span>
+              <span className="text-gray-900">{new Date(user.createdAt).toLocaleDateString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Account ID:</span>
+              <span className="text-gray-900 font-mono text-xs">{user.id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Email:</span>
+              <span className="text-gray-900">{user.email}</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 export default function Profile() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"profile" | "privacy" | "ai-enhance">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "privacy" | "ai-enhance" | "settings">("profile");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [isEnhancingProfile, setIsEnhancingProfile] = useState(false);
   const [showLinkedinDialog, setShowLinkedinDialog] = useState(false);
@@ -353,7 +469,7 @@ export default function Profile() {
         </Card>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="w-full">
-          <TabsList className="grid grid-cols-3 w-full bg-white border shadow-sm">
+          <TabsList className="grid grid-cols-4 w-full bg-white border shadow-sm">
             <TabsTrigger value="profile" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
               <User className="w-4 h-4 mr-2" />
               Profile
@@ -365,6 +481,10 @@ export default function Profile() {
             <TabsTrigger value="privacy" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
               <Eye className="w-4 h-4 mr-2" />
               Privacy
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
             </TabsTrigger>
           </TabsList>
 
@@ -755,6 +875,11 @@ export default function Profile() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-6">
+            {user && <ProfileSettings user={user} />}
           </TabsContent>
         </Tabs>
 

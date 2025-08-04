@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { AdminSetupService } from "./adminSetup";
 import { 
   insertMessageSchema, 
   insertMeetupSchema, 
@@ -644,7 +645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin event management routes
   app.get('/api/admin/events', isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const events = await storage.getAllEvents();
+      const events = await storage.getEvents();
       res.json(events);
     } catch (error) {
       console.error('Error fetching admin events:', error);
@@ -1044,13 +1045,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin analytics endpoints
-  app.get('/api/admin/analytics', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/analytics', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      // Simple admin check - in production, implement proper role-based access
       const user = await storage.getUser(req.user.claims.sub);
-      if (!user?.email?.includes('admin') && !user?.email?.includes('behring')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const timeRange = req.query.timeRange as '7d' | '30d' | '90d' || '30d';
       const analytics = await storage.getAdminAnalytics(timeRange);
@@ -1073,12 +1070,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin user management endpoints
-  app.get('/api/admin/users', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(user?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -1101,12 +1095,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/users/:userId/status', isAuthenticated, async (req: any, res) => {
+  app.post('/api/admin/users/:userId/status', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const adminUser = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(adminUser?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const { userId } = req.params;
       const { status, reason } = req.body;
@@ -1169,12 +1160,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/users/search', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/users/search', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(user?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const query = req.query.q as string;
       if (!query || query.length < 2) {
@@ -1190,12 +1178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Platform insights for stakeholders, investors, and advertisers
-  app.get('/api/admin/platform-insights', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/platform-insights', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(user?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const timeRange = req.query.timeRange as string || '30d';
       
@@ -1282,12 +1267,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Urgent actions endpoint
-  app.get('/api/admin/urgent-actions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/urgent-actions', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(user?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const urgentActions = [
         {
@@ -1342,12 +1324,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Drill-down endpoints for detailed metric data
-  app.get('/api/admin/users-detailed', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/users-detailed', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(user?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const users = await storage.getAllUsers();
       const detailedUsers = users.users.map((u: any) => ({
@@ -1367,12 +1346,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/messages-detailed', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/messages-detailed', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(user?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const messages = [
         {
@@ -1405,12 +1381,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/events-detailed', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/events-detailed', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(user?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const events = await storage.getEvents();
       const detailedEvents = events.map(event => ({
@@ -1428,12 +1401,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/matches-detailed', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/matches-detailed', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(user?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const matches = [
         {
@@ -1636,12 +1606,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Detailed advertising metrics for advertisers
-  app.get('/api/admin/advertising-performance', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/advertising-performance', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (!await storage.isUserAdmin(user?.id || '')) {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
 
       const timeRange = req.query.timeRange as string || '30d';
       

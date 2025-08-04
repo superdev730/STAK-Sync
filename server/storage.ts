@@ -907,12 +907,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async isUserAdmin(userId: string): Promise<boolean> {
-    const [admin] = await db
-      .select()
-      .from(adminUsers)
-      .where(eq(adminUsers.userId, userId))
+    const [user] = await db
+      .select({ adminRole: users.adminRole, isStakTeamMember: users.isStakTeamMember })
+      .from(users)
+      .where(eq(users.id, userId))
       .limit(1);
-    return !!admin;
+    
+    return !!(user?.adminRole && user?.isStakTeamMember);
   }
 
   async getAllUsers(page: number = 1, limit: number = 50): Promise<{ users: User[], total: number }> {

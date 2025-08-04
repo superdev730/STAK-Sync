@@ -1,5 +1,8 @@
 import { storage } from './storage';
 import { EmailService } from './emailService';
+import { db } from './db';
+import { users } from '../shared/schema';
+import { eq } from 'drizzle-orm';
 
 export class AdminSetupService {
   static async createFirstAdmin(userEmail: string): Promise<boolean> {
@@ -72,15 +75,56 @@ export class AdminSetupService {
     
     try {
       console.log('Setting up initial admin user...');
-      const success = await this.createFirstAdmin(adminEmail);
       
-      if (success) {
-        console.log('✓ Initial admin setup completed successfully');
+      // Check if user exists and update with admin role
+      const existingUsers = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, adminEmail))
+        .limit(1);
+
+      if (existingUsers.length > 0) {
+        const user = existingUsers[0];
+        if (!user.adminRole) {
+          await db
+            .update(users)
+            .set({ 
+              adminRole: "owner",
+              isStakTeamMember: true,
+              updatedAt: new Date()
+            })
+            .where(eq(users.email, adminEmail));
+          console.log(`✓ Updated ${adminEmail} to owner admin role.`);
+        } else {
+          console.log(`User ${adminEmail} is already an admin with role: ${user.adminRole}`);
+        }
       } else {
-        console.log('⚠ Admin setup incomplete - user may need to sign up first');
+        console.log('⚠ Admin user not found - they need to sign up first');
       }
+      
+      console.log('✓ Initial admin setup completed successfully');
     } catch (error) {
       console.error('Failed to setup initial admin:', error);
     }
+  }
+
+  // Function to check if a user should have admin access based on email domain
+  static isStakTeamEmail(email: string): boolean {
+    const stakDomains = ["@stakventures.com", "@behringco.com"];
+    const specialEmails = ["cbehring@behringco.com"];
+    
+    return specialEmails.includes(email) || 
+           stakDomains.some(domain => email.endsWith(domain));
+  }
+
+  // Function to determine admin role based on email
+  static getAdminRoleForEmail(email: string): "admin" | "super_admin" | "owner" | null {
+    if (email === "cbehring@behringco.com") {
+      return "owner";
+    }
+    if (email.endsWith("@stakventures.com") || email.endsWith("@behringco.com")) {
+      return "admin"; 
+    }
+    return null;
   }
 }

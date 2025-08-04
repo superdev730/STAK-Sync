@@ -10,10 +10,14 @@ import {
   boolean,
   decimal,
   date,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Admin role enumeration
+export const adminRoleEnum = pgEnum("admin_role", ["admin", "super_admin", "owner"]);
 
 // Session storage table.
 export const sessions = pgTable(
@@ -60,6 +64,11 @@ export const users = pgTable("users", {
   profileVisible: boolean("profile_visible").default(true),
   showOnlineStatus: boolean("show_online_status").default(true),
   emailNotifications: boolean("email_notifications").default(true),
+  
+  // Admin role - only for STAK Ventures/Behring team members
+  adminRole: adminRoleEnum("admin_role"),
+  isStakTeamMember: boolean("is_stak_team_member").default(false),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
