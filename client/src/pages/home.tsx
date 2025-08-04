@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
-import { Brain, MessageSquare, Calendar, Users, TrendingUp, Award, ExternalLink, BarChart3, Filter, ArrowUpDown, AlertCircle, Clock, Info, HelpCircle } from "lucide-react";
+import { Brain, MessageSquare, Calendar, Users, TrendingUp, Award, ExternalLink, BarChart3, Filter, ArrowUpDown, AlertCircle, Clock, Info, HelpCircle, Zap, Share2, Gift, Trophy, Target, Sparkles, CheckCircle } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +23,9 @@ interface UserStats {
   pendingMatches: number;
   pendingMeetups: number;
   unreadMessages: number;
+  profileCompleteness?: number;
+  signalScore?: number;
+  signalLevel?: string;
 }
 
 export default function Home() {
@@ -191,8 +195,83 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto p-6 space-y-8">
+        {/* Profile Completeness & Signal Score */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Profile Completeness Card */}
+          <Card className="bg-white border-0 shadow-lg">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg text-gray-900 flex items-center">
+                    <Target className="w-5 h-5 mr-2 text-blue-600" />
+                    Profile Strength
+                  </CardTitle>
+                  <p className="text-gray-600 text-sm">Complete your profile</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {user ? Math.round(([user.firstName, user.lastName, user.title, user.company, user.bio, user.location].filter(f => f).length / 6) * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              <Progress value={user ? Math.round(([user.firstName, user.lastName, user.title, user.company, user.bio, user.location].filter(f => f).length / 6) * 100) : 0} className="h-2 mt-3" />
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Button asChild size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
+                <Link href="/profile">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Complete Profile
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Signal Score Card */}
+          <Card className="bg-white border-0 shadow-lg">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg text-gray-900 flex items-center">
+                    <Zap className="w-5 h-5 mr-2 text-amber-500" />
+                    Signal Score
+                  </CardTitle>
+                  <p className="text-gray-600 text-sm">Platform engagement</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-amber-500">
+                    {userStats ? Math.min((userStats.connections * 10) + (userStats.meetings * 15) + (userStats.messages * 2), 1000) : 0}
+                  </div>
+                  <div className="text-xs text-gray-500">/ 1000 pts</div>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-amber-600 border-amber-300 mt-2">
+                <Trophy className="w-3 h-3 mr-1" />
+                {userStats && (userStats.connections * 10) + (userStats.meetings * 15) + (userStats.messages * 2) >= 800 ? "Signal Master" :
+                 userStats && (userStats.connections * 10) + (userStats.meetings * 15) + (userStats.messages * 2) >= 400 ? "Signal Builder" : "Signal Starter"}
+              </Badge>
+            </CardHeader>
+          </Card>
+
+          {/* Referral Card */}
+          <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-lg">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center">
+                <Share2 className="w-5 h-5 mr-2" />
+                Share STAK Signal
+              </CardTitle>
+              <p className="text-blue-100 text-sm">Invite colleagues to join</p>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Button variant="secondary" size="sm" className="w-full bg-white text-blue-600 hover:bg-blue-50">
+                <Gift className="w-4 h-4 mr-2" />
+                Invite & Earn Rewards
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-stak-copper to-stak-dark-copper text-white rounded-2xl p-8 shadow-lg">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl p-8 shadow-lg">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-3xl font-bold mb-2">

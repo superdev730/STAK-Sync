@@ -105,7 +105,7 @@ export default function Profile() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      return await apiRequest(`/api/auth/user`, "PUT", data);
+      return await apiRequest(`/api/profile`, "PUT", data);
     },
     onSuccess: () => {
       toast({
@@ -256,7 +256,7 @@ export default function Profile() {
                           <FormItem>
                             <FormLabel className="text-gray-700">First Name</FormLabel>
                             <FormControl>
-                              <Input {...field} className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                              <Input {...field} className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -269,7 +269,7 @@ export default function Profile() {
                           <FormItem>
                             <FormLabel className="text-gray-700">Last Name</FormLabel>
                             <FormControl>
-                              <Input {...field} className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                              <Input {...field} className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -285,7 +285,7 @@ export default function Profile() {
                           <FormItem>
                             <FormLabel className="text-gray-700">Professional Title</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="e.g., CEO, Founder, Investor" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                              <Input {...field} placeholder="e.g., CEO, Founder, Investor" className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -298,7 +298,7 @@ export default function Profile() {
                           <FormItem>
                             <FormLabel className="text-gray-700">Company</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="Your company or organization" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                              <Input {...field} placeholder="Your company or organization" className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -316,7 +316,7 @@ export default function Profile() {
                             <Textarea 
                               {...field} 
                               placeholder="Tell the STAK community about your expertise, interests, and what you're looking to achieve..."
-                              className="bg-gray-50 border-gray-200 focus:border-blue-500 min-h-[120px]"
+                              className="bg-gray-50 border-gray-200 focus:border-blue-500 min-h-[120px] text-gray-900"
                             />
                           </FormControl>
                           <FormMessage />
@@ -331,7 +331,7 @@ export default function Profile() {
                         <FormItem>
                           <FormLabel className="text-gray-700">Location</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="City, State/Country" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                            <Input {...field} placeholder="City, State/Country" className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -354,7 +354,7 @@ export default function Profile() {
                                 LinkedIn
                               </FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="https://linkedin.com/in/yourprofile" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                                <Input {...field} placeholder="https://linkedin.com/in/yourprofile" className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -370,7 +370,7 @@ export default function Profile() {
                                 Twitter
                               </FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="https://twitter.com/yourusername" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                                <Input {...field} placeholder="https://twitter.com/yourusername" className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -389,7 +389,7 @@ export default function Profile() {
                                 Website
                               </FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="https://yourwebsite.com" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                                <Input {...field} placeholder="https://yourwebsite.com" className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -405,7 +405,7 @@ export default function Profile() {
                                 GitHub
                               </FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="https://github.com/yourusername" className="bg-gray-50 border-gray-200 focus:border-blue-500" />
+                                <Input {...field} placeholder="https://github.com/yourusername" className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -426,7 +426,7 @@ export default function Profile() {
                             <Textarea 
                               {...field} 
                               placeholder="What are you hoping to achieve through networking in the STAK community?"
-                              className="bg-gray-50 border-gray-200 focus:border-blue-500"
+                              className="bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900"
                             />
                           </FormControl>
                           <FormMessage />
@@ -480,7 +480,7 @@ export default function Profile() {
                         placeholder="https://linkedin.com/in/yourprofile"
                         value={linkedinUrl}
                         onChange={(e) => setLinkedinUrl(e.target.value)}
-                        className="flex-1 bg-white border-gray-200"
+                        className="flex-1 bg-white border-gray-200 text-gray-900"
                       />
                       <Button 
                         onClick={handleLinkedinEnhancement}

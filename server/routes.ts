@@ -186,7 +186,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const updates = req.body;
-      const user = await storage.updateUser(userId, updates);
+      
+      // Remove undefined/null values and ensure proper formatting
+      const cleanData = Object.fromEntries(
+        Object.entries(updates).filter(([_, value]) => value !== undefined && value !== null && value !== "")
+      );
+      
+      const user = await storage.updateUser(userId, cleanData);
       res.json(user);
     } catch (error) {
       console.error("Error updating profile:", error);
