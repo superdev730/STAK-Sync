@@ -127,7 +127,7 @@ export default function Profile() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      return await apiRequest(`/api/profile`, "PUT", data);
+      return await apiRequest("PUT", "/api/profile", data);
     },
     onSuccess: () => {
       toast({
@@ -158,7 +158,7 @@ export default function Profile() {
 
   const enhanceProfileMutation = useMutation({
     mutationFn: async (linkedinUrl: string) => {
-      return await apiRequest(`/api/profile/enhance-from-linkedin`, "POST", { linkedinUrl });
+      return await apiRequest("POST", "/api/profile/enhance-from-linkedin", { linkedinUrl });
     },
     onSuccess: (data: any) => {
       // Update form with enhanced profile data
