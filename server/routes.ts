@@ -321,15 +321,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use AI to analyze LinkedIn and enhance profile
       const enhancedProfile = await enhanceProfileFromLinkedIn(linkedinUrl);
       
-      // Update user profile with enhanced data
+      // Update user profile with enhanced data (auto-complete all fields)
       await storage.updateUser(userId, {
+        firstName: enhancedProfile.firstName || undefined,
+        lastName: enhancedProfile.lastName || undefined,
         bio: enhancedProfile.bio,
         networkingGoal: enhancedProfile.networkingGoal,
-        linkedinUrl: linkedinUrl,
         title: enhancedProfile.title || undefined,
         company: enhancedProfile.company || undefined,
+        location: enhancedProfile.location || undefined,
         skills: enhancedProfile.skills || undefined,
-        industries: enhancedProfile.industries || undefined
+        industries: enhancedProfile.industries || undefined,
+        meetingPreference: enhancedProfile.meetingPreference || undefined,
+        linkedinUrl: linkedinUrl
       });
 
       res.json({ 

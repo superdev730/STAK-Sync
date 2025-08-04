@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -86,22 +86,44 @@ export default function Profile() {
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      firstName: (user as any)?.firstName || "",
-      lastName: (user as any)?.lastName || "",
-      title: (user as any)?.title || "",
-      company: (user as any)?.company || "",
-      bio: (user as any)?.bio || "",
-      location: (user as any)?.location || "",
-      linkedinUrl: (user as any)?.linkedinUrl || "",
-      twitterUrl: (user as any)?.twitterUrl || "",
-      websiteUrl: (user as any)?.websiteUrl || "",
-      githubUrl: (user as any)?.githubUrl || "",
-      networkingGoal: (user as any)?.networkingGoal || "",
-      profileVisible: (user as any)?.profileVisible ?? true,
-      showOnlineStatus: (user as any)?.showOnlineStatus ?? true,
-      emailNotifications: (user as any)?.emailNotifications ?? true,
+      firstName: "",
+      lastName: "",
+      title: "",
+      company: "",
+      bio: "",
+      location: "",
+      linkedinUrl: "",
+      twitterUrl: "",
+      websiteUrl: "",
+      githubUrl: "",
+      networkingGoal: "",
+      profileVisible: true,
+      showOnlineStatus: true,
+      emailNotifications: true,
     },
   });
+
+  // Reset form when user data changes
+  React.useEffect(() => {
+    if (user) {
+      form.reset({
+        firstName: (user as any)?.firstName || "",
+        lastName: (user as any)?.lastName || "",
+        title: (user as any)?.title || "",
+        company: (user as any)?.company || "",
+        bio: (user as any)?.bio || "",
+        location: (user as any)?.location || "",
+        linkedinUrl: (user as any)?.linkedinUrl || "",
+        twitterUrl: (user as any)?.twitterUrl || "",
+        websiteUrl: (user as any)?.websiteUrl || "",
+        githubUrl: (user as any)?.githubUrl || "",
+        networkingGoal: (user as any)?.networkingGoal || "",
+        profileVisible: (user as any)?.profileVisible ?? true,
+        showOnlineStatus: (user as any)?.showOnlineStatus ?? true,
+        emailNotifications: (user as any)?.emailNotifications ?? true,
+      });
+    }
+  }, [user, form]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
