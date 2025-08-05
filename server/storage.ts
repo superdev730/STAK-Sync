@@ -46,6 +46,7 @@ export interface IStorage {
   
   // Match operations
   getMatches(userId: string): Promise<(Match & { matchedUser: User })[]>;
+  getMatch(matchId: string): Promise<Match | undefined>;
   createMatch(match: InsertMatch): Promise<Match>;
   updateMatchStatus(matchId: string, status: string): Promise<Match>;
   
@@ -163,6 +164,14 @@ export class DatabaseStorage implements IStorage {
       ...row.match,
       matchedUser: row.matchedUser,
     }));
+  }
+
+  async getMatch(matchId: string): Promise<Match | undefined> {
+    const [match] = await db
+      .select()
+      .from(matches)
+      .where(eq(matches.id, matchId));
+    return match;
   }
 
   async createMatch(match: InsertMatch): Promise<Match> {

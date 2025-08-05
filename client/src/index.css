@@ -5,34 +5,34 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(0, 0%, 8%);
-  --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(0, 0%, 20%);
-  --muted-foreground: hsl(0, 0%, 65%);
-  --popover: hsl(0, 0%, 8%);
-  --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(0, 0%, 15%);
-  --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(0, 0%, 30%);
-  --input: hsl(0, 0%, 25%);
-  --primary: hsl(25, 65%, 65%);
-  --primary-foreground: hsl(0, 0%, 8%);
-  --secondary: hsl(0, 0%, 20%);
-  --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(0, 0%, 20%);
-  --accent-foreground: hsl(0, 0%, 98%);
+  --background: hsl(0, 0%, 98%);
+  --foreground: hsl(0, 0%, 8%);
+  --muted: hsl(0, 0%, 95%);
+  --muted-foreground: hsl(0, 0%, 45%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(0, 0%, 8%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(0, 0%, 8%);
+  --border: hsl(0, 0%, 85%);
+  --input: hsl(0, 0%, 100%);
+  --primary: hsl(210, 100%, 50%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(0, 0%, 95%);
+  --secondary-foreground: hsl(0, 0%, 8%);
+  --accent: hsl(0, 0%, 95%);
+  --accent-foreground: hsl(0, 0%, 8%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(25, 65%, 65%);
+  --ring: hsl(210, 100%, 50%);
   --radius: 0.5rem;
   
-  /* Custom colors for STAK Signal theme */
+  /* Custom colors for STAK Signal theme - Light Theme */
   --stak-black: hsl(0, 0%, 8%);
-  --stak-copper: hsl(25, 65%, 65%);
-  --stak-dark-copper: hsl(25, 45%, 45%);
-  --stak-white: hsl(0, 0%, 98%);
-  --stak-gray: hsl(0, 0%, 20%);
-  --stak-light-gray: hsl(0, 0%, 85%);
+  --stak-copper: hsl(25, 65%, 50%);
+  --stak-dark-copper: hsl(25, 45%, 35%);
+  --stak-white: hsl(0, 0%, 100%);
+  --stak-gray: hsl(0, 0%, 45%);
+  --stak-light-gray: hsl(0, 0%, 95%);
 }
 
 .dark {
@@ -64,7 +64,7 @@
   }
 
   body {
-    @apply bg-stak-black text-stak-white font-inter antialiased;
+    @apply bg-gray-50 text-gray-900 font-inter antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {

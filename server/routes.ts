@@ -737,6 +737,191 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Meeting scheduling endpoint with email integration
+  app.post('/api/meetings/schedule', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const { matchId, date, time, message } = req.body;
+
+      if (!matchId || !date || !time) {
+        return res.status(400).json({ message: "Missing required fields: matchId, date, time" });
+      }
+
+      // Get match details to verify connection and get user info
+      const match = await storage.getMatch(matchId);
+      if (!match || match.userId !== userId) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+
+      if (match.status !== 'connected') {
+        return res.status(400).json({ message: "Can only schedule meetings with connected users" });
+      }
+
+      // Get both users' information
+      const organizer = await storage.getUser(userId);
+      const attendee = await storage.getUser(match.matchedUserId);
+
+      if (!organizer || !attendee) {
+        return res.status(404).json({ message: "User information not found" });
+      }
+
+      // Create meeting
+      const scheduledAt = new Date(`${date}T${time}`);
+      const meetingData = {
+        organizerId: userId,
+        attendeeId: match.matchedUserId,
+        title: `Meeting: ${organizer.firstName} ${organizer.lastName} & ${attendee.firstName} ${attendee.lastName}`,
+        description: message || "Professional networking meeting via STAK Signal",
+        location: "Video Call (link will be provided)",
+        scheduledAt,
+        status: "pending"
+      };
+
+      const meeting = await storage.createMeetup(meetingData);
+
+      // Send email invitations using SendGrid
+      try {
+        const { MailService } = await import('@sendgrid/mail');
+        const sgMail = new MailService();
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+
+        const formatDate = (date: Date) => {
+          return date.toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          });
+        };
+
+        const formatTime = (date: Date) => {
+          return date.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            timeZoneName: 'short'
+          });
+        };
+
+        // Create iCal content
+        const icalContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//STAK Signal//Meeting//EN
+BEGIN:VEVENT
+UID:${meeting.id}@staksingal.com
+DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+DTSTART:${scheduledAt.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+DTEND:${new Date(scheduledAt.getTime() + 30 * 60000).toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+SUMMARY:${meetingData.title}
+DESCRIPTION:${meetingData.description}
+LOCATION:${meetingData.location}
+ORGANIZER:CN=${organizer.firstName} ${organizer.lastName}:MAILTO:${organizer.email}
+ATTENDEE:CN=${attendee.firstName} ${attendee.lastName}:MAILTO:${attendee.email}
+STATUS:TENTATIVE
+END:VEVENT
+END:VCALENDAR`;
+
+        // Email to the attendee (meeting request)
+        const attendeeEmail = {
+          to: attendee.email,
+          from: 'noreply@staksingal.com',
+          subject: `Meeting Request from ${organizer.firstName} ${organizer.lastName} - STAK Signal`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #1f2937;">Meeting Request via STAK Signal</h2>
+              
+              <p>Hi ${attendee.firstName},</p>
+              
+              <p><strong>${organizer.firstName} ${organizer.lastName}</strong> would like to schedule a meeting with you through STAK Signal.</p>
+              
+              <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #374151; margin-top: 0;">Meeting Details</h3>
+                <p><strong>Date:</strong> ${formatDate(scheduledAt)}</p>
+                <p><strong>Time:</strong> ${formatTime(scheduledAt)}</p>
+                <p><strong>Duration:</strong> 30 minutes</p>
+                <p><strong>Location:</strong> ${meetingData.location}</p>
+                ${message ? `<p><strong>Message:</strong> ${message}</p>` : ''}
+              </div>
+              
+              <p>Please log into STAK Signal to accept or decline this meeting request.</p>
+              
+              <p>Best regards,<br>The STAK Signal Team</p>
+            </div>
+          `,
+          attachments: [
+            {
+              content: Buffer.from(icalContent).toString('base64'),
+              filename: 'meeting.ics',
+              type: 'text/calendar',
+              disposition: 'attachment'
+            }
+          ]
+        };
+
+        // Email to the organizer (confirmation)
+        const organizerEmail = {
+          to: organizer.email,
+          from: 'noreply@staksingal.com',
+          subject: `Meeting Request Sent to ${attendee.firstName} ${attendee.lastName} - STAK Signal`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #1f2937;">Meeting Request Sent</h2>
+              
+              <p>Hi ${organizer.firstName},</p>
+              
+              <p>Your meeting request has been sent to <strong>${attendee.firstName} ${attendee.lastName}</strong>.</p>
+              
+              <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #374151; margin-top: 0;">Meeting Details</h3>
+                <p><strong>Date:</strong> ${formatDate(scheduledAt)}</p>
+                <p><strong>Time:</strong> ${formatTime(scheduledAt)}</p>
+                <p><strong>Duration:</strong> 30 minutes</p>
+                <p><strong>Location:</strong> ${meetingData.location}</p>
+                ${message ? `<p><strong>Your Message:</strong> ${message}</p>` : ''}
+              </div>
+              
+              <p>You'll receive a notification when ${attendee.firstName} responds to your request.</p>
+              
+              <p>Best regards,<br>The STAK Signal Team</p>
+            </div>
+          `,
+          attachments: [
+            {
+              content: Buffer.from(icalContent).toString('base64'),
+              filename: 'meeting.ics',
+              type: 'text/calendar',
+              disposition: 'attachment'
+            }
+          ]
+        };
+
+        // Send both emails
+        await Promise.all([
+          sgMail.send(attendeeEmail),
+          sgMail.send(organizerEmail)
+        ]);
+
+        console.log('Meeting invitation emails sent successfully');
+      } catch (emailError) {
+        console.error('Error sending meeting emails:', emailError);
+        // Don't fail the whole request if email fails
+      }
+
+      res.json({
+        success: true,
+        meeting,
+        message: "Meeting request sent successfully with email notifications"
+      });
+
+    } catch (error) {
+      console.error("Error scheduling meeting:", error);
+      res.status(500).json({ message: "Failed to schedule meeting" });
+    }
+  });
+
   // Questionnaire routes
   app.post('/api/questionnaire', isAuthenticated, async (req: any, res) => {
     try {
