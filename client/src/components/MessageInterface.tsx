@@ -58,21 +58,21 @@ export default function MessageInterface({
   };
 
   return (
-    <div className="flex flex-col h-96">
+    <div className="flex flex-col h-[600px]">
       {/* Chat Header */}
-      <CardHeader className="p-4 border-b border-gray-200 flex flex-row items-center justify-between">
+      <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <Avatar className="w-10 h-10">
+          <Avatar className="w-12 h-12">
             <AvatarImage src={otherUser.profileImageUrl || ""} alt={otherUser.firstName || ""} />
-            <AvatarFallback className="bg-navy text-white">
+            <AvatarFallback className="bg-navy text-white font-semibold">
               {otherUser.firstName?.[0]}{otherUser.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold text-charcoal">
+            <p className="font-semibold text-gray-900 text-lg">
               {otherUser.firstName} {otherUser.lastName}
             </p>
-            <p className={`text-sm ${isOnline ? 'text-prof-green' : 'text-gray-500'}`}>
+            <p className={`text-sm font-medium ${isOnline ? 'text-green-600' : 'text-gray-500'}`}>
               {isOnline ? '● Online' : '○ Offline'}
             </p>
           </div>
@@ -85,10 +85,10 @@ export default function MessageInterface({
             <MoreVertical className="h-4 w-4" />
           </Button>
         </div>
-      </CardHeader>
+      </div>
 
       {/* Messages */}
-      <CardContent className="flex-1 p-4 overflow-y-auto space-y-4">
+      <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
             Start your conversation with {otherUser.firstName}
@@ -112,17 +112,17 @@ export default function MessageInterface({
                   </Avatar>
                 )}
                 <div
-                  className={`max-w-xs p-3 rounded-2xl ${
+                  className={`max-w-xs p-4 rounded-2xl ${
                     isOwnMessage
-                      ? 'bg-navy text-white rounded-tr-sm'
-                      : 'bg-gray-100 text-charcoal rounded-tl-sm'
+                      ? 'bg-navy text-white rounded-tr-sm shadow-sm'
+                      : 'bg-white text-gray-900 rounded-tl-sm shadow-sm border border-gray-200'
                   }`}
                 >
-                  <p>{message.content}</p>
-                  <p className={`text-xs mt-1 ${
+                  <p className="text-sm leading-relaxed">{message.content}</p>
+                  <p className={`text-xs mt-2 ${
                     isOwnMessage ? 'text-blue-200' : 'text-gray-500'
                   }`}>
-                    {new Date(message.createdAt).toLocaleTimeString([], {
+                    {message.createdAt && new Date(message.createdAt).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit'
                     })}
@@ -133,17 +133,17 @@ export default function MessageInterface({
           })
         )}
         <div ref={messagesEndRef} />
-      </CardContent>
+      </div>
 
       {/* Message Input */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-200 bg-white">
         <div className="flex items-center space-x-3">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Type your message..."
-            className="flex-1 border-gray-300 rounded-full focus:border-navy"
+            className="flex-1 border-gray-300 focus:border-navy focus:ring-navy"
           />
           <Button
             onClick={handleSendMessage}
