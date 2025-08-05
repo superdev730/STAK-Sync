@@ -37,10 +37,11 @@ Recent conversation:
 ${conversationContext}
 
 Generate 3-4 quick response options that would be appropriate for this professional networking context. Responses should be:
-- Professional yet personable
+- Professional yet personable (like LinkedIn messaging)
 - Contextually relevant to the last message
-- Brief (under 15 words each)
-- Varied in tone (mix of confirmatory, questioning, scheduling, or next-step oriented)
+- Very brief (under 10 words each, like "Thanks!", "Sounds great!", "Let's connect!", "Tell me more")
+- Simple and conversational (avoid corporate jargon)
+- Varied in tone (mix of acknowledgment, interest, questions, or next steps)
 
 Return as JSON with this format:
 {
@@ -67,12 +68,12 @@ Types should be: professional, friendly, question, or scheduling`;
   } catch (error) {
     console.error("Error generating quick responses:", error);
     
-    // Return fallback responses if AI fails
+    // Return fallback responses if AI fails (LinkedIn-style)
     return [
-      { id: "1", text: "Thanks for sharing that!", type: "professional" },
-      { id: "2", text: "That sounds interesting. Tell me more?", type: "question" },
-      { id: "3", text: "I'd love to connect on this.", type: "friendly" },
-      { id: "4", text: "Should we schedule a call to discuss?", type: "scheduling" }
+      { id: "1", text: "Thanks!", type: "professional" },
+      { id: "2", text: "Tell me more", type: "question" },
+      { id: "3", text: "Sounds great!", type: "friendly" },
+      { id: "4", text: "Let's connect", type: "scheduling" }
     ];
   }
 }

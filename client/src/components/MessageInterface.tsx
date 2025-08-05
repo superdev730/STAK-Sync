@@ -96,10 +96,9 @@ export default function MessageInterface({
     
     setLoadingResponses(true);
     try {
-      const response = await apiRequest(`/api/messages/quick-responses`, {
+      const response = await apiRequest('/api/messages/quick-responses', {
         method: 'POST',
-        body: JSON.stringify({ otherUserId: otherUser.id }),
-        headers: { 'Content-Type': 'application/json' }
+        body: { otherUserId: otherUser.id }
       });
       
       setQuickResponses(response.responses || []);
@@ -223,24 +222,18 @@ export default function MessageInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Responses */}
+      {/* Quick Responses - LinkedIn Style */}
       {showQuickResponses && quickResponses.length > 0 && (
-        <div className="p-4 border-t border-gray-100 bg-blue-50">
-          <div className="flex items-center space-x-2 mb-3">
-            <Sparkles className="h-4 w-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-800">Quick responses</span>
-          </div>
+        <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
           <div className="flex flex-wrap gap-2">
             {quickResponses.map((response) => (
-              <Button
+              <button
                 key={response.id}
-                variant="outline"
-                size="sm"
                 onClick={() => handleQuickResponse(response.text)}
-                className="text-sm bg-white hover:bg-blue-100 border-blue-200 text-blue-800"
+                className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition-colors duration-150"
               >
                 {response.text}
-              </Button>
+              </button>
             ))}
           </div>
         </div>
@@ -266,17 +259,16 @@ export default function MessageInterface({
           >
             <Send className="h-4 w-4" />
           </Button>
-          {!showQuickResponses && (
-            <Button
-              onClick={generateQuickResponses}
-              variant="outline"
-              size="sm"
-              disabled={loadingResponses}
-              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-            >
-              <Sparkles className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            onClick={generateQuickResponses}
+            variant="ghost"
+            size="sm"
+            disabled={loadingResponses || showQuickResponses}
+            className="text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            title="Generate quick responses"
+          >
+            <Sparkles className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>
