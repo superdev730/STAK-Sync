@@ -9,6 +9,46 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Message, User } from "@shared/schema";
 
+// Function to get match score based on user
+function getMatchScore(user: User): number {
+  const userMatches: Record<string, number> = {
+    'demo-sarah': 92,
+    'demo-michael': 89,
+    'demo-jessica': 94,
+    'demo-david': 87
+  };
+  return userMatches[user.id] || 85;
+}
+
+// Function to get contextual badges for each user
+function getUserBadges(user: User) {
+  const userBadges: Record<string, Array<{text: string, className: string}>> = {
+    'demo-sarah': [
+      { text: 'Engineering • AI/ML', className: 'bg-blue-100 text-blue-800' },
+      { text: 'Scale-up Experience', className: 'bg-purple-100 text-purple-800' },
+      { text: 'Both attending: STAK Summit 2025', className: 'bg-orange-100 text-orange-800' }
+    ],
+    'demo-michael': [
+      { text: 'Venture Capital • Fintech', className: 'bg-blue-100 text-blue-800' },
+      { text: 'Series A-C Investments', className: 'bg-purple-100 text-purple-800' },
+      { text: 'Shared interest: Enterprise AI', className: 'bg-green-100 text-green-800' }
+    ],
+    'demo-jessica': [
+      { text: 'Healthcare • B2B SaaS', className: 'bg-blue-100 text-blue-800' },
+      { text: 'Looking for Series A', className: 'bg-purple-100 text-purple-800' },
+      { text: 'Partnership Opportunity', className: 'bg-orange-100 text-orange-800' }
+    ],
+    'demo-david': [
+      { text: 'Investment • Fintech Focus', className: 'bg-blue-100 text-blue-800' },
+      { text: 'Portfolio Introductions', className: 'bg-purple-100 text-purple-800' },
+      { text: 'STAK Ecosystem Member', className: 'bg-orange-100 text-orange-800' }
+    ]
+  };
+  return userBadges[user.id] || [
+    { text: 'Professional Networking', className: 'bg-gray-100 text-gray-800' }
+  ];
+}
+
 interface MessageInterfaceProps {
   currentUser: User;
   otherUser: User;
@@ -60,30 +100,36 @@ export default function MessageInterface({
   return (
     <div className="flex flex-col h-[600px]">
       {/* Chat Header */}
-      <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+      <div className="p-6 border-b border-gray-200 bg-white">
+        <div className="flex items-start space-x-4">
           <Avatar className="w-12 h-12">
             <AvatarImage src={otherUser.profileImageUrl || ""} alt={otherUser.firstName || ""} />
-            <AvatarFallback className="bg-navy text-white font-semibold">
+            <AvatarFallback className="bg-gray-300 text-gray-600 font-semibold">
               {otherUser.firstName?.[0]}{otherUser.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <p className="font-semibold text-gray-900 text-lg">
-              {otherUser.firstName} {otherUser.lastName}
-            </p>
-            <p className={`text-sm font-medium ${isOnline ? 'text-green-600' : 'text-gray-500'}`}>
-              {isOnline ? '● Online' : '○ Offline'}
-            </p>
+          <div className="flex-1">
+            <div className="flex items-center space-x-3 mb-2">
+              <h2 className="font-semibold text-xl text-black">
+                {otherUser.firstName} {otherUser.lastName}
+              </h2>
+              <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                Match: {getMatchScore(otherUser)}%
+              </div>
+              <span className="text-green-600 text-sm font-medium">● Online</span>
+            </div>
+            <div className="text-gray-600 mb-3">
+              <span className="font-medium">{otherUser.title}</span>
+              {otherUser.company && <span> at {otherUser.company}</span>}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {getUserBadges(otherUser).map((badge, index) => (
+                <span key={index} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
+                  {badge.text}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="ghost" size="icon">
-            <Calendar className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
