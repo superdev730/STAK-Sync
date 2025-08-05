@@ -79,6 +79,7 @@ function AdminDashboard() {
     adminRole: '',
     isStakTeamMember: false
   });
+  const [activeInsightView, setActiveInsightView] = useState<string | null>(null);
 
   // Data fetching
   const { data: analytics, isLoading } = useQuery({
@@ -695,13 +696,13 @@ function AdminDashboard() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-navy border-navy">
+                            <Badge variant="outline" className="text-white bg-navy border-navy px-3 py-1">
                               {event.eventType}
                             </Badge>
                             <Button 
                               size="sm" 
-                              variant="outline"
-                              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                              variant="default"
+                              className="bg-navy text-white hover:bg-navy/80 border-navy font-medium"
                               onClick={() => {
                                 // Set the event data for editing
                                 setEventData({
@@ -757,9 +758,13 @@ function AdminDashboard() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Revenue Analytics */}
-                <Card className="bg-white border border-gray-200 shadow-sm">
+                <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer" 
+                      onClick={() => setActiveInsightView('revenue')}>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-900">Total Revenue</CardTitle>
+                    <CardTitle className="text-sm font-medium text-gray-900 flex items-center justify-between">
+                      Total Revenue
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-gray-900">$47,500</div>
@@ -767,13 +772,18 @@ function AdminDashboard() {
                       <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
                       <span className="text-sm text-green-600 font-semibold">+12.5% vs last month</span>
                     </div>
+                    <div className="text-xs text-gray-500 mt-2">Click to view breakdown</div>
                   </CardContent>
                 </Card>
 
                 {/* User Acquisition Cost */}
-                <Card className="bg-white border border-gray-200 shadow-sm">
+                <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => setActiveInsightView('acquisition')}>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-900">User Acquisition Cost</CardTitle>
+                    <CardTitle className="text-sm font-medium text-gray-900 flex items-center justify-between">
+                      User Acquisition Cost
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-gray-900">$24.50</div>
@@ -781,13 +791,18 @@ function AdminDashboard() {
                       <Target className="h-4 w-4 text-blue-600 mr-1" />
                       <span className="text-sm text-blue-600 font-semibold">-8.2% vs last month</span>
                     </div>
+                    <div className="text-xs text-gray-500 mt-2">Click to view channel breakdown</div>
                   </CardContent>
                 </Card>
 
                 {/* Lifetime Value */}
-                <Card className="bg-white border border-gray-200 shadow-sm">
+                <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => setActiveInsightView('ltv')}>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-900">Customer LTV</CardTitle>
+                    <CardTitle className="text-sm font-medium text-gray-900 flex items-center justify-between">
+                      Customer LTV
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-gray-900">$180.25</div>
@@ -795,9 +810,97 @@ function AdminDashboard() {
                       <Activity className="h-4 w-4 text-[#CD853F] mr-1" />
                       <span className="text-sm text-[#CD853F] font-semibold">+15.8% vs last month</span>
                     </div>
+                    <div className="text-xs text-gray-500 mt-2">Click to view cohort analysis</div>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Insight Drill-Down Modal */}
+              {activeInsightView && (
+                <Card className="bg-white border border-gray-200 shadow-sm mb-6">
+                  <CardHeader>
+                    <CardTitle className="text-navy flex items-center justify-between">
+                      {activeInsightView === 'revenue' ? 'Revenue Breakdown' :
+                       activeInsightView === 'acquisition' ? 'User Acquisition Details' :
+                       'Customer LTV Analysis'}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setActiveInsightView(null)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        ✕ Close
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {activeInsightView === 'revenue' && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">Subscriptions</h4>
+                          <p className="text-2xl font-bold text-gray-900">$32,100</p>
+                          <p className="text-sm text-gray-600">67.6% of total revenue</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">Events</h4>
+                          <p className="text-2xl font-bold text-gray-900">$12,800</p>
+                          <p className="text-sm text-gray-600">26.9% of total revenue</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">Advertising</h4>
+                          <p className="text-2xl font-bold text-gray-900">$2,600</p>
+                          <p className="text-sm text-gray-600">5.5% of total revenue</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {activeInsightView === 'acquisition' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">Organic</h4>
+                          <p className="text-2xl font-bold text-gray-900">$18.20</p>
+                          <p className="text-sm text-gray-600">45% of new users</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">Paid Social</h4>
+                          <p className="text-2xl font-bold text-gray-900">$31.80</p>
+                          <p className="text-sm text-gray-600">35% of new users</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">Referrals</h4>
+                          <p className="text-2xl font-bold text-gray-900">$12.40</p>
+                          <p className="text-sm text-gray-600">15% of new users</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">Events</h4>
+                          <p className="text-2xl font-bold text-gray-900">$8.90</p>
+                          <p className="text-sm text-gray-600">5% of new users</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {activeInsightView === 'ltv' && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">0-6 Months</h4>
+                          <p className="text-2xl font-bold text-gray-900">$85.50</p>
+                          <p className="text-sm text-gray-600">Early engagement</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">6-12 Months</h4>
+                          <p className="text-2xl font-bold text-gray-900">$142.30</p>
+                          <p className="text-sm text-gray-600">Established users</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900">12+ Months</h4>
+                          <p className="text-2xl font-bold text-gray-900">$225.80</p>
+                          <p className="text-sm text-gray-600">Long-term members</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Advertising Platform */}
               <Card className="bg-white border border-gray-200 shadow-sm">
