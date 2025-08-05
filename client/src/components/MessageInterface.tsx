@@ -7,7 +7,7 @@ import { Send, Calendar, MoreVertical, Sparkles } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import type { Message, User } from "@shared/schema";
 
 interface QuickResponse {
@@ -175,9 +175,11 @@ export default function MessageInterface({
               >
                 {otherUser.firstName} {otherUser.lastName}
               </h2>
-              <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                Match: {getMatchScore(otherUser)}%
-              </div>
+              <Link href={`/profile-detail?userId=${otherUser.id}`}>
+                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 cursor-pointer hover:bg-green-200 transition-colors">
+                  Match: {getMatchScore(otherUser)}%
+                </div>
+              </Link>
               <span className="text-green-600 text-sm font-medium">● Online</span>
             </div>
             <div className="text-gray-600 mb-3">
