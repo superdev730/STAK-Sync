@@ -7,6 +7,7 @@ import { Send, Calendar, MoreVertical, Sparkles } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import type { Message, User } from "@shared/schema";
 
 interface QuickResponse {
@@ -75,6 +76,7 @@ export default function MessageInterface({
   const [showQuickResponses, setShowQuickResponses] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -96,12 +98,21 @@ export default function MessageInterface({
     
     setLoadingResponses(true);
     try {
-      const response = await apiRequest('/api/messages/quick-responses', {
+      const response = await fetch('/api/messages/quick-responses', {
         method: 'POST',
-        body: { otherUserId: otherUser.id }
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ otherUserId: otherUser.id }),
+        credentials: 'include'
       });
       
-      setQuickResponses(response.responses || []);
+      if (!response.ok) {
+        throw new Error('Failed to generate responses');
+      }
+      
+      const data = await response.json();
+      setQuickResponses(data.responses || []);
       setShowQuickResponses(true);
     } catch (error) {
       console.error('Failed to generate quick responses:', error);
@@ -131,6 +142,10 @@ export default function MessageInterface({
     handleSendMessage(responseText);
   };
 
+  const handleProfileClick = () => {
+    setLocation(`/profile/${otherUser.id}`);
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -143,7 +158,10 @@ export default function MessageInterface({
       {/* Chat Header */}
       <div className="p-6 border-b border-gray-200 bg-white">
         <div className="flex items-start space-x-4">
-          <Avatar className="w-12 h-12">
+          <Avatar 
+            className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={handleProfileClick}
+          >
             <AvatarImage src={otherUser.profileImageUrl || ""} alt={otherUser.firstName || ""} />
             <AvatarFallback className="bg-gray-300 text-gray-600 font-semibold">
               {otherUser.firstName?.[0]}{otherUser.lastName?.[0]}
@@ -151,7 +169,10 @@ export default function MessageInterface({
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center space-x-3 mb-2">
-              <h2 className="font-semibold text-xl text-black">
+              <h2 
+                className="font-semibold text-xl text-black cursor-pointer hover:underline"
+                onClick={handleProfileClick}
+              >
                 {otherUser.firstName} {otherUser.lastName}
               </h2>
               <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">

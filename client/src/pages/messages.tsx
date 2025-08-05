@@ -221,9 +221,9 @@ export default function Messages() {
             <div className="grid lg:grid-cols-3 h-[600px]">
               {/* Conversations List */}
               <div className="border-r border-gray-200 bg-white">
-                <div className="p-4 border-b border-gray-200 bg-navy">
-                  <h3 className="font-semibold text-white text-lg">Messages</h3>
-                  <p className="text-sm text-blue-100 mt-1">{uniqueConversations.length} conversations</p>
+                <div className="p-4 border-b border-gray-200 bg-white">
+                  <h3 className="font-semibold text-black text-lg">Messages</h3>
+                  <p className="text-sm text-gray-600 mt-1">{uniqueConversations.length} conversations</p>
                 </div>
                 <div className="overflow-y-auto" style={{ height: 'calc(600px - 80px)' }}>
                   {isLoading ? (
