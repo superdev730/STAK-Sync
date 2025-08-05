@@ -77,7 +77,7 @@ export async function seedSampleUsers() {
         firstName: "Alex",
         lastName: "Thompson",
         title: "Innovation Director",
-        company: "STAK Space",
+        company: "STAK Sync",
         bio: "Innovation catalyst connecting breakthrough technologies with market opportunities. Former McKinsey consultant specializing in technology strategy and venture building within corporate innovation labs.",
         location: "New York, NY",
         industries: ["Innovation Labs", "Corporate Venture Capital", "Technology Strategy", "Venture Building"],

@@ -83,7 +83,7 @@ export default function Header() {
             <Link href="/">
               <div className="flex items-center space-x-3 cursor-pointer">
                 <img src="/api/logo" alt="STAK" className="h-8 w-8" />
-                <h1 className="text-2xl font-bold text-stak-white">STAK Signal</h1>
+                <h1 className="text-2xl font-bold text-stak-white">STAK Sync</h1>
               </div>
             </Link>
             <nav className="hidden md:flex items-center space-x-6">
@@ -98,7 +98,7 @@ export default function Header() {
                   >
                     {item.name}
                     {item.count && item.count > 0 && (
-                      <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white border-0">
+                      <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white border-0 flex items-center justify-center">
                         {item.count > 99 ? '99+' : item.count}
                       </Badge>
                     )}
@@ -112,7 +112,7 @@ export default function Header() {
               <Button variant="ghost" size="icon" className="relative text-stak-light-gray hover:text-stak-copper">
                 <Bell className="h-5 w-5" />
                 {totalNotifications > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white border-0">
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white border-0 flex items-center justify-center">
                     {totalNotifications > 99 ? '99+' : totalNotifications}
                   </Badge>
                 )}

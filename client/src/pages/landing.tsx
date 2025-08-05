@@ -11,7 +11,7 @@ export default function Landing() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <img src="/api/logo" alt="STAK" className="h-8 w-8" />
-              <h1 className="text-2xl font-bold text-stak-white">STAK Signal</h1>
+              <h1 className="text-2xl font-bold text-stak-white">STAK Sync</h1>
             </div>
             <Button asChild className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium">
               <a href="/api/login">Sign In</a>
@@ -28,7 +28,7 @@ export default function Landing() {
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-              Find <span className="text-stak-copper">Signal</span>, Cut the Noise
+              Find <span className="text-stak-copper">Sync</span>, Cut the Noise
             </h1>
             <p className="text-lg md:text-xl mb-4 text-stak-copper font-medium">
               An AI-powered networking and matchmaking system built to unlock the full power of relationships—before, during, and after every STAK event.
@@ -174,7 +174,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="border-t border-stak-gray mt-12 pt-8 text-center text-stak-light-gray">
-            <p>&copy; 2024 STAK Signal. All rights reserved. Where meaningful connections create lasting impact.</p>
+            <p>&copy; 2024 STAK Sync. All rights reserved. Where meaningful connections create lasting impact.</p>
           </div>
         </div>
       </footer>

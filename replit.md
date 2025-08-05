@@ -1,6 +1,6 @@
 # Overview
 
-STAK Signal is a professional networking platform built for the STAK ecosystem that uses AI-powered matching algorithms to connect venture capitalists, startup founders, and industry leaders. The application facilitates meaningful professional relationships through intelligent matchmaking, real-time messaging, meeting coordination features, and comprehensive admin analytics within STAK's curated network of innovators and investors.
+STAK Sync is a professional networking platform built for the STAK ecosystem that uses AI-powered matching algorithms to connect venture capitalists, startup founders, and industry leaders. The application facilitates meaningful professional relationships through intelligent matchmaking, real-time messaging, meeting coordination features, and comprehensive admin analytics within STAK's curated network of innovators and investors.
 
 # User Preferences
 
@@ -24,9 +24,9 @@ Preferred communication style: Simple, everyday language.
 
 # Gamification & Engagement Features
 - **Profile Completion Tracking**: Visual progress bar with percentage completion on main dashboard
-- **Signal Score System**: 0-1000 point system based on profile completion and platform activity
-- **Signal Level Badges**: Progressive tiers from Signal Starter to Signal Master with rewards
-- **Referral System**: Share STAK Signal with colleagues to encourage platform growth
+- **Sync Score System**: 0-1000 point system based on profile completion and platform activity
+- **Sync Level Badges**: Progressive tiers from Sync Starter to Sync Master with rewards
+- **Referral System**: Share STAK Sync with colleagues to encourage platform growth
 - **Activity Scoring**: Points for connections (10pts), meetings (15pts), messages (2pts)
 
 # Interactive Features & UI Enhancements
@@ -94,12 +94,12 @@ The application implements an intelligent matching algorithm that considers:
 - Proper authorization checks on all API endpoints
 
 ## Design & Branding
-- STAK Signal branding with luxury real estate aesthetic
+- STAK Sync branding with luxury real estate aesthetic
 - STAK brand color palette: black/gray/metals (gold/silver/copper) with green accents
-- Copper accents for premium features and Signal Score elements (#CD853F)
+- Copper accents for premium features and Sync Score elements (#CD853F)
 - Green accents for progress indicators and completion metrics (#10b981)
 - Professional typography with clean, modern layout using white backgrounds
-- Emphasizes "Find Signal, Cut the Noise" and "Ecosystems are more valuable than products" philosophy
+- Emphasizes "Find Sync, Cut the Noise" and "Ecosystems are more valuable than products" philosophy
 
 # LinkedIn Integration & AI Profile Enhancement
 - **Automated Onboarding**: LinkedIn URL input for AI-powered profile generation

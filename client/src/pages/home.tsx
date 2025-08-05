@@ -233,7 +233,7 @@ export default function Home() {
                 <div>
                   <CardTitle className="text-lg text-gray-900 flex items-center">
                     <Zap className="w-5 h-5 mr-2 text-stak-copper" />
-                    Signal Score
+                    Sync Score
                   </CardTitle>
                   <p className="text-gray-600 text-sm">Platform engagement</p>
                 </div>
@@ -246,8 +246,8 @@ export default function Home() {
               </div>
               <Badge variant="outline" className="text-stak-copper border-stak-copper/30 mt-2">
                 <Trophy className="w-3 h-3 mr-1" />
-                {userStats && ((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2) >= 800 ? "Signal Master" :
-                 userStats && ((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2) >= 400 ? "Signal Builder" : "Signal Starter"}
+                {userStats && ((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2) >= 800 ? "Sync Master" :
+                 userStats && ((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2) >= 400 ? "Sync Builder" : "Sync Starter"}
               </Badge>
             </CardHeader>
           </Card>
@@ -257,7 +257,7 @@ export default function Home() {
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center">
                 <Share2 className="w-5 h-5 mr-2 text-stak-copper" />
-                Share STAK Signal
+                Share STAK Sync
               </CardTitle>
               <p className="text-gray-300 text-sm">Invite colleagues to join</p>
             </CardHeader>
@@ -278,7 +278,7 @@ export default function Home() {
                 Welcome back, {(user as any)?.firstName || 'there'}!
               </h1>
               <p className="text-white/90 text-lg">
-                Your STAK Signal dashboard is ready
+                Your STAK Sync dashboard is ready
               </p>
             </div>
           </div>
@@ -291,7 +291,7 @@ export default function Home() {
                   <div className="relative">
                     <MessageSquare className="h-6 w-6" />
                     {userStats && (userStats.unreadMessages || 0) > 0 && (
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white">
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white flex items-center justify-center">
                         {userStats.unreadMessages}
                       </Badge>
                     )}
@@ -312,7 +312,7 @@ export default function Home() {
                   <div className="relative">
                     <Users className="h-6 w-6" />
                     {userStats && (userStats.pendingMatches || 0) > 0 && (
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-orange-500 text-white">
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-orange-500 text-white flex items-center justify-center">
                         {userStats.pendingMatches}
                       </Badge>
                     )}
@@ -333,7 +333,7 @@ export default function Home() {
                   <div className="relative">
                     <Calendar className="h-6 w-6" />
                     {userStats && (userStats.pendingMeetups || 0) > 0 && (
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-blue-500 text-white">
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-blue-500 text-white flex items-center justify-center">
                         {userStats.pendingMeetups}
                       </Badge>
                     )}
