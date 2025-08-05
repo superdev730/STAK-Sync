@@ -3,11 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Calendar, MoreVertical } from "lucide-react";
+import { Send, Calendar, MoreVertical, Sparkles } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Message, User } from "@shared/schema";
+
+interface QuickResponse {
+  id: string;
+  text: string;
+  type: 'professional' | 'friendly' | 'question' | 'scheduling';
+}
 
 // Function to get match score based on user
 function getMatchScore(user: User): number {
@@ -64,6 +70,9 @@ export default function MessageInterface({
 }: MessageInterfaceProps) {
   const [newMessage, setNewMessage] = useState("");
   const [isOnline, setIsOnline] = useState(false);
+  const [quickResponses, setQuickResponses] = useState<QuickResponse[]>([]);
+  const [loadingResponses, setLoadingResponses] = useState(false);
+  const [showQuickResponses, setShowQuickResponses] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -73,14 +82,43 @@ export default function MessageInterface({
 
   useEffect(() => {
     scrollToBottom();
+    // Generate quick responses when new messages arrive and the last message is not from current user
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.senderId !== currentUser.id) {
+        generateQuickResponses();
+      }
+    }
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+  const generateQuickResponses = async () => {
+    if (loadingResponses) return;
+    
+    setLoadingResponses(true);
+    try {
+      const response = await apiRequest(`/api/messages/quick-responses`, {
+        method: 'POST',
+        body: JSON.stringify({ otherUserId: otherUser.id }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      setQuickResponses(response.responses || []);
+      setShowQuickResponses(true);
+    } catch (error) {
+      console.error('Failed to generate quick responses:', error);
+    } finally {
+      setLoadingResponses(false);
+    }
+  };
+
+  const handleSendMessage = async (messageText?: string) => {
+    const message = messageText || newMessage;
+    if (!message.trim()) return;
 
     try {
-      await onSendMessage(newMessage);
+      await onSendMessage(message);
       setNewMessage("");
+      setShowQuickResponses(false); // Hide quick responses after sending
     } catch (error) {
       toast({
         title: "Error",
@@ -88,6 +126,10 @@ export default function MessageInterface({
         variant: "destructive",
       });
     }
+  };
+
+  const handleQuickResponse = (responseText: string) => {
+    handleSendMessage(responseText);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -181,23 +223,60 @@ export default function MessageInterface({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Quick Responses */}
+      {showQuickResponses && quickResponses.length > 0 && (
+        <div className="p-4 border-t border-gray-100 bg-blue-50">
+          <div className="flex items-center space-x-2 mb-3">
+            <Sparkles className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium text-blue-800">Quick responses</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {quickResponses.map((response) => (
+              <Button
+                key={response.id}
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickResponse(response.text)}
+                className="text-sm bg-white hover:bg-blue-100 border-blue-200 text-blue-800"
+              >
+                {response.text}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Message Input */}
       <div className="p-4 border-t border-gray-200 bg-white">
         <div className="flex items-center space-x-3">
           <Input
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              setShowQuickResponses(false); // Hide when user starts typing
+            }}
             onKeyPress={handleKeyPress}
             placeholder="Type your message..."
             className="flex-1 border-gray-300 focus:border-navy focus:ring-navy"
           />
           <Button
-            onClick={handleSendMessage}
+            onClick={() => handleSendMessage()}
             className="bg-navy text-white p-2 rounded-full hover:bg-blue-800"
             disabled={!newMessage.trim()}
           >
             <Send className="h-4 w-4" />
           </Button>
+          {!showQuickResponses && (
+            <Button
+              onClick={generateQuickResponses}
+              variant="outline"
+              size="sm"
+              disabled={loadingResponses}
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            >
+              <Sparkles className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

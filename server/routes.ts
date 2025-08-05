@@ -18,6 +18,7 @@ import {
 import { csvImportService } from "./csvImportService";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
+import { generateQuickResponses } from "./aiResponses";
 
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -644,6 +645,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating message:", error);
       res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // AI Quick Responses endpoint
+  app.post('/api/messages/quick-responses', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const { otherUserId } = req.body;
+      if (!otherUserId) {
+        return res.status(400).json({ message: "Other user ID is required" });
+      }
+
+      // Get the conversation and users
+      const messages = await storage.getConversation(userId, otherUserId);
+      const currentUser = await storage.getUser(userId);
+      const otherUser = await storage.getUser(otherUserId);
+
+      if (!currentUser || !otherUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Generate AI quick responses
+      const quickResponses = await generateQuickResponses(messages, currentUser, otherUser);
+      
+      res.json({ responses: quickResponses });
+    } catch (error) {
+      console.error("Error generating quick responses:", error);
+      res.status(500).json({ message: "Failed to generate quick responses" });
     }
   });
 
