@@ -1900,10 +1900,10 @@ END:VCALENDAR`;
 
   // ===== NEW EVENTS SYSTEM ROUTES =====
   
-  // Get all events with enhanced data
+  // Get all events with enhanced data  
   app.get('/api/events/new', async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.claims?.sub || null;
       
       const eventsData = await db
         .select({
@@ -2001,6 +2001,92 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error fetching user events:', error);
       res.status(500).json({ message: 'Failed to fetch user events' });
+    }
+  });
+
+  // Create new event
+  app.post('/api/events/create', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
+      const eventData = {
+        title: req.body.title,
+        eventType: req.body.eventType || 'networking',
+        shortDescription: req.body.shortDescription || '',
+        description: req.body.description || '',
+        startDate: req.body.startDate,
+        startTime: req.body.startTime || '09:00',
+        endDate: req.body.endDate || req.body.startDate,
+        endTime: req.body.endTime || '17:00',
+        location: req.body.location,
+        isVirtual: req.body.isVirtual || false,
+        capacity: req.body.capacity || 50,
+        isPaid: req.body.isPaid || false,
+        basePrice: req.body.basePrice || 0,
+        currency: req.body.currency || 'USD',
+        coverImageUrl: req.body.coverImageUrl || '',
+        youtubeVideoId: req.body.youtubeVideoId || '',
+        organizerId: userId,
+        hostIds: req.body.hostIds || [],
+        status: 'published',
+        isFeatured: false,
+        isPublic: req.body.isPublic !== false,
+        requiresApproval: req.body.requiresApproval || false,
+        instructions: req.body.instructions || '',
+        refundPolicy: req.body.refundPolicy || '',
+        tags: req.body.tags || []
+      };
+
+      const [newEvent] = await db
+        .insert(events)
+        .values(eventData)
+        .returning();
+
+      // Handle ticket types if provided
+      if (req.body.ticketTypes && req.body.ticketTypes.length > 0) {
+        const ticketTypesData = req.body.ticketTypes.map((ticket: any) => ({
+          eventId: newEvent.id,
+          name: ticket.name,
+          description: ticket.description || null,
+          price: ticket.price,
+          quantity: ticket.quantity || null,
+          perks: ticket.perks || [],
+        }));
+
+        await db.insert(eventTicketTypes).values(ticketTypesData);
+      }
+
+      // Handle line items if provided
+      if (req.body.lineItems && req.body.lineItems.length > 0) {
+        const lineItemsData = req.body.lineItems.map((item: any) => ({
+          eventId: newEvent.id,
+          name: item.name,
+          description: item.description || null,
+          price: item.price,
+          isRequired: item.isRequired || false,
+        }));
+
+        await db.insert(eventLineItems).values(lineItemsData);
+      }
+
+      // Handle event hosts if provided
+      if (req.body.hostIds && req.body.hostIds.length > 0) {
+        const hostData = req.body.hostIds.map((hostId: string) => ({
+          eventId: newEvent.id,
+          userId: hostId,
+          role: 'host'
+        }));
+
+        await db.insert(eventHosts).values(hostData);
+      }
+
+      res.status(201).json(newEvent);
+    } catch (error) {
+      console.error('Error creating event:', error);
+      res.status(500).json({ error: 'Failed to create event' });
     }
   });
 

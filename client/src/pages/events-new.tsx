@@ -41,7 +41,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 // Create a custom useAuth hook since it might not exist
 const useAuthFallback = () => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
   
   // Simple auth state from local storage or context
   React.useEffect(() => {
@@ -746,97 +746,104 @@ export default function EventsNew() {
             <div className="space-y-6">
               {/* Basic Information */}
               <div className="space-y-4">
-                <h3 className="font-semibold">Basic Information</h3>
+                <h3 className="font-semibold text-gray-900">Basic Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="title">Event Title *</Label>
+                    <Label htmlFor="title" className="text-gray-700 font-medium">Event Title *</Label>
                     <Input
                       id="title"
                       value={eventForm.title}
                       onChange={(e) => setEventForm(prev => ({ ...prev, title: e.target.value }))}
                       placeholder="Enter event title"
+                      className="mt-1 border-gray-300 text-gray-900"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="eventType">Event Type</Label>
+                    <Label htmlFor="eventType" className="text-gray-700 font-medium">Event Type</Label>
                     <Select 
                       value={eventForm.eventType} 
                       onValueChange={(value) => setEventForm(prev => ({ ...prev, eventType: value }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1 border-gray-300 text-gray-900 bg-white">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="networking">Networking</SelectItem>
-                        <SelectItem value="workshop">Workshop</SelectItem>
-                        <SelectItem value="conference">Conference</SelectItem>
-                        <SelectItem value="meetup">Meetup</SelectItem>
-                        <SelectItem value="webinar">Webinar</SelectItem>
+                      <SelectContent className="bg-white border border-gray-300">
+                        <SelectItem value="networking" className="text-gray-900">Networking</SelectItem>
+                        <SelectItem value="workshop" className="text-gray-900">Workshop</SelectItem>
+                        <SelectItem value="conference" className="text-gray-900">Conference</SelectItem>
+                        <SelectItem value="meetup" className="text-gray-900">Meetup</SelectItem>
+                        <SelectItem value="webinar" className="text-gray-900">Webinar</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="shortDescription">Short Description</Label>
+                  <Label htmlFor="shortDescription" className="text-gray-700 font-medium">Short Description</Label>
                   <Input
                     id="shortDescription"
                     value={eventForm.shortDescription}
                     onChange={(e) => setEventForm(prev => ({ ...prev, shortDescription: e.target.value }))}
                     placeholder="Brief description for event cards"
+                    className="mt-1 border-gray-300 text-gray-900"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="description">Full Description</Label>
+                  <Label htmlFor="description" className="text-gray-700 font-medium">Full Description</Label>
                   <Textarea
                     id="description"
                     value={eventForm.description}
                     onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="Detailed description of your event"
                     rows={4}
+                    className="mt-1 border-gray-300 text-gray-900"
                   />
                 </div>
               </div>
 
               {/* Date and Location */}
               <div className="space-y-4">
-                <h3 className="font-semibold">Date & Location</h3>
+                <h3 className="font-semibold text-gray-900">Date & Location</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="startDate">Start Date *</Label>
+                    <Label htmlFor="startDate" className="text-gray-700 font-medium">Start Date *</Label>
                     <Input
                       id="startDate"
                       type="date"
                       value={eventForm.startDate}
                       onChange={(e) => setEventForm(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="mt-1 border-gray-300 text-gray-900"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="startTime">Start Time</Label>
+                    <Label htmlFor="startTime" className="text-gray-700 font-medium">Start Time</Label>
                     <Input
                       id="startTime"
                       type="time"
                       value={eventForm.startTime}
                       onChange={(e) => setEventForm(prev => ({ ...prev, startTime: e.target.value }))}
+                      className="mt-1 border-gray-300 text-gray-900"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="endDate">End Date</Label>
+                    <Label htmlFor="endDate" className="text-gray-700 font-medium">End Date</Label>
                     <Input
                       id="endDate"
                       type="date"
                       value={eventForm.endDate}
                       onChange={(e) => setEventForm(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="mt-1 border-gray-300 text-gray-900"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="endTime">End Time</Label>
+                    <Label htmlFor="endTime" className="text-gray-700 font-medium">End Time</Label>
                     <Input
                       id="endTime"
                       type="time"
                       value={eventForm.endTime}
                       onChange={(e) => setEventForm(prev => ({ ...prev, endTime: e.target.value }))}
+                      className="mt-1 border-gray-300 text-gray-900"
                     />
                   </div>
                 </div>
@@ -847,51 +854,55 @@ export default function EventsNew() {
                     checked={eventForm.isVirtual}
                     onCheckedChange={(checked) => setEventForm(prev => ({ ...prev, isVirtual: checked }))}
                   />
-                  <Label htmlFor="isVirtual">Virtual Event</Label>
+                  <Label htmlFor="isVirtual" className="text-gray-700">Virtual Event</Label>
                 </div>
 
                 <div>
-                  <Label htmlFor="location">Location *</Label>
+                  <Label htmlFor="location" className="text-gray-700 font-medium">Location *</Label>
                   <Input
                     id="location"
                     value={eventForm.location}
                     onChange={(e) => setEventForm(prev => ({ ...prev, location: e.target.value }))}
                     placeholder={eventForm.isVirtual ? "Meeting link or platform" : "Event venue address"}
+                    className="mt-1 border-gray-300 text-gray-900"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="capacity">Capacity</Label>
+                  <Label htmlFor="capacity" className="text-gray-700 font-medium">Capacity</Label>
                   <Input
                     id="capacity"
                     type="number"
                     value={eventForm.capacity}
                     onChange={(e) => setEventForm(prev => ({ ...prev, capacity: parseInt(e.target.value) || 50 }))}
                     min="1"
+                    className="mt-1 border-gray-300 text-gray-900"
                   />
                 </div>
               </div>
 
               {/* Media */}
               <div className="space-y-4">
-                <h3 className="font-semibold">Media & Content</h3>
+                <h3 className="font-semibold text-gray-900">Media & Content</h3>
                 <div>
-                  <Label htmlFor="coverImageUrl">Cover Image URL</Label>
+                  <Label htmlFor="coverImageUrl" className="text-gray-700 font-medium">Cover Image URL</Label>
                   <Input
                     id="coverImageUrl"
                     value={eventForm.coverImageUrl}
                     onChange={(e) => setEventForm(prev => ({ ...prev, coverImageUrl: e.target.value }))}
                     placeholder="https://example.com/image.jpg"
+                    className="mt-1 border-gray-300 text-gray-900"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="youtubeVideoId">YouTube Video ID</Label>
+                  <Label htmlFor="youtubeVideoId" className="text-gray-700 font-medium">YouTube Video ID</Label>
                   <Input
                     id="youtubeVideoId"
                     value={eventForm.youtubeVideoId}
                     onChange={(e) => setEventForm(prev => ({ ...prev, youtubeVideoId: e.target.value }))}
                     placeholder="dQw4w9WgXcQ"
+                    className="mt-1 border-gray-300 text-gray-900"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Enter just the video ID from the YouTube URL (the part after v=)
@@ -902,21 +913,21 @@ export default function EventsNew() {
               {/* Pricing */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Pricing & Tickets</h3>
+                  <h3 className="font-semibold text-gray-900">Pricing & Tickets</h3>
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="isPaid"
                       checked={eventForm.isPaid}
                       onCheckedChange={(checked) => setEventForm(prev => ({ ...prev, isPaid: checked }))}
                     />
-                    <Label htmlFor="isPaid">Paid Event</Label>
+                    <Label htmlFor="isPaid" className="text-gray-700">Paid Event</Label>
                   </div>
                 </div>
 
                 {eventForm.isPaid && (
                   <>
                     <div>
-                      <Label htmlFor="basePrice">Base Price ($)</Label>
+                      <Label htmlFor="basePrice" className="text-gray-700 font-medium">Base Price ($)</Label>
                       <Input
                         id="basePrice"
                         type="number"
@@ -924,25 +935,27 @@ export default function EventsNew() {
                         value={eventForm.basePrice}
                         onChange={(e) => setEventForm(prev => ({ ...prev, basePrice: parseFloat(e.target.value) || 0 }))}
                         min="0"
+                        className="mt-1 border-gray-300 text-gray-900"
                       />
                     </div>
 
                     {/* Ticket Types */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <Label>Ticket Types</Label>
-                        <Button type="button" onClick={addTicketType} size="sm" variant="outline">
+                        <Label className="text-gray-700 font-medium">Ticket Types</Label>
+                        <Button type="button" onClick={addTicketType} size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
                           <Plus className="h-4 w-4 mr-1" />
                           Add Ticket Type
                         </Button>
                       </div>
                       {eventForm.ticketTypes.map((ticket, index) => (
-                        <Card key={index} className="p-4 mb-3">
+                        <Card key={index} className="p-4 mb-3 border-gray-200 bg-white">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                             <Input
                               placeholder="Ticket name"
                               value={ticket.name}
                               onChange={(e) => updateTicketType(index, 'name', e.target.value)}
+                              className="border-gray-300 text-gray-900"
                             />
                             <Input
                               type="number"
@@ -950,6 +963,7 @@ export default function EventsNew() {
                               placeholder="Price"
                               value={ticket.price}
                               onChange={(e) => updateTicketType(index, 'price', parseFloat(e.target.value) || 0)}
+                              className="border-gray-300 text-gray-900"
                             />
                             <div className="flex gap-2">
                               <Input
@@ -957,12 +971,14 @@ export default function EventsNew() {
                                 placeholder="Quantity (optional)"
                                 value={ticket.quantity || ""}
                                 onChange={(e) => updateTicketType(index, 'quantity', parseInt(e.target.value) || undefined)}
+                                className="border-gray-300 text-gray-900"
                               />
                               <Button 
                                 type="button" 
                                 onClick={() => removeTicketType(index)} 
                                 size="sm" 
                                 variant="outline"
+                                className="border-red-300 text-red-600 hover:bg-red-50"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -973,6 +989,7 @@ export default function EventsNew() {
                             value={ticket.description}
                             onChange={(e) => updateTicketType(index, 'description', e.target.value)}
                             rows={2}
+                            className="border-gray-300 text-gray-900"
                           />
                         </Card>
                       ))}
@@ -981,19 +998,20 @@ export default function EventsNew() {
                     {/* Line Items */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <Label>Additional Charges</Label>
-                        <Button type="button" onClick={addLineItem} size="sm" variant="outline">
+                        <Label className="text-gray-700 font-medium">Additional Charges</Label>
+                        <Button type="button" onClick={addLineItem} size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
                           <Plus className="h-4 w-4 mr-1" />
                           Add Charge
                         </Button>
                       </div>
                       {eventForm.lineItems.map((item, index) => (
-                        <Card key={index} className="p-4 mb-3">
+                        <Card key={index} className="p-4 mb-3 border-gray-200 bg-white">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <Input
                               placeholder="Item name (e.g., Parking)"
                               value={item.name}
                               onChange={(e) => updateLineItem(index, 'name', e.target.value)}
+                              className="border-gray-300 text-gray-900"
                             />
                             <Input
                               type="number"
@@ -1001,6 +1019,7 @@ export default function EventsNew() {
                               placeholder="Price"
                               value={item.price}
                               onChange={(e) => updateLineItem(index, 'price', parseFloat(e.target.value) || 0)}
+                              className="border-gray-300 text-gray-900"
                             />
                             <div className="flex gap-2 items-center">
                               <div className="flex items-center space-x-2">
@@ -1008,13 +1027,14 @@ export default function EventsNew() {
                                   checked={item.isRequired}
                                   onCheckedChange={(checked) => updateLineItem(index, 'isRequired', checked)}
                                 />
-                                <Label className="text-sm">Required</Label>
+                                <Label className="text-sm text-gray-700">Required</Label>
                               </div>
                               <Button 
                                 type="button" 
                                 onClick={() => removeLineItem(index)} 
                                 size="sm" 
                                 variant="outline"
+                                className="border-red-300 text-red-600 hover:bg-red-50"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1029,23 +1049,27 @@ export default function EventsNew() {
 
               {/* Tags */}
               <div className="space-y-4">
-                <h3 className="font-semibold">Tags</h3>
+                <h3 className="font-semibold text-gray-900">Tags</h3>
                 <div className="flex gap-2">
                   <Input
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     placeholder="Add a tag"
                     onKeyPress={(e) => e.key === 'Enter' && addTag()}
+                    className="border-gray-300 text-gray-900"
                   />
-                  <Button type="button" onClick={addTag} size="sm" variant="outline">
+                  <Button type="button" onClick={addTag} size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {eventForm.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                    <Badge key={index} className="bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1 px-2 py-1">
                       {tag}
-                      <button onClick={() => removeTag(tag)} className="ml-1 text-xs">
+                      <button 
+                        onClick={() => removeTag(tag)} 
+                        className="ml-1 text-blue-600 hover:text-blue-800 text-sm font-bold"
+                      >
                         ×
                       </button>
                     </Badge>
@@ -1055,7 +1079,7 @@ export default function EventsNew() {
 
               {/* Additional Settings */}
               <div className="space-y-4">
-                <h3 className="font-semibold">Additional Settings</h3>
+                <h3 className="font-semibold text-gray-900">Additional Settings</h3>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -1063,30 +1087,32 @@ export default function EventsNew() {
                       checked={eventForm.requiresApproval}
                       onCheckedChange={(checked) => setEventForm(prev => ({ ...prev, requiresApproval: checked }))}
                     />
-                    <Label htmlFor="requiresApproval">Require approval for registration</Label>
+                    <Label htmlFor="requiresApproval" className="text-gray-700">Require approval for registration</Label>
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="instructions">Special Instructions</Label>
+                  <Label htmlFor="instructions" className="text-gray-700 font-medium">Special Instructions</Label>
                   <Textarea
                     id="instructions"
                     value={eventForm.instructions}
                     onChange={(e) => setEventForm(prev => ({ ...prev, instructions: e.target.value }))}
                     placeholder="Any special instructions for attendees"
                     rows={3}
+                    className="mt-1 border-gray-300 text-gray-900"
                   />
                 </div>
 
                 {eventForm.isPaid && (
                   <div>
-                    <Label htmlFor="refundPolicy">Refund Policy</Label>
+                    <Label htmlFor="refundPolicy" className="text-gray-700 font-medium">Refund Policy</Label>
                     <Textarea
                       id="refundPolicy"
                       value={eventForm.refundPolicy}
                       onChange={(e) => setEventForm(prev => ({ ...prev, refundPolicy: e.target.value }))}
                       placeholder="Describe your refund policy"
                       rows={3}
+                      className="mt-1 border-gray-300 text-gray-900"
                     />
                   </div>
                 )}
