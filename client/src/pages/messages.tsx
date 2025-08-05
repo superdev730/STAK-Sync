@@ -21,6 +21,19 @@ export default function Messages() {
     queryKey: ["/api/conversations"],
   });
 
+  // Initialize demo messages on first load
+  useEffect(() => {
+    if (currentUser && (!conversations || conversations.length === 0)) {
+      apiRequest("/api/seed-messages", "POST", {})
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+        })
+        .catch((error) => {
+          console.log("Demo messages may already exist:", error);
+        });
+    }
+  }, [currentUser, conversations, queryClient]);
+
   const { data: selectedConversation } = useQuery<(Message & { sender: User; receiver: User })[]>({
     queryKey: ["/api/conversations", selectedUser?.id],
     enabled: !!selectedUser,
@@ -69,11 +82,11 @@ export default function Messages() {
 
 
 
-  // Dummy conversations for demonstration when no real conversations exist
-  const dummyConversations = [
+  // Fallback conversations for demonstration when no real conversations exist  
+  const fallbackConversations = [
     {
       user: {
-        id: "2",
+        id: "demo-sarah",
         firstName: "Sarah",
         lastName: "Chen",
         email: "sarah.chen@techcorp.com",
@@ -85,7 +98,7 @@ export default function Messages() {
         id: "msg1",
         content: "Thanks for connecting! I'd love to discuss the AI infrastructure challenges you mentioned. Would you be available for a 30-minute call next week?",
         createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-        senderId: "2",
+        senderId: "demo-sarah",
         receiverId: currentUser?.id || "",
         isRead: false
       },
@@ -93,7 +106,7 @@ export default function Messages() {
     },
     {
       user: {
-        id: "3", 
+        id: "demo-michael", 
         firstName: "Michael",
         lastName: "Rodriguez",
         email: "m.rodriguez@venturecp.com",
@@ -105,7 +118,7 @@ export default function Messages() {
         id: "msg2",
         content: "Great presentation at the STAK event yesterday! I'm particularly interested in your Series A fundraising timeline. Let's schedule a follow-up meeting.",
         createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5 hours ago
-        senderId: "3",
+        senderId: "demo-michael",
         receiverId: currentUser?.id || "",
         isRead: false
       },
@@ -113,7 +126,7 @@ export default function Messages() {
     },
     {
       user: {
-        id: "4",
+        id: "demo-jessica",
         firstName: "Jessica",
         lastName: "Park",
         email: "jessica@innovatelab.com", 
@@ -126,14 +139,14 @@ export default function Messages() {
         content: "Perfect! I'll send over the partnership proposal by Friday. Looking forward to exploring how our companies can collaborate on the healthcare AI space.",
         createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
         senderId: currentUser?.id || "",
-        receiverId: "4",
+        receiverId: "demo-jessica",
         isRead: true
       },
       unreadCount: 0
     },
     {
       user: {
-        id: "5",
+        id: "demo-david",
         firstName: "David",
         lastName: "Kim",
         email: "dkim@stakventures.com",
@@ -145,7 +158,7 @@ export default function Messages() {
         id: "msg4",
         content: "Welcome to the STAK ecosystem! I noticed you're working on fintech solutions. Would love to introduce you to our portfolio company CEOs in the space.",
         createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-        senderId: "5",
+        senderId: "demo-david",
         receiverId: currentUser?.id || "",
         isRead: true
       },
@@ -155,9 +168,9 @@ export default function Messages() {
 
   // Get unique conversations grouped by users
   const getUniqueConversations = () => {
-    if (!currentUser) return dummyConversations;
+    if (!currentUser) return fallbackConversations;
 
-    if (!conversations || conversations.length === 0) return dummyConversations;
+    if (!conversations || conversations.length === 0) return fallbackConversations;
 
     const userMap = new Map<string, { user: User; lastMessage: Message & { sender: User; receiver: User }; unreadCount: number }>();
 
@@ -197,9 +210,9 @@ export default function Messages() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
-        <div className="bg-navy border border-navy rounded-lg p-8 mb-8 text-center shadow-sm">
-          <h1 className="text-4xl font-bold text-white mb-2">Professional Conversations</h1>
-          <p className="text-xl text-blue-100">Secure messaging platform designed for meaningful business connections</p>
+        <div className="bg-white border border-gray-200 rounded-lg p-8 mb-8 text-center shadow-sm">
+          <h1 className="text-4xl font-bold text-black mb-2">Professional Conversations</h1>
+          <p className="text-xl text-gray-600">Secure messaging platform designed for meaningful business connections</p>
         </div>
 
         {/* Messages Interface */}

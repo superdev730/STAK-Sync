@@ -500,6 +500,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Initialize demo messages for the authenticated user
+  app.post('/api/seed-messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      // Create demo users if they don't exist
+      const demoUsers = [
+        { id: "demo-sarah", firstName: "Sarah", lastName: "Chen", email: "sarah.chen@techcorp.com", title: "VP of Engineering", company: "TechCorp" },
+        { id: "demo-michael", firstName: "Michael", lastName: "Rodriguez", email: "michael@venturecapital.com", title: "Partner", company: "Venture Capital Partners" },
+        { id: "demo-jessica", firstName: "Jessica", lastName: "Park", email: "jessica@innovatelab.com", title: "Founder & CEO", company: "InnovateLab" },
+        { id: "demo-david", firstName: "David", lastName: "Kim", email: "dkim@stakventures.com", title: "Investment Director", company: "STAK Ventures" }
+      ];
+
+      for (const user of demoUsers) {
+        try {
+          await storage.upsertUser(user);
+        } catch (error) {
+          console.log(`User ${user.id} already exists or error creating:`, error);
+        }
+      }
+
+      // Create demo messages
+      const demoMessages = [
+        {
+          senderId: "demo-sarah",
+          receiverId: userId,
+          content: "Thanks for connecting! I'd love to discuss the AI infrastructure challenges you mentioned. Would you be available for a 30-minute call next week?",
+          isRead: false,
+        },
+        {
+          senderId: userId,
+          receiverId: "demo-sarah", 
+          content: "Absolutely! I'm particularly interested in your scaling strategies. How about Tuesday at 2 PM?",
+          isRead: true,
+        },
+        {
+          senderId: "demo-michael",
+          receiverId: userId,
+          content: "Great presentation at the STAK event yesterday! I'm particularly interested in your Series A fundraising timeline. Let's schedule a follow-up meeting.",
+          isRead: false,
+        },
+        {
+          senderId: "demo-jessica",
+          receiverId: userId,
+          content: "Perfect! I'll send over the partnership proposal by Friday. Looking forward to exploring how our companies can collaborate on the healthcare AI space.",
+          isRead: true,
+        },
+        {
+          senderId: userId,
+          receiverId: "demo-jessica",
+          content: "That sounds excellent. I think there's great synergy between our platforms.",
+          isRead: true,
+        },
+        {
+          senderId: "demo-david",
+          receiverId: userId,
+          content: "Welcome to the STAK ecosystem! I noticed you're working on fintech solutions. Would love to introduce you to our portfolio company CEOs in the space.",
+          isRead: true,
+        }
+      ];
+
+      for (const message of demoMessages) {
+        await storage.createMessage(message);
+      }
+
+      res.json({ success: true, message: "Demo messages created successfully" });
+    } catch (error) {
+      console.error("Error creating demo messages:", error);
+      res.status(500).json({ message: "Failed to create demo messages" });
+    }
+  });
+
   // Messages routes
   app.get('/api/conversations', isAuthenticated, async (req: any, res) => {
     try {

@@ -238,7 +238,10 @@ export class DatabaseStorage implements IStorage {
   async createMessage(message: InsertMessage): Promise<Message> {
     const [newMessage] = await db
       .insert(messages)
-      .values(message)
+      .values({
+        ...message,
+        createdAt: new Date(),
+      })
       .returning();
     return newMessage;
   }
