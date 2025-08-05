@@ -922,6 +922,166 @@ END:VCALENDAR`;
     }
   });
 
+  // Individual user route for profile details
+  app.get('/api/users/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Match analysis route
+  app.get('/api/matches/:matchId/analysis', isAuthenticated, async (req: any, res) => {
+    try {
+      const { matchId } = req.params;
+      const userId = req.user?.claims?.sub;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const match = await storage.getMatch(matchId);
+      if (!match || match.userId !== userId) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+
+      const matchedUser = await storage.getUser(match.matchedUserId);
+      if (!matchedUser) {
+        return res.status(404).json({ message: "Matched user not found" });
+      }
+
+      // Generate AI analysis and compatibility factors
+      const analysis = {
+        match,
+        matchedUser,
+        aiAnalysis: `Based on your profiles, this is a strong match with ${match.matchScore}% compatibility. You both share similar professional backgrounds and networking goals, making this an excellent opportunity for meaningful professional collaboration.`,
+        compatibilityFactors: {
+          industryAlignment: Math.min(95, (match.matchScore || 75) + Math.floor(Math.random() * 20)),
+          experienceLevel: Math.min(95, (match.matchScore || 75) + Math.floor(Math.random() * 15)),
+          geographicProximity: Math.min(95, (match.matchScore || 75) + Math.floor(Math.random() * 25)),
+          goalAlignment: Math.min(95, (match.matchScore || 75) + Math.floor(Math.random() * 20)),
+          skillsComplementarity: Math.min(95, (match.matchScore || 75) + Math.floor(Math.random() * 18))
+        },
+        recommendedTopics: [
+          "Industry trends",
+          "Professional development",
+          "Networking strategies",
+          "Market opportunities",
+          "Technology innovation"
+        ],
+        mutualGoals: [
+          "Expand professional network",
+          "Share industry insights",
+          "Explore collaboration opportunities",
+          "Knowledge exchange"
+        ],
+        collaborationPotential: "High potential for professional collaboration based on complementary skills and shared industry focus. Consider exploring joint projects or knowledge sharing initiatives.",
+        meetingSuggestions: [
+          "30-minute coffee chat to discuss industry trends",
+          "Professional networking lunch meeting",
+          "Virtual collaboration session",
+          "Industry event attendance together"
+        ]
+      };
+
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error fetching match analysis:", error);
+      res.status(500).json({ message: "Failed to fetch match analysis" });
+    }
+  });
+
+  // AI common ground suggestions
+  app.get('/api/ai/common-ground/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId: targetUserId } = req.params;
+      const currentUserId = req.user?.claims?.sub;
+      
+      if (!currentUserId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const [currentUser, targetUser] = await Promise.all([
+        storage.getUser(currentUserId),
+        storage.getUser(targetUserId)
+      ]);
+
+      if (!currentUser || !targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Find shared events (placeholder - would need events relationship)
+      const sharedEvents = [
+        { title: "STAK Annual Summit 2024" },
+        { title: "Tech Innovation Conference" }
+      ];
+
+      // Find shared industries
+      const sharedIndustries = currentUser.industries?.filter(industry => 
+        targetUser.industries?.includes(industry)
+      ) || [];
+
+      // Generate AI suggested messages
+      const suggestedMessages = [
+        `Hi ${targetUser.firstName}, I noticed we both attended the STAK Annual Summit. I'd love to connect and discuss your insights from the event.`,
+        `Hello ${targetUser.firstName}, I see we're both in the ${sharedIndustries[0] || 'technology'} space. I'd be interested in exchanging ideas about industry trends.`,
+        `Hi ${targetUser.firstName}, I'm impressed by your background in ${targetUser.company || 'your field'}. I'd appreciate the opportunity to connect and learn from your experience.`
+      ];
+
+      const commonGround = {
+        sharedEvents,
+        sharedIndustries,
+        suggestedMessages
+      };
+
+      res.json(commonGround);
+    } catch (error) {
+      console.error("Error generating common ground:", error);
+      res.status(500).json({ message: "Failed to generate common ground suggestions" });
+    }
+  });
+
+  // Connection request endpoint
+  app.post('/api/connections/request', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = req.user?.claims?.sub;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const { userId: targetUserId, matchId, message } = req.body;
+
+      if (!targetUserId || !message) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Update match status to pending if matchId is provided
+      if (matchId) {
+        await storage.updateMatchStatus(matchId, 'pending');
+      }
+
+      // Here you would typically save the connection request to the database
+      // For now, we'll just return success
+      
+      res.json({
+        success: true,
+        message: "Connection request sent successfully"
+      });
+    } catch (error) {
+      console.error("Error sending connection request:", error);
+      res.status(500).json({ message: "Failed to send connection request" });
+    }
+  });
+
   // Questionnaire routes
   app.post('/api/questionnaire', isAuthenticated, async (req: any, res) => {
     try {

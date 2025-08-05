@@ -87,7 +87,7 @@ export default function Matches() {
     setDrillDownDialog(true);
     
     try {
-      let data;
+      let data: (Match & { matchedUser: UserType })[];
       switch (metricType) {
         case 'Total Matches':
           data = matches || [];
@@ -263,28 +263,32 @@ export default function Matches() {
                     key={match.id}
                     className="flex items-start space-x-6 p-6 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors bg-white"
                   >
-                    {/* Profile Image */}
-                    <Avatar className="w-20 h-20 border-2 border-gray-200">
-                      <AvatarImage 
-                        src={match.matchedUser.profileImageUrl || ""} 
-                        alt={`${match.matchedUser.firstName} ${match.matchedUser.lastName}`} 
-                      />
-                      <AvatarFallback className="bg-gray-300 text-gray-700 text-lg font-semibold">
-                        {match.matchedUser.firstName?.[0]}{match.matchedUser.lastName?.[0]}
-                      </AvatarFallback>
-                    </Avatar>
+                    {/* Profile Image - Clickable */}
+                    <Link href={`/profile-detail?userId=${match.matchedUserId}`}>
+                      <Avatar className="w-20 h-20 border-2 border-gray-200 cursor-pointer hover:border-blue-400 transition-colors">
+                        <AvatarImage 
+                          src={match.matchedUser.profileImageUrl || ""} 
+                          alt={`${match.matchedUser.firstName} ${match.matchedUser.lastName}`} 
+                        />
+                        <AvatarFallback className="bg-gray-300 text-gray-700 text-lg font-semibold">
+                          {match.matchedUser.firstName?.[0]}{match.matchedUser.lastName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Link>
                     
                     {/* Profile Information */}
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <h4 className="text-xl font-semibold text-gray-900 mb-1">
-                            {match.matchedUser.firstName} {match.matchedUser.lastName}
-                          </h4>
-                          {match.matchedUser.position && (
+                          <Link href={`/profile-detail?userId=${match.matchedUserId}`}>
+                            <h4 className="text-xl font-semibold text-gray-900 mb-1 cursor-pointer hover:text-blue-600 transition-colors">
+                              {match.matchedUser.firstName} {match.matchedUser.lastName}
+                            </h4>
+                          </Link>
+                          {match.matchedUser.title && (
                             <div className="flex items-center text-gray-700 mb-1">
                               <Briefcase className="h-4 w-4 mr-2 text-gray-500" />
-                              <span className="font-medium">{match.matchedUser.position}</span>
+                              <span className="font-medium">{match.matchedUser.title}</span>
                               {match.matchedUser.company && (
                                 <span className="text-gray-600"> at {match.matchedUser.company}</span>
                               )}
@@ -302,9 +306,11 @@ export default function Matches() {
                           <Badge className={getStatusColor(match.status)}>
                             {getStatusText(match.status)}
                           </Badge>
-                          <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
-                            {match.matchScore}% Match
-                          </Badge>
+                          <Link href={`/match-analysis?matchId=${match.id}`}>
+                            <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors">
+                              {match.matchScore}% Match
+                            </Badge>
+                          </Link>
                         </div>
                       </div>
                       
@@ -316,11 +322,11 @@ export default function Matches() {
                       )}
 
                       {/* Networking Goals */}
-                      {match.matchedUser.networkingGoals && (
+                      {match.matchedUser.networkingGoal && (
                         <div className="flex items-start mb-3">
                           <Target className="h-4 w-4 mr-2 text-gray-500 mt-0.5" />
                           <p className="text-sm text-gray-600 line-clamp-2">
-                            {match.matchedUser.networkingGoals}
+                            {match.matchedUser.networkingGoal}
                           </p>
                         </div>
                       )}
@@ -369,13 +375,15 @@ export default function Matches() {
                               Connection Pending
                             </Badge>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                            >
-                              Connect
-                            </Button>
+                            <Link href={`/connect-request?userId=${match.matchedUserId}&matchId=${match.id}`}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                              >
+                                Connect
+                              </Button>
+                            </Link>
                           )}
                         </div>
                       </div>
