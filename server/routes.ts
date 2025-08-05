@@ -503,8 +503,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Messages routes
   app.get('/api/conversations', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        console.error("No user ID found in request");
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      console.log('Fetching conversations for user:', userId);
       const conversations = await storage.getConversations(userId);
+      console.log('Found conversations:', conversations.length);
       res.json(conversations);
     } catch (error) {
       console.error("Error fetching conversations:", error);
@@ -514,9 +521,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/conversations/:otherUserId', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
       const { otherUserId } = req.params;
+      console.log('Fetching conversation between:', userId, 'and', otherUserId);
       const conversation = await storage.getConversation(userId, otherUserId);
+      console.log('Found messages:', conversation.length);
       res.json(conversation);
     } catch (error) {
       console.error("Error fetching conversation:", error);
@@ -526,13 +539,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/messages', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      console.log('Creating message from user:', userId, 'to:', req.body.receiverId);
+      
       const messageData = insertMessageSchema.parse({
         ...req.body,
         senderId: userId,
+        createdAt: new Date(),
       });
       
       const message = await storage.createMessage(messageData);
+      console.log('Message created successfully:', message.id);
       
       // Broadcast to WebSocket clients
       wss.clients.forEach((client) => {
@@ -553,8 +574,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/conversations/:otherUserId/read', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
       const { otherUserId } = req.params;
+      console.log('Marking messages as read between:', userId, 'and', otherUserId);
       await storage.markMessagesAsRead(userId, otherUserId);
       res.json({ success: true });
     } catch (error) {

@@ -41,7 +41,8 @@ export default function Messages() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async (messageData: { receiverId: string; content: string }) => {
-      return apiRequest("POST", "/api/messages", messageData);
+      console.log('Sending message:', messageData);
+      return apiRequest("/api/messages", "POST", messageData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
@@ -188,7 +189,7 @@ export default function Messages() {
   // Mark messages as read when conversation is selected
   useEffect(() => {
     if (selectedUser && currentUser) {
-      apiRequest("PUT", `/api/conversations/${selectedUser.id}/read`, {}).catch(console.error);
+      apiRequest(`/api/conversations/${selectedUser.id}/read`, 'PUT', {}).catch(console.error);
     }
   }, [selectedUser, currentUser]);
 
@@ -196,9 +197,9 @@ export default function Messages() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
-        <div className="bg-white border border-gray-200 rounded-lg p-8 mb-8 text-center shadow-sm">
-          <h1 className="text-4xl font-bold text-navy mb-2">Professional Conversations</h1>
-          <p className="text-xl text-gray-600">Secure messaging platform designed for meaningful business connections</p>
+        <div className="bg-navy border border-navy rounded-lg p-8 mb-8 text-center shadow-sm">
+          <h1 className="text-4xl font-bold text-white mb-2">Professional Conversations</h1>
+          <p className="text-xl text-blue-100">Secure messaging platform designed for meaningful business connections</p>
         </div>
 
         {/* Messages Interface */}
@@ -207,9 +208,9 @@ export default function Messages() {
             <div className="grid lg:grid-cols-3 h-[600px]">
               {/* Conversations List */}
               <div className="border-r border-gray-200 bg-white">
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
-                  <h3 className="font-semibold text-gray-900 text-lg">Messages</h3>
-                  <p className="text-sm text-gray-600 mt-1">{uniqueConversations.length} conversations</p>
+                <div className="p-4 border-b border-gray-200 bg-navy">
+                  <h3 className="font-semibold text-white text-lg">Messages</h3>
+                  <p className="text-sm text-blue-100 mt-1">{uniqueConversations.length} conversations</p>
                 </div>
                 <div className="overflow-y-auto" style={{ height: 'calc(600px - 80px)' }}>
                   {isLoading ? (
@@ -245,12 +246,19 @@ export default function Messages() {
                           onClick={() => setSelectedUser(user)}
                         >
                           <div className="flex items-center space-x-3">
-                            <Avatar className="w-12 h-12">
-                              <AvatarImage src={user.profileImageUrl || ""} alt={user.firstName || ""} />
-                              <AvatarFallback className="bg-navy text-white font-semibold">
-                                {user.firstName?.[0]}{user.lastName?.[0]}
-                              </AvatarFallback>
-                            </Avatar>
+                            <div className="relative">
+                              <Avatar className="w-12 h-12 border-2 border-gray-200">
+                                <AvatarImage src={user.profileImageUrl || ""} alt={user.firstName || ""} />
+                                <AvatarFallback className="bg-navy text-white font-semibold">
+                                  {user.firstName?.[0]}{user.lastName?.[0]}
+                                </AvatarFallback>
+                              </Avatar>
+                              {unreadCount > 0 && (
+                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                  {unreadCount}
+                                </div>
+                              )}
+                            </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
                                 <p className="font-semibold text-gray-900 text-sm truncate">
@@ -270,11 +278,6 @@ export default function Messages() {
                                 <p className="text-xs text-gray-500">
                                   {user.title} at {user.company}
                                 </p>
-                                {unreadCount > 0 && (
-                                  <Badge className="bg-red-500 text-white text-xs font-bold px-2 py-1">
-                                    {unreadCount}
-                                  </Badge>
-                                )}
                               </div>
                             </div>
                           </div>
