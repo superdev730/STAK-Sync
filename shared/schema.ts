@@ -20,6 +20,12 @@ import { z } from "zod";
 // Admin role enumeration
 export const adminRoleEnum = pgEnum("admin_role", ["admin", "super_admin", "owner"]);
 
+// Billing plan enumeration
+export const billingPlanEnum = pgEnum("billing_plan", ["free_stak_basic", "paid_monthly", "enterprise"]);
+
+// Billing status enumeration
+export const billingStatusEnum = pgEnum("billing_status", ["active", "past_due", "canceled", "incomplete"]);
+
 // Session storage table.
 export const sessions = pgTable(
   "sessions",
@@ -69,6 +75,12 @@ export const users = pgTable("users", {
   // Admin role - only for STAK Ventures/Behring team members
   adminRole: adminRoleEnum("admin_role"),
   isStakTeamMember: boolean("is_stak_team_member").default(false),
+  
+  // Billing and subscription
+  billingPlan: billingPlanEnum("billing_plan").default("free_stak_basic"),
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  billingStatus: billingStatusEnum("billing_status").default("active"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -196,6 +208,71 @@ export const eventMatches = pgTable("event_matches", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Token usage tracking
+export const tokenUsage = pgTable("token_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  feature: varchar("feature").notNull(), // ai_matching, profile_enhancement, quick_responses, etc.
+  model: varchar("model").notNull(), // gpt-4o, gpt-4o-mini, etc.
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  costPerInputToken: decimal("cost_per_input_token", { precision: 10, scale: 8 }).notNull(), // OpenAI pricing per token
+  costPerOutputToken: decimal("cost_per_output_token", { precision: 10, scale: 8 }).notNull(),
+  totalCost: decimal("total_cost", { precision: 10, scale: 6 }).notNull(), // calculated cost in USD
+  requestId: varchar("request_id"), // for debugging/tracking
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Billing accounts (for STAK Basic members vs paid subscribers)
+export const billingAccounts = pgTable("billing_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  stakMembershipType: varchar("stak_membership_type"), // basic, premium, enterprise
+  stakMembershipVerified: boolean("stak_membership_verified").default(false),
+  monthlyTokenAllowance: integer("monthly_token_allowance").notNull().default(10000), // free tokens per month
+  tokensUsedThisMonth: integer("tokens_used_this_month").notNull().default(0),
+  billingCycleStart: date("billing_cycle_start").defaultNow(),
+  billingCycleEnd: date("billing_cycle_end"),
+  nextBillingDate: date("next_billing_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Invoices
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  billingAccountId: varchar("billing_account_id").notNull().references(() => billingAccounts.id),
+  stripeInvoiceId: varchar("stripe_invoice_id"),
+  invoiceNumber: varchar("invoice_number").notNull(),
+  billingPeriodStart: date("billing_period_start").notNull(),
+  billingPeriodEnd: date("billing_period_end").notNull(),
+  subscriptionAmount: decimal("subscription_amount", { precision: 10, scale: 2 }).default("0"), // $20/month
+  tokenUsageAmount: decimal("token_usage_amount", { precision: 10, scale: 2 }).default("0"), // overage charges
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0"),
+  status: varchar("status").notNull().default("pending"), // pending, paid, overdue, failed
+  dueDate: date("due_date").notNull(),
+  paidAt: timestamp("paid_at"),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Invoice line items (for detailed billing breakdown)
+export const invoiceLineItems = pgTable("invoice_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => invoices.id),
+  description: text("description").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 6 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  metadata: jsonb("metadata"), // additional details like token counts, features used, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   sentMessages: many(messages, { relationName: "sender" }),
@@ -210,6 +287,9 @@ export const usersRelations = relations(users, ({ many }) => ({
   roomParticipations: many(roomParticipants),
   eventMatches: many(eventMatches, { relationName: "user" }),
   eventMatchedWith: many(eventMatches, { relationName: "matchedUser" }),
+  tokenUsage: many(tokenUsage),
+  billingAccount: many(billingAccounts),
+  invoices: many(invoices),
 }));
 
 export const eventsRelations = relations(events, ({ one, many }) => ({
@@ -221,6 +301,40 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
   registrations: many(eventRegistrations),
   rooms: many(eventRooms),
   eventMatches: many(eventMatches),
+}));
+
+export const tokenUsageRelations = relations(tokenUsage, ({ one }) => ({
+  user: one(users, {
+    fields: [tokenUsage.userId],
+    references: [users.id],
+  }),
+}));
+
+export const billingAccountsRelations = relations(billingAccounts, ({ one, many }) => ({
+  user: one(users, {
+    fields: [billingAccounts.userId],
+    references: [users.id],
+  }),
+  invoices: many(invoices),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  user: one(users, {
+    fields: [invoices.userId],
+    references: [users.id],
+  }),
+  billingAccount: one(billingAccounts, {
+    fields: [invoices.billingAccountId],
+    references: [billingAccounts.id],
+  }),
+  lineItems: many(invoiceLineItems),
+}));
+
+export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceLineItems.invoiceId],
+    references: [invoices.id],
+  }),
 }));
 
 export const eventRegistrationsRelations = relations(eventRegistrations, ({ one }) => ({
@@ -375,6 +489,29 @@ export const insertEventMatchSchema = createInsertSchema(eventMatches).omit({
   updatedAt: true,
 });
 
+// Billing insert schemas
+export const insertTokenUsageSchema = createInsertSchema(tokenUsage).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBillingAccountSchema = createInsertSchema(billingAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Event attendee imports table for CSV uploads
 export const eventAttendeeImports = pgTable("event_attendee_imports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -408,6 +545,16 @@ export type Meetup = typeof meetups.$inferSelect;
 export type InsertMeetup = z.infer<typeof insertMeetupSchema>;
 export type QuestionnaireResponse = typeof questionnaireResponses.$inferSelect;
 export type InsertQuestionnaireResponse = z.infer<typeof insertQuestionnaireResponseSchema>;
+
+// Billing Types
+export type TokenUsage = typeof tokenUsage.$inferSelect;
+export type InsertTokenUsage = z.infer<typeof insertTokenUsageSchema>;
+export type BillingAccount = typeof billingAccounts.$inferSelect;
+export type InsertBillingAccount = z.infer<typeof insertBillingAccountSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
+export type InsertInvoiceLineItem = z.infer<typeof insertInvoiceLineItemSchema>;
 
 export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
