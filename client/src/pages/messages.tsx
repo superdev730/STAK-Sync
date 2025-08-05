@@ -9,6 +9,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import MessageInterface from "@/components/MessageInterface";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import type { Message, User } from "@shared/schema";
 
 export default function Messages() {
@@ -16,6 +17,7 @@ export default function Messages() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: conversations, isLoading } = useQuery<(Message & { sender: User; receiver: User })[]>({
     queryKey: ["/api/conversations"],
@@ -260,7 +262,13 @@ export default function Messages() {
                         >
                           <div className="flex items-center space-x-3">
                             <div className="relative">
-                              <Avatar className="w-12 h-12 border-2 border-gray-200">
+                              <Avatar 
+                                className="w-12 h-12 border-2 border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLocation(`/profile/${user.id}`);
+                                }}
+                              >
                                 <AvatarImage src={user.profileImageUrl || ""} alt={user.firstName || ""} />
                                 <AvatarFallback className="bg-navy text-white font-semibold">
                                   {user.firstName?.[0]}{user.lastName?.[0]}
@@ -274,7 +282,13 @@ export default function Messages() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
-                                <p className="font-semibold text-gray-900 text-sm truncate">
+                                <p 
+                                  className="font-semibold text-gray-900 text-sm truncate cursor-pointer hover:underline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLocation(`/profile/${user.id}`);
+                                  }}
+                                >
                                   {user.firstName} {user.lastName}
                                 </p>
                                 <span className="text-xs text-gray-500">

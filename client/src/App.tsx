@@ -48,6 +48,8 @@ function Router() {
             <Route path="/admin" component={Admin} />
             <Route path="/admin/events" component={AdminEvents} />
             <Route path="/profile" component={Profile} />
+            <Route path="/profile/:userId" component={Profile} />
+            <Route path="/notifications" component={() => <div className="p-8"><h1 className="text-2xl font-bold">Notifications</h1><p className="mt-4 text-gray-600">Notification center coming soon! For now, check the Messages and Matches tabs for updates.</p></div>} />
             <Route path="/questionnaire" component={Questionnaire} />
             <Route component={NotFound} />
           </Switch>

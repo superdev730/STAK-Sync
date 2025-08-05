@@ -4,15 +4,51 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bell } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
   const [location] = useLocation();
 
+  // Get notification counts
+  const { data: conversations } = useQuery({
+    queryKey: ["/api/conversations"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: matches } = useQuery({
+    queryKey: ["/api/matches"],
+    enabled: isAuthenticated,
+  });
+
+  // Calculate unread message count
+  const unreadMessages = conversations?.filter(conv => 
+    conv.senderId !== user?.id && !conv.isRead
+  ).length || 0;
+
+  // Calculate new matches count (matches from last 7 days)
+  const newMatches = matches?.filter(match => {
+    const matchDate = new Date(match.createdAt);
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return matchDate > weekAgo;
+  }).length || 0;
+
+  // Calculate total notifications
+  const totalNotifications = unreadMessages + newMatches;
+
   const navigation = [
     { name: "Discover", href: "/discover" },
-    { name: "Matches", href: "/matches" },
-    { name: "Messages", href: "/messages" },
+    { 
+      name: "Matches", 
+      href: "/matches",
+      count: newMatches 
+    },
+    { 
+      name: "Messages", 
+      href: "/messages",
+      count: unreadMessages 
+    },
     { name: "Events", href: "/events" },
   ];
 
@@ -54,25 +90,34 @@ export default function Header() {
               {navigation.map((item) => (
                 <Link key={item.name} href={item.href}>
                   <span
-                    className={`font-medium transition-colors cursor-pointer ${
+                    className={`font-medium transition-colors cursor-pointer relative inline-flex items-center ${
                       location === item.href
                         ? "text-stak-copper"
                         : "text-stak-light-gray hover:text-stak-copper"
                     }`}
                   >
                     {item.name}
+                    {item.count && item.count > 0 && (
+                      <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white border-0">
+                        {item.count > 99 ? '99+' : item.count}
+                      </Badge>
+                    )}
                   </span>
                 </Link>
               ))}
             </nav>
           </div>
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" className="relative text-stak-light-gray hover:text-stak-copper">
-              <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs bg-stak-copper text-stak-black">
-                3
-              </Badge>
-            </Button>
+            <Link href="/notifications">
+              <Button variant="ghost" size="icon" className="relative text-stak-light-gray hover:text-stak-copper">
+                <Bell className="h-5 w-5" />
+                {totalNotifications > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white border-0">
+                    {totalNotifications > 99 ? '99+' : totalNotifications}
+                  </Badge>
+                )}
+              </Button>
+            </Link>
             <Link href="/profile">
               <Avatar className="h-10 w-10 cursor-pointer border-2 border-stak-copper">
                 <AvatarImage src={user?.profileImageUrl || ""} alt={user?.firstName || ""} />
