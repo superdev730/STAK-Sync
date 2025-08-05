@@ -203,6 +203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+
   // Matches routes
   app.get('/api/matches', isAuthenticated, async (req: any, res) => {
     try {

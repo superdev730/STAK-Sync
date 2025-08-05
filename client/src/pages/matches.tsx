@@ -410,23 +410,25 @@ export default function Matches() {
               ) : (
                 <div className="space-y-3">
                   {drillDownData.map((item, index) => (
-                    <div key={index} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={item.matchedUser?.profileImageUrl || ""} />
-                        <AvatarFallback className="bg-gray-300 text-gray-700">
-                          {item.matchedUser?.firstName?.[0]}{item.matchedUser?.lastName?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">
-                          {item.matchedUser?.firstName} {item.matchedUser?.lastName}
-                        </p>
-                        <p className="text-sm text-gray-600">{item.matchedUser?.position}</p>
+                    <Link key={index} href={`/profile-detail?userId=${item.matchedUserId}`}>
+                      <div className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src={item.matchedUser?.profileImageUrl || ""} />
+                          <AvatarFallback className="bg-gray-300 text-gray-700">
+                            {item.matchedUser?.firstName?.[0]}{item.matchedUser?.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {item.matchedUser?.firstName} {item.matchedUser?.lastName}
+                          </p>
+                          <p className="text-sm text-gray-600">{item.matchedUser?.title}</p>
+                        </div>
+                        <Badge className={getStatusColor(item.status)}>
+                          {getStatusText(item.status)}
+                        </Badge>
                       </div>
-                      <Badge className={getStatusColor(item.status)}>
-                        {getStatusText(item.status)}
-                      </Badge>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}

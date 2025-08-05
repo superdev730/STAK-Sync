@@ -214,12 +214,7 @@ export default function ProfileDetail() {
                     <span className="text-sm">{user.email}</span>
                   </div>
                 )}
-                {user.phone && (
-                  <div className="flex items-center text-gray-600">
-                    <Phone className="h-4 w-4 mr-3 text-gray-500" />
-                    <span className="text-sm">{user.phone}</span>
-                  </div>
-                )}
+
                 {user.websiteUrls && user.websiteUrls.length > 0 && (
                   <div className="space-y-2">
                     {user.websiteUrls.map((url, index) => (
@@ -279,12 +274,7 @@ export default function ProfileDetail() {
                     <p className="text-sm text-gray-900">{user.company}</p>
                   </div>
                 )}
-                {user.yearsOfExperience && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Experience</p>
-                    <p className="text-sm text-gray-900">{user.yearsOfExperience} years</p>
-                  </div>
-                )}
+
               </CardContent>
             </Card>
           </div>
