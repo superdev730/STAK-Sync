@@ -160,13 +160,13 @@ export default function MessageInterface({
                 <div
                   className={`max-w-xs p-4 rounded-2xl ${
                     isOwnMessage
-                      ? 'bg-navy text-white rounded-tr-sm shadow-sm'
+                      ? 'bg-blue-600 text-white rounded-tr-sm shadow-sm'
                       : 'bg-white text-gray-900 rounded-tl-sm shadow-sm border border-gray-200'
                   }`}
                 >
                   <p className="text-sm leading-relaxed">{message.content}</p>
                   <p className={`text-xs mt-2 ${
-                    isOwnMessage ? 'text-blue-200' : 'text-gray-500'
+                    isOwnMessage ? 'text-blue-100' : 'text-gray-500'
                   }`}>
                     {message.createdAt && new Date(message.createdAt).toLocaleTimeString([], {
                       hour: '2-digit',
