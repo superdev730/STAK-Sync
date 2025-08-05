@@ -14,6 +14,11 @@ import {
   insertRoomParticipantSchema,
   matches, 
   users,
+  events,
+  eventRegistrations,
+  eventTicketTypes,
+  eventLineItems,
+  eventHosts,
   tokenUsage,
   billingAccounts,
   invoices,
@@ -21,7 +26,7 @@ import {
 } from "@shared/schema";
 import { csvImportService } from "./csvImportService";
 import { db } from "./db";
-import { eq, and, sum, count, gte, sql } from "drizzle-orm";
+import { eq, and, or, sum, count, gte, sql, ilike, inArray } from "drizzle-orm";
 import { generateQuickResponses } from "./aiResponses";
 import { tokenUsageService } from "./tokenUsageService";
 
@@ -1890,6 +1895,290 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error fetching token usage history:', error);
       res.status(500).json({ message: 'Failed to fetch token usage history' });
+    }
+  });
+
+  // ===== NEW EVENTS SYSTEM ROUTES =====
+  
+  // Get all events with enhanced data
+  app.get('/api/events/new', async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      
+      const eventsData = await db
+        .select({
+          id: events.id,
+          title: events.title,
+          description: events.description,
+          shortDescription: events.shortDescription,
+          eventType: events.eventType,
+          startDate: events.startDate,
+          startTime: events.startTime,
+          endDate: events.endDate,
+          endTime: events.endTime,
+          location: events.location,
+          isVirtual: events.isVirtual,
+          capacity: events.capacity,
+          isPaid: events.isPaid,
+          basePrice: events.basePrice,
+          currency: events.currency,
+          coverImageUrl: events.coverImageUrl,
+          youtubeVideoId: events.youtubeVideoId,
+          organizerId: events.organizerId,
+          hostIds: events.hostIds,
+          status: events.status,
+          isFeatured: events.isFeatured,
+          isPublic: events.isPublic,
+          tags: events.tags,
+          createdAt: events.createdAt,
+          updatedAt: events.updatedAt,
+          organizerFirstName: users.firstName,
+          organizerLastName: users.lastName,
+          organizerImageUrl: users.profileImageUrl,
+        })
+        .from(events)
+        .leftJoin(users, eq(events.organizerId, users.id))
+        .where(and(
+          eq(events.status, "published"),
+          eq(events.isPublic, true)
+        ))
+        .orderBy(sql`${events.isFeatured} DESC, ${events.createdAt} DESC`);
+
+      // Get registration counts and user registration status
+      const eventsWithCounts = await Promise.all(
+        eventsData.map(async (event) => {
+          const [registrationCount] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(eventRegistrations)
+            .where(eq(eventRegistrations.eventId, event.id));
+
+          let isUserRegistered = false;
+          if (userId) {
+            const [userReg] = await db
+              .select()
+              .from(eventRegistrations)
+              .where(and(
+                eq(eventRegistrations.eventId, event.id),
+                eq(eventRegistrations.userId, userId)
+              ));
+            isUserRegistered = !!userReg;
+          }
+
+          return {
+            ...event,
+            organizerName: event.organizerFirstName && event.organizerLastName 
+              ? `${event.organizerFirstName} ${event.organizerLastName}`
+              : 'Unknown',
+            registrationCount: registrationCount.count || 0,
+            isUserRegistered,
+            basePrice: parseFloat(event.basePrice || '0'),
+          };
+        })
+      );
+
+      res.json(eventsWithCounts);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      res.status(500).json({ message: 'Failed to fetch events' });
+    }
+  });
+
+  // Get user's own events
+  app.get('/api/events/my-events', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      
+      const userEvents = await db
+        .select()
+        .from(events)
+        .where(or(
+          eq(events.organizerId, userId),
+          sql`${userId} = ANY(${events.hostIds})`
+        ))
+        .orderBy(sql`${events.createdAt} DESC`);
+
+      res.json(userEvents);
+    } catch (error) {
+      console.error('Error fetching user events:', error);
+      res.status(500).json({ message: 'Failed to fetch user events' });
+    }
+  });
+
+  // Create new event
+  app.post('/api/events/create', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const eventData = req.body;
+
+      // Create the event
+      const [newEvent] = await db
+        .insert(events)
+        .values({
+          ...eventData,
+          organizerId: userId,
+          status: 'published', // Auto-publish for now
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      // Create ticket types if provided
+      if (eventData.ticketTypes && eventData.ticketTypes.length > 0) {
+        await db.insert(eventTicketTypes).values(
+          eventData.ticketTypes.map((ticket: any) => ({
+            eventId: newEvent.id,
+            name: ticket.name,
+            description: ticket.description,
+            price: ticket.price.toString(),
+            quantity: ticket.quantity,
+            perks: ticket.perks,
+          }))
+        );
+      }
+
+      // Create line items if provided
+      if (eventData.lineItems && eventData.lineItems.length > 0) {
+        await db.insert(eventLineItems).values(
+          eventData.lineItems.map((item: any) => ({
+            eventId: newEvent.id,
+            name: item.name,
+            description: item.description,
+            price: item.price.toString(),
+            isRequired: item.isRequired,
+          }))
+        );
+      }
+
+      // Create host relationships if provided
+      if (eventData.hostIds && eventData.hostIds.length > 0) {
+        await db.insert(eventHosts).values(
+          eventData.hostIds.map((hostId: string) => ({
+            eventId: newEvent.id,
+            userId: hostId,
+            role: 'host',
+          }))
+        );
+      }
+
+      res.json({ success: true, event: newEvent });
+    } catch (error) {
+      console.error('Error creating event:', error);
+      res.status(500).json({ message: 'Failed to create event' });
+    }
+  });
+
+  // Register for event
+  app.post('/api/events/:eventId/register', isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { ticketTypeId, lineItemIds = [] } = req.body;
+      const userId = req.user?.claims?.sub;
+
+      // Check if already registered
+      const [existingReg] = await db
+        .select()
+        .from(eventRegistrations)
+        .where(and(
+          eq(eventRegistrations.eventId, eventId),
+          eq(eventRegistrations.userId, userId)
+        ));
+
+      if (existingReg) {
+        return res.status(400).json({ message: 'Already registered for this event' });
+      }
+
+      // Check event capacity
+      const [event] = await db
+        .select()
+        .from(events)
+        .where(eq(events.id, eventId));
+
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      const [regCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(eventRegistrations)
+        .where(eq(eventRegistrations.eventId, eventId));
+
+      if (regCount.count >= event.capacity) {
+        return res.status(400).json({ message: 'Event is at capacity' });
+      }
+
+      // Calculate total amount
+      let totalAmount = parseFloat(event.basePrice || '0');
+
+      if (ticketTypeId) {
+        const [ticketType] = await db
+          .select()
+          .from(eventTicketTypes)
+          .where(eq(eventTicketTypes.id, ticketTypeId));
+        
+        if (ticketType) {
+          totalAmount = parseFloat(ticketType.price);
+        }
+      }
+
+      // Add line item costs
+      if (lineItemIds.length > 0) {
+        const lineItems = await db
+          .select()
+          .from(eventLineItems)
+          .where(inArray(eventLineItems.id, lineItemIds));
+        
+        totalAmount += lineItems.reduce((sum, item) => sum + parseFloat(item.price), 0);
+      }
+
+      // Create registration
+      const [registration] = await db
+        .insert(eventRegistrations)
+        .values({
+          eventId,
+          userId,
+          ticketTypeId,
+          totalAmount: totalAmount.toString(),
+          paymentStatus: totalAmount > 0 ? 'pending' : 'paid',
+          additionalInfo: { lineItemIds },
+        })
+        .returning();
+
+      res.json({ success: true, registration });
+    } catch (error) {
+      console.error('Error registering for event:', error);
+      res.status(500).json({ message: 'Failed to register for event' });
+    }
+  });
+
+  // Search users for host tagging
+  app.get('/api/users/search', isAuthenticated, async (req: any, res) => {
+    try {
+      const { q } = req.query;
+      
+      if (!q || q.length < 2) {
+        return res.json([]);
+      }
+
+      const searchResults = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          profileImageUrl: users.profileImageUrl,
+        })
+        .from(users)
+        .where(or(
+          ilike(users.firstName, `%${q}%`),
+          ilike(users.lastName, `%${q}%`),
+          ilike(users.email, `%${q}%`)
+        ))
+        .limit(10);
+
+      res.json(searchResults);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      res.status(500).json({ message: 'Failed to search users' });
     }
   });
 

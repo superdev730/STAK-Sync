@@ -9,7 +9,7 @@ import Home from "@/pages/home";
 import Discover from "@/pages/discover";
 import Matches from "@/pages/matches";
 import Messages from "@/pages/messages";
-import Events from "@/pages/events";
+import EventsNew from "@/pages/events-new";
 import LiveDashboard from "@/pages/live-dashboard";
 import Admin from "@/pages/admin";
 import AdminEvents from "@/pages/admin-events";
@@ -47,7 +47,7 @@ function Router() {
             <Route path="/discover" component={Discover} />
             <Route path="/matches" component={Matches} />
             <Route path="/messages" component={Messages} />
-            <Route path="/events" component={Events} />
+            <Route path="/events" component={EventsNew} />
             <Route path="/live-dashboard" component={LiveDashboard} />
             <Route path="/admin" component={Admin} />
             <Route path="/admin/events" component={AdminEvents} />

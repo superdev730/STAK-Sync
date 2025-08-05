@@ -134,11 +134,12 @@ export const questionnaireResponses = pgTable("questionnaire_responses", {
   completedAt: timestamp("completed_at").defaultNow(),
 });
 
-// Events table for networking events
+// Events table - comprehensive event system with user-generated events and ticket pricing
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: varchar("title").notNull(),
   description: text("description"),
+  shortDescription: text("short_description"), // For event previews
   eventType: varchar("event_type").notNull(), // networking, workshop, conference, meetup, webinar
   startDate: varchar("start_date").notNull(),
   startTime: varchar("start_time").notNull(),
@@ -147,25 +148,55 @@ export const events = pgTable("events", {
   location: varchar("location"),
   isVirtual: boolean("is_virtual").default(false),
   capacity: integer("capacity").notNull(),
-  price: decimal("price", { precision: 10, scale: 2 }).default("0"),
+  
+  // Pricing and tickets
+  isPaid: boolean("is_paid").default(false),
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).default("0.00"),
+  currency: varchar("currency").default("USD"),
+  ticketTypes: jsonb("ticket_types"), // Array of ticket type objects with pricing
+  lineItems: jsonb("line_items"), // Additional charges like parking, meals, etc.
+  
+  // Media and content
   coverImageUrl: varchar("cover_image_url"),
+  youtubeVideoId: varchar("youtube_video_id"), // Just the video ID, not full URL
+  pageContent: jsonb("page_content"), // Rich content for event page builder
+  
+  // External integrations
   externalPlatform: varchar("external_platform"), // none, luma, eventbrite
   externalUrl: varchar("external_url"),
-  videoUrl: varchar("video_url"), // YouTube video URL
+  
+  // Host and organizer info
   organizerId: varchar("organizer_id").notNull().references(() => users.id),
-  status: varchar("status").default("active"), // active, cancelled, completed
+  hostIds: text("host_ids").array(), // Array of user IDs who are co-hosting
+  
+  // Event management
+  status: varchar("status").default("draft"), // draft, published, cancelled, completed
+  requiresApproval: boolean("requires_approval").default(false),
   isFeatured: boolean("is_featured").default(false),
+  isPublic: boolean("is_public").default(true),
+  
+  // Additional details
+  instructions: text("instructions"), // Special instructions for attendees
+  refundPolicy: text("refund_policy"),
+  tags: text("tags").array(),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Event registrations
+// Event registrations with ticket and payment info
 export const eventRegistrations = pgTable("event_registrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").notNull().references(() => events.id),
   userId: varchar("user_id").notNull().references(() => users.id),
+  ticketTypeId: varchar("ticket_type_id"), // Reference to specific ticket type if applicable
+  quantity: integer("quantity").default(1),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0.00"),
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, refunded, failed
+  paymentIntentId: varchar("payment_intent_id"), // Stripe payment intent ID
   registeredAt: timestamp("registered_at").defaultNow(),
   attendanceStatus: varchar("attendance_status").default("registered"), // registered, attended, no-show
+  additionalInfo: jsonb("additional_info"), // Custom form responses, dietary restrictions, etc.
 }, (table) => ({
   uniqueRegistration: unique().on(table.eventId, table.userId), // Prevent duplicate registrations
 }));
@@ -182,6 +213,45 @@ export const eventRooms = pgTable("event_rooms", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Event ticket types for pricing tiers
+export const eventTicketTypes = pgTable("event_ticket_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(), // Early Bird, Regular, VIP, etc.
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  quantity: integer("quantity"), // Total available tickets (null = unlimited)
+  sold: integer("sold").default(0), // Number sold
+  isActive: boolean("is_active").default(true),
+  saleStartDate: timestamp("sale_start_date"),
+  saleEndDate: timestamp("sale_end_date"),
+  perks: text("perks").array(), // What's included with this ticket
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Event line items for additional charges
+export const eventLineItems = pgTable("event_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(), // Parking, Lunch, Materials, etc.
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  isRequired: boolean("is_required").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Event hosts/co-hosts junction table
+export const eventHosts = pgTable("event_hosts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  role: varchar("role").default("host"), // host, co-host, moderator
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueEventHost: unique().on(table.eventId, table.userId),
+}));
 
 // Room participants
 export const roomParticipants = pgTable("room_participants", {
@@ -301,6 +371,34 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
   registrations: many(eventRegistrations),
   rooms: many(eventRooms),
   eventMatches: many(eventMatches),
+  ticketTypes: many(eventTicketTypes),
+  lineItems: many(eventLineItems),
+  hosts: many(eventHosts),
+}));
+
+export const eventTicketTypesRelations = relations(eventTicketTypes, ({ one }) => ({
+  event: one(events, {
+    fields: [eventTicketTypes.eventId],
+    references: [events.id],
+  }),
+}));
+
+export const eventLineItemsRelations = relations(eventLineItems, ({ one }) => ({
+  event: one(events, {
+    fields: [eventLineItems.eventId],
+    references: [events.id],
+  }),
+}));
+
+export const eventHostsRelations = relations(eventHosts, ({ one }) => ({
+  event: one(events, {
+    fields: [eventHosts.eventId],
+    references: [events.id],
+  }),
+  user: one(users, {
+    fields: [eventHosts.userId],
+    references: [users.id],
+  }),
 }));
 
 export const tokenUsageRelations = relations(tokenUsage, ({ one }) => ({
