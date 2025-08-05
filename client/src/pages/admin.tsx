@@ -398,52 +398,52 @@ function AdminDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
               <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-700">Total Users</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-900">Total Users</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-navy">{(analytics as any)?.userStats?.totalUsers || 0}</div>
+                  <div className="text-2xl font-bold text-gray-900">{(analytics as any)?.userStats?.totalUsers || 0}</div>
                   <div className="flex items-center mt-2">
-                    <TrendingUp className="h-4 w-4 text-green-700 mr-1" />
-                    <span className="text-sm text-green-700 font-medium">+{(analytics as any)?.userStats?.newUsersThisWeek || 0} this week</span>
+                    <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600 font-semibold">+{(analytics as any)?.userStats?.newUsersThisWeek || 0} this week</span>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-700">Active Events</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-900">Active Events</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-navy">{(analytics as any)?.eventStats?.upcomingEvents || 0}</div>
+                  <div className="text-2xl font-bold text-gray-900">{(analytics as any)?.eventStats?.upcomingEvents || 0}</div>
                   <div className="flex items-center mt-2">
-                    <CalendarIcon className="h-4 w-4 text-blue-700 mr-1" />
-                    <span className="text-sm text-blue-700 font-medium">{(analytics as any)?.eventStats?.totalRegistrations || 0} registrations</span>
+                    <CalendarIcon className="h-4 w-4 text-blue-600 mr-1" />
+                    <span className="text-sm text-blue-600 font-semibold">{(analytics as any)?.eventStats?.totalRegistrations || 0} registrations</span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-[#1F1F1F] border-gray-600">
+              <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-300">Matches Made</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-900">Matches Made</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-white">{(analytics as any)?.matchingStats?.totalMatches || 0}</div>
+                  <div className="text-2xl font-bold text-gray-900">{(analytics as any)?.matchingStats?.totalMatches || 0}</div>
                   <div className="flex items-center mt-2">
                     <Target className="h-4 w-4 text-[#CD853F] mr-1" />
-                    <span className="text-sm text-[#CD853F]">{(analytics as any)?.matchingStats?.matchSuccessRate || 0}% success rate</span>
+                    <span className="text-sm text-[#CD853F] font-semibold">{(analytics as any)?.matchingStats?.matchSuccessRate || 0}% success rate</span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-[#1F1F1F] border-gray-600">
+              <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-300">Messages Sent</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-900">Messages Sent</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-white">{(analytics as any)?.engagementStats?.totalMessages || 0}</div>
+                  <div className="text-2xl font-bold text-gray-900">{(analytics as any)?.engagementStats?.totalMessages || 0}</div>
                   <div className="flex items-center mt-2">
-                    <MessageSquare className="h-4 w-4 text-purple-400 mr-1" />
-                    <span className="text-sm text-purple-400">{(analytics as any)?.engagementStats?.activeMeetups || 0} active meetups</span>
+                    <MessageSquare className="h-4 w-4 text-purple-600 mr-1" />
+                    <span className="text-sm text-purple-600 font-semibold">{(analytics as any)?.engagementStats?.activeMeetups || 0} active meetups</span>
                   </div>
                 </CardContent>
               </Card>
@@ -695,10 +695,31 @@ function AdminDashboard() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-navy">
+                            <Badge variant="outline" className="text-navy border-navy">
                               {event.eventType}
                             </Badge>
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                              onClick={() => {
+                                // Set the event data for editing
+                                setEventData({
+                                  title: event.title,
+                                  description: event.description,
+                                  eventType: event.eventType,
+                                  startDate: new Date(event.startDate).toISOString().split('T')[0],
+                                  startTime: new Date(event.startDate).toTimeString().slice(0, 5),
+                                  location: event.location,
+                                  capacity: event.capacity,
+                                  isVirtual: event.isVirtual || false,
+                                  isFeatured: event.isFeatured || false,
+                                  coverImageUrl: event.coverImageUrl || '',
+                                  videoUrl: event.videoUrl || ''
+                                });
+                                setShowCreateEventDialog(true);
+                              }}
+                            >
                               Edit
                             </Button>
                           </div>
@@ -730,92 +751,92 @@ function AdminDashboard() {
           <TabsContent value="insights">
             <div className="space-y-6">
               <div>
-                <h3 className="text-xl font-semibold text-white mb-2">Platform Insights</h3>
-                <p className="text-gray-400">Advanced analytics and business intelligence</p>
+                <h3 className="text-xl font-semibold text-navy mb-2">Platform Insights</h3>
+                <p className="text-gray-600">Advanced analytics and business intelligence</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Revenue Analytics */}
-                <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+                <Card className="bg-white border border-gray-200 shadow-sm">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-green-400">Total Revenue</CardTitle>
+                    <CardTitle className="text-sm font-medium text-gray-900">Total Revenue</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-white">$47,500</div>
+                    <div className="text-2xl font-bold text-gray-900">$47,500</div>
                     <div className="flex items-center mt-2">
-                      <TrendingUp className="h-4 w-4 text-green-400 mr-1" />
-                      <span className="text-sm text-green-400">+12.5% vs last month</span>
+                      <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+                      <span className="text-sm text-green-600 font-semibold">+12.5% vs last month</span>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* User Acquisition Cost */}
-                <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+                <Card className="bg-white border border-gray-200 shadow-sm">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-blue-400">User Acquisition Cost</CardTitle>
+                    <CardTitle className="text-sm font-medium text-gray-900">User Acquisition Cost</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-white">$24.50</div>
+                    <div className="text-2xl font-bold text-gray-900">$24.50</div>
                     <div className="flex items-center mt-2">
-                      <Target className="h-4 w-4 text-blue-400 mr-1" />
-                      <span className="text-sm text-blue-400">-8.2% vs last month</span>
+                      <Target className="h-4 w-4 text-blue-600 mr-1" />
+                      <span className="text-sm text-blue-600 font-semibold">-8.2% vs last month</span>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Lifetime Value */}
-                <Card className="bg-gradient-to-br from-[#CD853F]/10 to-[#CD853F]/5 border-[#CD853F]/20">
+                <Card className="bg-white border border-gray-200 shadow-sm">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-[#CD853F]">Customer LTV</CardTitle>
+                    <CardTitle className="text-sm font-medium text-gray-900">Customer LTV</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-white">$180.25</div>
+                    <div className="text-2xl font-bold text-gray-900">$180.25</div>
                     <div className="flex items-center mt-2">
                       <Activity className="h-4 w-4 text-[#CD853F] mr-1" />
-                      <span className="text-sm text-[#CD853F]">+15.8% vs last month</span>
+                      <span className="text-sm text-[#CD853F] font-semibold">+15.8% vs last month</span>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Advertising Platform */}
-              <Card className="bg-[#1F1F1F] border-gray-600">
+              <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-white">Advertising Platform</CardTitle>
-                  <CardDescription className="text-gray-400">Campaign performance and ROI analytics</CardDescription>
+                  <CardTitle className="text-navy">Advertising Platform</CardTitle>
+                  <CardDescription className="text-gray-600">Campaign performance and ROI analytics</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-white">24</div>
-                      <div className="text-sm text-gray-400">Active Campaigns</div>
+                      <div className="text-2xl font-bold text-gray-900">24</div>
+                      <div className="text-sm text-gray-600">Active Campaigns</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-white">3.2%</div>
-                      <div className="text-sm text-gray-400">Avg CTR</div>
+                      <div className="text-2xl font-bold text-gray-900">3.2%</div>
+                      <div className="text-sm text-gray-600">Avg CTR</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-white">$2.45</div>
-                      <div className="text-sm text-gray-400">Avg CPC</div>
+                      <div className="text-2xl font-bold text-gray-900">$2.45</div>
+                      <div className="text-sm text-gray-600">Avg CPC</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-white">185%</div>
-                      <div className="text-sm text-gray-400">ROAS</div>
+                      <div className="text-2xl font-bold text-gray-900">185%</div>
+                      <div className="text-sm text-gray-600">ROAS</div>
                     </div>
                   </div>
                   
-                  <div className="pt-4 border-t border-gray-700">
-                    <h4 className="text-white font-medium mb-3">Top Performing Campaigns</h4>
+                  <div className="pt-4 border-t border-gray-200">
+                    <h4 className="text-gray-900 font-medium mb-3">Top Performing Campaigns</h4>
                     <div className="space-y-2">
                       {[
                         { name: "STAK Professional Network Q1", ctr: "4.8%", spend: "$1,250", roas: "220%" },
                         { name: "Venture Capital Connections", ctr: "3.9%", spend: "$890", roas: "195%" },
                         { name: "Startup Founder Matching", ctr: "3.2%", spend: "$675", roas: "175%" }
                       ].map((campaign) => (
-                        <div key={campaign.name} className="flex items-center justify-between p-3 bg-[#141414] rounded-lg">
+                        <div key={campaign.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                           <div>
-                            <p className="text-white text-sm font-medium">{campaign.name}</p>
-                            <p className="text-gray-400 text-xs">CTR: {campaign.ctr} • Spend: {campaign.spend}</p>
+                            <p className="text-gray-900 text-sm font-medium">{campaign.name}</p>
+                            <p className="text-gray-600 text-xs">CTR: {campaign.ctr} • Spend: {campaign.spend}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-[#CD853F] text-sm font-medium">{campaign.roas} ROAS</p>
@@ -832,60 +853,60 @@ function AdminDashboard() {
 
         {/* Add User Dialog */}
         <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
-          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white">
+          <DialogContent className="bg-white border border-gray-200 text-gray-900">
             <DialogHeader>
-              <DialogTitle>Add New User</DialogTitle>
-              <DialogDescription className="text-gray-400">
+              <DialogTitle className="text-navy">Add New User</DialogTitle>
+              <DialogDescription className="text-gray-600">
                 Create a new user account with basic information
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="firstName" className="text-gray-300">First Name</Label>
+                  <Label htmlFor="firstName" className="text-gray-700 font-medium">First Name</Label>
                   <Input
                     id="firstName"
                     value={newUserData.firstName}
                     onChange={(e) => setNewUserData({...newUserData, firstName: e.target.value})}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="lastName" className="text-gray-300">Last Name</Label>
+                  <Label htmlFor="lastName" className="text-gray-700 font-medium">Last Name</Label>
                   <Input
                     id="lastName"
                     value={newUserData.lastName}
                     onChange={(e) => setNewUserData({...newUserData, lastName: e.target.value})}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   />
                 </div>
               </div>
               <div>
-                <Label htmlFor="email" className="text-gray-300">Email</Label>
+                <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={newUserData.email}
                   onChange={(e) => setNewUserData({...newUserData, email: e.target.value})}
-                  className="bg-[#141414] border-gray-600 text-white"
+                  className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                 />
               </div>
               <div>
-                <Label htmlFor="company" className="text-gray-300">Company</Label>
+                <Label htmlFor="company" className="text-gray-700 font-medium">Company</Label>
                 <Input
                   id="company"
                   value={newUserData.company}
                   onChange={(e) => setNewUserData({...newUserData, company: e.target.value})}
-                  className="bg-[#141414] border-gray-600 text-white"
+                  className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                 />
               </div>
               <div>
-                <Label htmlFor="title" className="text-gray-300">Title</Label>
+                <Label htmlFor="title" className="text-gray-700 font-medium">Title</Label>
                 <Input
                   id="title"
                   value={newUserData.title}
                   onChange={(e) => setNewUserData({...newUserData, title: e.target.value})}
-                  className="bg-[#141414] border-gray-600 text-white"
+                  className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                 />
               </div>
             </div>
@@ -893,14 +914,14 @@ function AdminDashboard() {
               <Button
                 variant="outline"
                 onClick={() => setShowAddUserDialog(false)}
-                className="border-gray-600 text-gray-300"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </Button>
               <Button
                 onClick={() => addUserMutation.mutate(newUserData)}
                 disabled={addUserMutation.isPending || !newUserData.email}
-                className="bg-[#CD853F] text-black hover:bg-[#B8752F]"
+                className="bg-navy text-white hover:bg-navy/80"
               >
                 {addUserMutation.isPending ? 'Adding...' : 'Add User'}
               </Button>
@@ -1081,25 +1102,25 @@ function AdminDashboard() {
 
         {/* User Action Dialog */}
         <Dialog open={userActionDialog} onOpenChange={setUserActionDialog}>
-          <DialogContent className="bg-[#1F1F1F] border-gray-600 text-white">
+          <DialogContent className="bg-white border border-gray-200 text-gray-900">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-navy">
                 {actionType === 'suspend' ? 'Suspend User' : 
                  actionType === 'activate' ? 'Activate User' : 'Ban User'}
               </DialogTitle>
-              <DialogDescription className="text-gray-400">
+              <DialogDescription className="text-gray-600">
                 {selectedUser && `Are you sure you want to ${actionType} ${selectedUser.firstName} ${selectedUser.lastName}?`}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="actionReason" className="text-gray-300">Reason (Optional)</Label>
+                <Label htmlFor="actionReason" className="text-gray-700 font-medium">Reason (Optional)</Label>
                 <Textarea
                   id="actionReason"
                   value={actionReason}
                   onChange={(e) => setActionReason(e.target.value)}
                   placeholder="Enter reason for this action..."
-                  className="bg-[#141414] border-gray-600 text-white"
+                  className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   rows={3}
                 />
               </div>
@@ -1108,7 +1129,7 @@ function AdminDashboard() {
               <Button
                 variant="outline"
                 onClick={() => setUserActionDialog(false)}
-                className="border-gray-600 text-gray-300"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </Button>
@@ -1116,9 +1137,9 @@ function AdminDashboard() {
                 onClick={confirmUserAction}
                 disabled={userActionMutation.isPending}
                 className={
-                  actionType === 'suspend' ? "bg-yellow-600 text-black hover:bg-yellow-700" :
-                  actionType === 'activate' ? "bg-green-600 text-black hover:bg-green-700" :
-                  "bg-red-600 text-black hover:bg-red-700"
+                  actionType === 'suspend' ? "bg-yellow-600 text-white hover:bg-yellow-700" :
+                  actionType === 'activate' ? "bg-green-600 text-white hover:bg-green-700" :
+                  "bg-red-600 text-white hover:bg-red-700"
                 }
               >
                 {userActionMutation.isPending ? 'Processing...' : 
