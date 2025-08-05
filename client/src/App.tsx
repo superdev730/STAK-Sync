@@ -13,6 +13,7 @@ import Events from "@/pages/events";
 import LiveDashboard from "@/pages/live-dashboard";
 import Admin from "@/pages/admin";
 import AdminEvents from "@/pages/admin-events";
+import AdminBilling from "@/pages/admin-billing";
 import Profile from "@/pages/profile";
 import ProfileDetail from "@/pages/profile-detail";
 import ConnectRequest from "@/pages/connect-request";
@@ -50,6 +51,7 @@ function Router() {
             <Route path="/live-dashboard" component={LiveDashboard} />
             <Route path="/admin" component={Admin} />
             <Route path="/admin/events" component={AdminEvents} />
+            <Route path="/admin/billing" component={AdminBilling} />
             <Route path="/profile" component={Profile} />
             <Route path="/profile/:userId" component={Profile} />
             <Route path="/profile-detail" component={ProfileDetail} />

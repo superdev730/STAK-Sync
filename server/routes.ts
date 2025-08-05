@@ -13,12 +13,17 @@ import {
   insertEventRoomSchema,
   insertRoomParticipantSchema,
   matches, 
-  users 
+  users,
+  tokenUsage,
+  billingAccounts,
+  invoices,
+  invoiceLineItems
 } from "@shared/schema";
 import { csvImportService } from "./csvImportService";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sum, count, gte, sql } from "drizzle-orm";
 import { generateQuickResponses } from "./aiResponses";
+import { tokenUsageService } from "./tokenUsageService";
 
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -787,9 +792,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send email invitations using SendGrid
       try {
-        const { MailService } = await import('@sendgrid/mail');
-        const sgMail = new MailService();
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+        const sgMail = await import('@sendgrid/mail');
+        sgMail.default.setApiKey(process.env.SENDGRID_API_KEY!);
+
 
         const formatDate = (date: Date) => {
           return date.toLocaleDateString('en-US', { 
@@ -902,8 +907,8 @@ END:VCALENDAR`;
 
         // Send both emails
         await Promise.all([
-          sgMail.send(attendeeEmail),
-          sgMail.send(organizerEmail)
+          sgMail.default.send(attendeeEmail),
+          sgMail.default.send(organizerEmail)
         ]);
 
         console.log('Meeting invitation emails sent successfully');
@@ -1531,6 +1536,360 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error responding to match:', error);
       res.status(500).json({ error: 'Failed to respond to match' });
+    }
+  });
+
+  // ===== BILLING SYSTEM ROUTES =====
+  
+  // Admin billing statistics
+  app.get('/api/admin/billing/stats', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const currentMonth = new Date();
+      const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+
+      // Get user counts by billing plan
+      const userStats = await db
+        .select({
+          billingPlan: users.billingPlan,
+          count: count(users.id)
+        })
+        .from(users)
+        .groupBy(users.billingPlan);
+
+      // Get monthly token usage and costs
+      const tokenStats = await db
+        .select({
+          totalTokens: sum(tokenUsage.totalTokens),
+          totalCost: sum(tokenUsage.totalCost)
+        })
+        .from(tokenUsage)
+        .where(gte(tokenUsage.createdAt, startOfMonth));
+
+      // Get users over their allowance
+      const overageUsers = await db
+        .select({
+          count: count(billingAccounts.id)
+        })
+        .from(billingAccounts)
+        .where(sql`${billingAccounts.tokensUsedThisMonth} > ${billingAccounts.monthlyTokenAllowance}`);
+
+      const stats = {
+        totalUsers: userStats.reduce((sum, stat) => sum + stat.count, 0),
+        stakBasicUsers: userStats.find(s => s.billingPlan === 'free_stak_basic')?.count || 0,
+        paidUsers: userStats.find(s => s.billingPlan === 'paid_monthly')?.count || 0,
+        monthlyRecurringRevenue: (userStats.find(s => s.billingPlan === 'paid_monthly')?.count || 0) * 20,
+        tokenUsageRevenue: parseFloat(tokenStats[0]?.totalCost || '0'),
+        totalTokensUsed: parseInt(tokenStats[0]?.totalTokens || '0'),
+        averageTokensPerUser: Math.round((parseInt(tokenStats[0]?.totalTokens || '0')) / Math.max(1, userStats.reduce((sum, stat) => sum + stat.count, 0))),
+        overageUsers: overageUsers[0]?.count || 0,
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching billing stats:', error);
+      res.status(500).json({ message: 'Failed to fetch billing statistics' });
+    }
+  });
+
+  // Get billing users with usage info
+  app.get('/api/admin/billing/users', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const billingUsers = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          billingPlan: users.billingPlan,
+          billingStatus: users.billingStatus,
+          stakMembershipVerified: billingAccounts.stakMembershipVerified,
+          tokensUsedThisMonth: billingAccounts.tokensUsedThisMonth,
+          monthlyTokenAllowance: billingAccounts.monthlyTokenAllowance,
+          updatedAt: users.updatedAt,
+        })
+        .from(users)
+        .leftJoin(billingAccounts, eq(users.id, billingAccounts.userId))
+        .orderBy(users.updatedAt);
+
+      // Calculate total cost for each user this month
+      const usersWithCosts = await Promise.all(
+        billingUsers.map(async (user) => {
+          const currentMonth = new Date();
+          const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+          
+          const monthlyCost = await db
+            .select({
+              totalCost: sum(tokenUsage.totalCost)
+            })
+            .from(tokenUsage)
+            .where(
+              and(
+                eq(tokenUsage.userId, user.id),
+                gte(tokenUsage.createdAt, startOfMonth)
+              )
+            );
+
+          const baseSubscription = user.billingPlan === 'paid_monthly' ? 20 : 0;
+          const tokenCost = parseFloat(monthlyCost[0]?.totalCost || '0');
+
+          return {
+            ...user,
+            tokensUsedThisMonth: user.tokensUsedThisMonth || 0,
+            monthlyTokenAllowance: user.monthlyTokenAllowance || 10000,
+            totalCostThisMonth: baseSubscription + tokenCost,
+            lastActivityAt: user.updatedAt?.toISOString() || new Date().toISOString(),
+            stakMembershipVerified: user.stakMembershipVerified || false,
+          };
+        })
+      );
+
+      res.json(usersWithCosts);
+    } catch (error) {
+      console.error('Error fetching billing users:', error);
+      res.status(500).json({ message: 'Failed to fetch billing users' });
+    }
+  });
+
+  // Update user billing plan
+  app.put('/api/admin/billing/users/:userId/plan', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { plan } = req.body;
+
+      if (!['free_stak_basic', 'paid_monthly', 'enterprise'].includes(plan)) {
+        return res.status(400).json({ message: 'Invalid billing plan' });
+      }
+
+      await db
+        .update(users)
+        .set({
+          billingPlan: plan,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error updating billing plan:', error);
+      res.status(500).json({ message: 'Failed to update billing plan' });
+    }
+  });
+
+  // Get invoices
+  app.get('/api/admin/billing/invoices', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const invoiceList = await db
+        .select({
+          id: invoices.id,
+          invoiceNumber: invoices.invoiceNumber,
+          userEmail: users.email,
+          userName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`.as('userName'),
+          billingPeriodStart: invoices.billingPeriodStart,
+          billingPeriodEnd: invoices.billingPeriodEnd,
+          subscriptionAmount: invoices.subscriptionAmount,
+          tokenUsageAmount: invoices.tokenUsageAmount,
+          totalAmount: invoices.totalAmount,
+          status: invoices.status,
+          dueDate: invoices.dueDate,
+          paidAt: invoices.paidAt,
+          createdAt: invoices.createdAt,
+        })
+        .from(invoices)
+        .leftJoin(users, eq(invoices.userId, users.id))
+        .orderBy(sql`${invoices.createdAt} DESC`);
+
+      const formattedInvoices = invoiceList.map(invoice => ({
+        ...invoice,
+        subscriptionAmount: parseFloat(invoice.subscriptionAmount || '0'),
+        tokenUsageAmount: parseFloat(invoice.tokenUsageAmount || '0'),
+        totalAmount: parseFloat(invoice.totalAmount || '0'),
+      }));
+
+      res.json(formattedInvoices);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      res.status(500).json({ message: 'Failed to fetch invoices' });
+    }
+  });
+
+  // Generate invoice for user
+  app.post('/api/admin/billing/users/:userId/generate-invoice', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Get user and billing account
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      const [billingAccount] = await db
+        .select()
+        .from(billingAccounts)
+        .where(eq(billingAccounts.userId, userId));
+
+      if (!billingAccount) {
+        return res.status(404).json({ message: 'Billing account not found' });
+      }
+
+      // Calculate current month charges
+      const currentMonth = new Date();
+      const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+
+      const monthlyUsage = await tokenUsageService.getMonthlyUsageStats(userId);
+      const overageCharges = await tokenUsageService.calculateOverageCharges(userId);
+
+      const subscriptionAmount = user.billingPlan === 'paid_monthly' ? 20 : 0;
+      const tokenUsageAmount = overageCharges.overageCharges;
+      const totalAmount = subscriptionAmount + tokenUsageAmount;
+
+      // Generate invoice number
+      const invoiceNumber = `INV-${Date.now()}-${userId.slice(-4)}`;
+
+      // Create invoice
+      const [invoice] = await db
+        .insert(invoices)
+        .values({
+          userId,
+          billingAccountId: billingAccount.id,
+          invoiceNumber,
+          billingPeriodStart: startOfMonth.toISOString().split('T')[0],
+          billingPeriodEnd: endOfMonth.toISOString().split('T')[0],
+          subscriptionAmount: subscriptionAmount.toString(),
+          tokenUsageAmount: tokenUsageAmount.toString(),
+          totalAmount: totalAmount.toString(),
+          status: 'pending',
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+        })
+        .returning();
+
+      // Create line items
+      const lineItems = [];
+      
+      if (subscriptionAmount > 0) {
+        lineItems.push({
+          invoiceId: invoice.id,
+          description: 'STAK Sync Monthly Subscription',
+          quantity: 1,
+          unitPrice: subscriptionAmount.toString(),
+          totalPrice: subscriptionAmount.toString(),
+          metadata: { type: 'subscription', plan: user.billingPlan },
+        });
+      }
+
+      if (tokenUsageAmount > 0) {
+        lineItems.push({
+          invoiceId: invoice.id,
+          description: `Token Usage Overage (${overageCharges.overageTokens.toLocaleString()} tokens)`,
+          quantity: overageCharges.overageTokens,
+          unitPrice: (tokenUsageAmount / overageCharges.overageTokens).toFixed(8),
+          totalPrice: tokenUsageAmount.toString(),
+          metadata: { type: 'token_overage', tokens: overageCharges.overageTokens },
+        });
+      }
+
+      if (lineItems.length > 0) {
+        await db.insert(invoiceLineItems).values(lineItems);
+      }
+
+      res.json({ success: true, invoice });
+    } catch (error) {
+      console.error('Error generating invoice:', error);
+      res.status(500).json({ message: 'Failed to generate invoice' });
+    }
+  });
+
+  // Export billing data
+  app.post('/api/admin/billing/export', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const billingUsers = await db
+        .select({
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          billingPlan: users.billingPlan,
+          billingStatus: users.billingStatus,
+          tokensUsedThisMonth: billingAccounts.tokensUsedThisMonth,
+          monthlyTokenAllowance: billingAccounts.monthlyTokenAllowance,
+          stakMembershipVerified: billingAccounts.stakMembershipVerified,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .leftJoin(billingAccounts, eq(users.id, billingAccounts.userId));
+
+      // Create CSV
+      const headers = ['Email', 'First Name', 'Last Name', 'Billing Plan', 'Status', 'Tokens Used', 'Token Allowance', 'STAK Member', 'Created At'];
+      const rows = billingUsers.map(user => [
+        user.email || '',
+        user.firstName || '',
+        user.lastName || '',
+        user.billingPlan || 'free_stak_basic',
+        user.billingStatus || 'active',
+        user.tokensUsedThisMonth || 0,
+        user.monthlyTokenAllowance || 10000,
+        user.stakMembershipVerified ? 'Yes' : 'No',
+        user.createdAt?.toISOString().split('T')[0] || '',
+      ]);
+
+      const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+
+      res.json({ csv });
+    } catch (error) {
+      console.error('Error exporting billing data:', error);
+      res.status(500).json({ message: 'Failed to export billing data' });
+    }
+  });
+
+  // User's billing dashboard (for end users)
+  app.get('/api/user/billing', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+
+      const allowanceCheck = await tokenUsageService.checkTokenAllowance(userId);
+      const monthlyStats = await tokenUsageService.getMonthlyUsageStats(userId);
+      const overageCharges = await tokenUsageService.calculateOverageCharges(userId);
+
+      const billingInfo = {
+        billingPlan: allowanceCheck.billingPlan,
+        isStakMember: allowanceCheck.isStakMember,
+        tokensUsed: allowanceCheck.tokensUsed,
+        tokenLimit: allowanceCheck.tokenLimit,
+        tokensRemaining: allowanceCheck.tokenLimit - allowanceCheck.tokensUsed,
+        monthlyStats,
+        overageCharges,
+        hasOverage: overageCharges.overageTokens > 0,
+      };
+
+      res.json(billingInfo);
+    } catch (error) {
+      console.error('Error fetching user billing info:', error);
+      res.status(500).json({ message: 'Failed to fetch billing information' });
+    }
+  });
+
+  // Token usage history for user
+  app.get('/api/user/token-usage', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+      const history = await tokenUsageService.getUsageHistory(userId, limit);
+
+      res.json(history);
+    } catch (error) {
+      console.error('Error fetching token usage history:', error);
+      res.status(500).json({ message: 'Failed to fetch token usage history' });
     }
   });
 

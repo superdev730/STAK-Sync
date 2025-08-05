@@ -26,7 +26,8 @@ import {
   Ban,
   CheckCircle,
   AlertTriangle,
-  ChevronRight
+  ChevronRight,
+  CreditCard
 } from "lucide-react";
 
 interface User {
@@ -392,6 +393,10 @@ function AdminDashboard() {
             <TabsTrigger value="insights" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
               <PieChart className="h-4 w-4 mr-2" />
               Platform Insights
+            </TabsTrigger>
+            <TabsTrigger value="billing" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600" onClick={() => window.location.href = '/admin/billing'}>
+              <CreditCard className="h-4 w-4 mr-2" />
+              Billing
             </TabsTrigger>
           </TabsList>
 
