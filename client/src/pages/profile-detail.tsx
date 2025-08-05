@@ -15,7 +15,8 @@ import {
   Globe,
   Users,
   Calendar,
-  Award
+  Award,
+  MessageSquare
 } from "lucide-react";
 import { Link } from "wouter";
 import type { User } from "@shared/schema";
@@ -134,14 +135,18 @@ export default function ProfileDetail() {
                 )}
 
                 <div className="flex space-x-2">
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                    <Mail className="w-4 h-4 mr-2" />
-                    Connect
-                  </Button>
-                  <Button variant="outline" className="border-gray-300 text-gray-700">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Schedule Meeting
-                  </Button>
+                  <Link href={`/connect-request?userId=${user.id}`}>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Mail className="w-4 h-4 mr-2" />
+                      Connect
+                    </Button>
+                  </Link>
+                  <Link href={`/messages?user=${user.id}`}>
+                    <Button variant="outline" className="border-gray-300 text-gray-700">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Message
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>

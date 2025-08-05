@@ -23,6 +23,10 @@ export default function Messages() {
     queryKey: ["/api/conversations"],
   });
 
+  const { data: matches } = useQuery<any[]>({
+    queryKey: ["/api/matches"],
+  });
+
   // Initialize demo messages on first load
   useEffect(() => {
     if (currentUser && (!conversations || conversations.length === 0)) {
@@ -179,7 +183,7 @@ export default function Messages() {
     conversations.forEach((message) => {
       const otherUser = message.senderId === currentUser.id ? message.receiver : message.sender;
       
-      if (!userMap.has(otherUser.id) || new Date(message.createdAt) > new Date(userMap.get(otherUser.id)!.lastMessage.createdAt)) {
+      if (!userMap.has(otherUser.id) || (message.createdAt && userMap.get(otherUser.id)?.lastMessage.createdAt && new Date(message.createdAt) > new Date(userMap.get(otherUser.id)!.lastMessage.createdAt))) {
         const unreadCount = conversations.filter(m => 
           m.senderId === otherUser.id && 
           m.receiverId === currentUser.id && 
@@ -194,9 +198,11 @@ export default function Messages() {
       }
     });
 
-    return Array.from(userMap.values()).sort((a, b) => 
-      new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime()
-    );
+    return Array.from(userMap.values()).sort((a, b) => {
+      const aTime = a.lastMessage.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const bTime = b.lastMessage.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
   };
 
   const uniqueConversations = getUniqueConversations();
@@ -258,7 +264,7 @@ export default function Messages() {
                               ? 'bg-navy/10 border-l-4 border-l-navy'
                               : 'hover:bg-gray-50'
                           }`}
-                          onClick={() => setSelectedUser(user)}
+                          onClick={() => setSelectedUser(user as User)}
                         >
                           <div className="flex items-center space-x-3">
                             <div className="relative">
@@ -323,6 +329,7 @@ export default function Messages() {
                   otherUser={selectedUser}
                   messages={selectedConversation || []}
                   onSendMessage={handleSendMessage}
+                  matchId={matches?.find((m: any) => m.matchedUserId === selectedUser.id)?.id}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full bg-gray-50">

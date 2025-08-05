@@ -61,13 +61,15 @@ interface MessageInterfaceProps {
   otherUser: User;
   messages: (Message & { sender: User; receiver: User })[];
   onSendMessage: (content: string) => Promise<void>;
+  matchId?: string;
 }
 
 export default function MessageInterface({ 
   currentUser, 
   otherUser, 
   messages, 
-  onSendMessage 
+  onSendMessage,
+  matchId
 }: MessageInterfaceProps) {
   const [newMessage, setNewMessage] = useState("");
   const [isOnline, setIsOnline] = useState(false);
@@ -175,7 +177,7 @@ export default function MessageInterface({
               >
                 {otherUser.firstName} {otherUser.lastName}
               </h2>
-              <Link href={`/profile-detail?userId=${otherUser.id}`}>
+              <Link href={matchId ? `/match-analysis?matchId=${matchId}` : `/profile-detail?userId=${otherUser.id}`}>
                 <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 cursor-pointer hover:bg-green-200 transition-colors">
                   Match: {getMatchScore(otherUser)}%
                 </div>
