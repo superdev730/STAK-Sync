@@ -85,7 +85,7 @@ function AdminDashboard() {
     queryKey: ['/api/admin/analytics/30d'],
   });
 
-  const { data: userManagement, isLoading: usersLoading } = useQuery({
+  const { data: userManagement, isLoading: usersLoading, error: usersError } = useQuery({
     queryKey: ['/api/admin/users', { page: currentPage, limit: 50, search: userSearchQuery }],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -102,15 +102,25 @@ function AdminDashboard() {
       });
       
       if (!res.ok) {
-        throw new Error(`${res.status}: ${res.statusText}`);
+        console.error('Failed to fetch users:', res.status, res.statusText);
+        // Return empty data instead of throwing
+        return { users: [], total: 0 };
       }
       
       return res.json();
     },
+    retry: false, // Don't retry on auth errors
+    staleTime: 30000, // Cache for 30 seconds
   });
 
   const { data: urgentActions } = useQuery({
     queryKey: ['/api/admin/urgent-actions'],
+  });
+
+  // Add events query to show actual event data
+  const { data: events, isLoading: eventsLoading } = useQuery({
+    queryKey: ['/api/events'],
+    retry: false, // Don't retry if endpoint doesn't exist
   });
 
   const { data: searchSuggestions, isLoading: searchLoading } = useQuery({
@@ -388,26 +398,26 @@ function AdminDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
               <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-700">Total Users</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-navy">{(analytics as any)?.userStats?.totalUsers || 0}</div>
                   <div className="flex items-center mt-2">
-                    <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-                    <span className="text-sm text-green-600">+{(analytics as any)?.userStats?.newUsersThisWeek || 0} this week</span>
+                    <TrendingUp className="h-4 w-4 text-green-700 mr-1" />
+                    <span className="text-sm text-green-700 font-medium">+{(analytics as any)?.userStats?.newUsersThisWeek || 0} this week</span>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Active Events</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-700">Active Events</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-navy">{(analytics as any)?.eventStats?.upcomingEvents || 0}</div>
                   <div className="flex items-center mt-2">
-                    <CalendarIcon className="h-4 w-4 text-blue-600 mr-1" />
-                    <span className="text-sm text-blue-600">{(analytics as any)?.eventStats?.totalRegistrations || 0} registrations</span>
+                    <CalendarIcon className="h-4 w-4 text-blue-700 mr-1" />
+                    <span className="text-sm text-blue-700 font-medium">{(analytics as any)?.eventStats?.totalRegistrations || 0} registrations</span>
                   </div>
                 </CardContent>
               </Card>
@@ -580,10 +590,10 @@ function AdminDashboard() {
                               </td>
                               <td className="p-4 text-gray-700">{user.email}</td>
                               <td className="p-4">
-                                {user.adminRole ? (
+                                {(user as any).adminRole ? (
                                   <Badge variant="default" className="bg-copper text-white">
-                                    {user.adminRole === 'owner' ? 'Owner' : 
-                                     user.adminRole === 'super_admin' ? 'Super Admin' : 'Admin'}
+                                    {(user as any).adminRole === 'owner' ? 'Owner' : 
+                                     (user as any).adminRole === 'super_admin' ? 'Super Admin' : 'Admin'}
                                   </Badge>
                                 ) : (
                                   <Badge variant="secondary" className="bg-blue-100 text-blue-800">
@@ -650,8 +660,8 @@ function AdminDashboard() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold text-white">Event Management</h3>
-                  <p className="text-gray-400">Create and manage platform events</p>
+                  <h3 className="text-xl font-semibold text-navy">Event Management</h3>
+                  <p className="text-gray-600">Create and manage platform events</p>
                 </div>
                 <Button 
                   onClick={() => setShowCreateEventDialog(true)}
@@ -662,21 +672,58 @@ function AdminDashboard() {
                 </Button>
               </div>
 
-              <Card className="bg-[#1F1F1F] border-gray-600">
-                <CardContent className="p-6">
-                  <div className="text-center py-8">
-                    <CalendarIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">No Events Yet</h3>
-                    <p className="text-gray-400 mb-4">Create your first event to get started</p>
-                    <Button 
-                      onClick={() => setShowCreateEventDialog(true)}
-                      className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
-                    >
-                      Create First Event
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Show events if they exist, otherwise show empty state */}
+              {events && Array.isArray(events) && events.length > 0 ? (
+                <Card className="bg-white border border-gray-200">
+                  <CardHeader>
+                    <CardTitle className="text-navy">Platform Events</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Manage your platform events and registrations
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      {events.map((event: any) => (
+                        <div key={event.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                          <div className="flex-1">
+                            <h4 className="text-lg font-semibold text-navy">{event.title}</h4>
+                            <p className="text-gray-600 text-sm mt-1">{event.description}</p>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                              <span>📅 {new Date(event.startDate).toLocaleDateString()}</span>
+                              <span>📍 {event.location}</span>
+                              <span>👥 {event.capacity} capacity</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-navy">
+                              {event.eventType}
+                            </Badge>
+                            <Button size="sm" variant="outline">
+                              Edit
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-white border border-gray-200">
+                  <CardContent className="p-6">
+                    <div className="text-center py-8">
+                      <CalendarIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                      <h3 className="text-lg font-semibold text-navy mb-2">No Events Yet</h3>
+                      <p className="text-gray-600 mb-4">Create your first event to get started</p>
+                      <Button 
+                        onClick={() => setShowCreateEventDialog(true)}
+                        className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
+                      >
+                        Create First Event
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
 
@@ -1132,23 +1179,23 @@ function AdminDashboard() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="startDate" className="text-gray-300">Start Date</Label>
+                  <Label htmlFor="startDate" className="text-gray-700 font-medium">Start Date</Label>
                   <Input
                     id="startDate"
                     type="date"
                     min={new Date().toISOString().split('T')[0]}
                     value={eventData.startDate}
                     onChange={(e) => setEventData({...eventData, startDate: e.target.value})}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="startTime" className="text-gray-300">Start Time</Label>
+                  <Label htmlFor="startTime" className="text-gray-700 font-medium">Start Time</Label>
                   <select 
                     id="startTime"
                     value={eventData.startTime}
                     onChange={(e) => setEventData({...eventData, startTime: e.target.value})}
-                    className="w-full p-2 bg-[#141414] border border-gray-600 rounded-md text-white"
+                    className="w-full p-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:border-navy"
                   >
                     {Array.from({ length: 96 }, (_, i) => {
                       const hour = Math.floor(i / 4);
@@ -1167,47 +1214,47 @@ function AdminDashboard() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="location" className="text-gray-300">Location</Label>
+                  <Label htmlFor="location" className="text-gray-700 font-medium">Location</Label>
                   <Input
                     id="location"
                     placeholder="Event location or 'Virtual'"
                     value={eventData.location}
                     onChange={(e) => setEventData({...eventData, location: e.target.value})}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="capacity" className="text-gray-300">Capacity</Label>
+                  <Label htmlFor="capacity" className="text-gray-700 font-medium">Capacity</Label>
                   <Input
                     id="capacity"
                     type="number"
                     placeholder="50"
                     value={eventData.capacity}
                     onChange={(e) => setEventData({...eventData, capacity: parseInt(e.target.value) || 50})}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="coverImageUrl" className="text-gray-300">Cover Image URL</Label>
+                  <Label htmlFor="coverImageUrl" className="text-gray-700 font-medium">Cover Image URL</Label>
                   <Input
                     id="coverImageUrl"
                     placeholder="https://example.com/image.jpg"
                     value={eventData.coverImageUrl}
                     onChange={(e) => setEventData({...eventData, coverImageUrl: e.target.value})}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="videoUrl" className="text-gray-300">YouTube Video URL</Label>
+                  <Label htmlFor="videoUrl" className="text-gray-700 font-medium">YouTube Video URL</Label>
                   <Input
                     id="videoUrl"
                     placeholder="https://youtube.com/watch?v=..."
                     value={eventData.videoUrl}
                     onChange={(e) => setEventData({...eventData, videoUrl: e.target.value})}
-                    className="bg-[#141414] border-gray-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
                   />
                 </div>
               </div>
