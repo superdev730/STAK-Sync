@@ -45,6 +45,7 @@ export default function Header() {
   const totalNotifications = unreadMessages + newMatches;
 
   const navigation = [
+    { name: "Home", href: "/" },
     { name: "Discover", href: "/discover" },
     { 
       name: "Matches", 
@@ -69,10 +70,12 @@ export default function Header() {
       <header className="bg-stak-black border-b border-stak-gray sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <img src="/api/logo" alt="STAK" className="h-8 w-8" />
-              <h1 className="text-2xl font-bold text-stak-white">STAK Signal</h1>
-            </div>
+            <Link href="/">
+              <div className="flex items-center space-x-3 cursor-pointer">
+                <img src="/api/logo" alt="STAK" className="h-8 w-8" />
+                <h1 className="text-2xl font-bold text-stak-white">STAK Signal</h1>
+              </div>
+            </Link>
             <Button asChild className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium">
               <a href="/api/login">Sign In</a>
             </Button>
