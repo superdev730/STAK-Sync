@@ -112,7 +112,8 @@ function AdminDashboard() {
       return res.json();
     },
     retry: false, // Don't retry on auth errors
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 0, // Don't cache - always fetch fresh data for admin panel
+    refetchOnWindowFocus: true, // Refetch when tab becomes active
   });
 
   const { data: urgentActions } = useQuery({
@@ -206,8 +207,19 @@ function AdminDashboard() {
         title: "Success",
         description: "User updated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
+      // Invalidate all user queries
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/admin/users'], 
+        exact: false 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/admin/analytics/30d'] 
+      });
+      // Force refetch current page
+      queryClient.refetchQueries({ 
+        queryKey: ['/api/admin/users', { page: currentPage, limit: 50, search: userSearchQuery }],
+        exact: true 
+      });
       setShowEditUserDialog(false);
       setSelectedUserForEdit(null);
     },
@@ -229,13 +241,22 @@ function AdminDashboard() {
         title: "Success",
         description: "User deleted successfully",
       });
-      // Force immediate refresh of user list
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-      queryClient.refetchQueries({ queryKey: ['/api/admin/users'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
-      queryClient.refetchQueries({ queryKey: ['/api/admin/analytics/30d'] });
-      // Stay on users tab after deletion
-      setActiveTab("users");
+      // Invalidate all user-related queries with proper key structure
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/admin/users'], 
+        exact: false 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/admin/analytics/30d'] 
+      });
+      // Force immediate refetch of current page
+      queryClient.refetchQueries({ 
+        queryKey: ['/api/admin/users', { page: currentPage, limit: 50, search: userSearchQuery }],
+        exact: true 
+      });
+      queryClient.refetchQueries({ 
+        queryKey: ['/api/admin/analytics/30d'] 
+      });
     },
     onError: (error: any) => {
       toast({
