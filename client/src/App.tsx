@@ -20,6 +20,7 @@ import ProfileDetail from "@/pages/profile-detail";
 import ConnectRequest from "@/pages/connect-request";
 import MatchAnalysis from "@/pages/match-analysis";
 import Questionnaire from "@/pages/questionnaire";
+import Logout from "@/pages/logout";
 import NotFound from "@/pages/not-found";
 import Layout from "@/components/Layout";
 
@@ -61,6 +62,7 @@ function Router() {
             <Route path="/match-analysis" component={MatchAnalysis} />
             <Route path="/notifications" component={() => <div className="p-8"><h1 className="text-2xl font-bold">Notifications</h1><p className="mt-4 text-gray-600">Notification center coming soon! For now, check the Messages and Matches tabs for updates.</p></div>} />
             <Route path="/questionnaire" component={Questionnaire} />
+            <Route path="/logout" component={Logout} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

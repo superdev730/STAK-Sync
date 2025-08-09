@@ -2,9 +2,16 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bell } from "lucide-react";
+import { Bell, LogOut, User, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
@@ -118,14 +125,42 @@ export default function Header() {
                 )}
               </Button>
             </Link>
-            <Link href="/profile">
-              <Avatar className="h-10 w-10 cursor-pointer border-2 border-stak-copper">
-                <AvatarImage src={user?.profileImageUrl || ""} alt={user?.firstName || ""} />
-                <AvatarFallback className="bg-stak-copper text-stak-black font-medium">
-                  {user?.firstName?.[0]}{user?.lastName?.[0]}
-                </AvatarFallback>
-              </Avatar>
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="h-10 w-10 cursor-pointer border-2 border-stak-copper hover:border-stak-light-gray transition-colors">
+                  <AvatarImage src={user?.profileImageUrl || ""} alt={user?.firstName || ""} />
+                  <AvatarFallback className="bg-stak-copper text-stak-black font-medium">
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-white border border-gray-200 shadow-lg">
+                <div className="px-3 py-2">
+                  <p className="text-sm font-medium text-gray-900">{user?.firstName} {user?.lastName}</p>
+                  <p className="text-xs text-gray-600">{user?.email}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="w-full">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile-detail" className="w-full">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/logout" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
