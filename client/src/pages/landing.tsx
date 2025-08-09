@@ -28,13 +28,10 @@ export default function Landing() {
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-              Find <span className="text-stak-copper">Sync</span>, Cut the Noise
+              Professional AI Matchmaking by <span className="text-stak-copper">STAK Ventures</span>
             </h1>
-            <p className="text-lg md:text-xl mb-4 text-stak-copper font-medium">
-              An AI-powered networking and matchmaking system built to unlock the full power of relationships—before, during, and after every STAK event.
-            </p>
             <p className="text-xl md:text-2xl mb-8 text-stak-light-gray leading-relaxed">
-              Your STAK membership opens doors to extraordinary connections. We help you weave stronger interpersonal bonds with fellow innovators, investors, and visionaries who share your ambition.
+              STAK will curate the relationships you want, need and must have.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-8 py-4">
