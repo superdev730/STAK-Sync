@@ -110,6 +110,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profile routes
+  app.get('/api/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Profile not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
+  app.get('/api/profile/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Profile not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
+  app.get('/api/profile/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Profile not found" });
+      }
+
+      // Calculate profile completion
+      const fields = [
+        user.firstName, user.lastName, user.email, user.company, 
+        user.position, user.location, user.bio, user.skills, 
+        user.industries, user.networkingGoals
+      ];
+      const completedFields = fields.filter(field => 
+        field && (Array.isArray(field) ? field.length > 0 : field.trim().length > 0)
+      ).length;
+      const completionPercentage = Math.round((completedFields / fields.length) * 100);
+
+      // Calculate signal score (0-1000)
+      const baseScore = completionPercentage * 4; // Up to 400 points for completion
+      const activityBonus = Math.min(300, 0); // Activity points (placeholder)
+      const networkBonus = Math.min(300, 0); // Network points (placeholder)
+      const signalScore = Math.min(1000, baseScore + activityBonus + networkBonus);
+
+      const stats = {
+        completionPercentage,
+        signalScore,
+        connections: 0, // Placeholder
+        meetingRequestsCount: 0, // Placeholder
+        profileViews: 0 // Placeholder
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching profile stats:", error);
+      res.status(500).json({ message: "Failed to fetch profile stats" });
+    }
+  });
+
+  app.get('/api/profile/stats/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Profile not found" });
+      }
+
+      // Calculate profile completion for the specified user
+      const fields = [
+        user.firstName, user.lastName, user.email, user.company, 
+        user.position, user.location, user.bio, user.skills, 
+        user.industries, user.networkingGoals
+      ];
+      const completedFields = fields.filter(field => 
+        field && (Array.isArray(field) ? field.length > 0 : field.trim().length > 0)
+      ).length;
+      const completionPercentage = Math.round((completedFields / fields.length) * 100);
+
+      const baseScore = completionPercentage * 4;
+      const signalScore = Math.min(1000, baseScore);
+
+      const stats = {
+        completionPercentage,
+        signalScore,
+        connections: 0,
+        meetingRequestsCount: 0,
+        profileViews: 0
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching profile stats:", error);
+      res.status(500).json({ message: "Failed to fetch profile stats" });
+    }
+  });
+
   // Profile analysis endpoint
   app.post('/api/profile/analyze', isAuthenticated, async (req: any, res) => {
     try {
