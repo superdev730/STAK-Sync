@@ -442,6 +442,222 @@ export default function Home() {
           </Card>
         </div>
 
+        {/* Pricing Section */}
+        <div className="space-y-6">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-navy mb-4">Unlock Your Networking Potential</h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              Free for STAK members with premium tiers that unlock our best features, exclusive meetups, and discounted event access
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            {/* Free Tier - STAK Members */}
+            <Card className="relative border-2 border-gray-200 bg-white shadow-sm">
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <Badge className="bg-emerald-600 text-white px-4 py-1">STAK MEMBERS</Badge>
+              </div>
+              <CardHeader className="text-center pt-8">
+                <CardTitle className="text-2xl font-bold text-navy">Core</CardTitle>
+                <div className="mt-4">
+                  <span className="text-4xl font-bold text-navy">FREE</span>
+                  <p className="text-gray-500 mt-2">For verified STAK members</p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                    <span className="text-gray-700">AI-powered matching</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                    <span className="text-gray-700">Basic messaging</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                    <span className="text-gray-700">Profile creation</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                    <span className="text-gray-700">Event discovery</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                    <span className="text-gray-700">Community access</span>
+                  </div>
+                </div>
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                  Current Plan
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Pro Tier */}
+            <Card className="relative border-2 border-stak-copper bg-white shadow-lg scale-105">
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <Badge className="bg-stak-copper text-white px-4 py-1">MOST POPULAR</Badge>
+              </div>
+              <CardHeader className="text-center pt-8">
+                <CardTitle className="text-2xl font-bold text-navy">Pro</CardTitle>
+                <div className="mt-4">
+                  <span className="text-4xl font-bold text-navy">$29</span>
+                  <span className="text-gray-500">/month</span>
+                  <p className="text-gray-500 mt-2">Enhanced networking power</p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-stak-copper" />
+                    <span className="text-gray-700">Everything in Core</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Sparkles className="w-5 h-5 text-stak-copper" />
+                    <span className="text-gray-700">Advanced AI insights</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Users className="w-5 h-5 text-stak-copper" />
+                    <span className="text-gray-700">Exclusive Pro meetups</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-5 h-5 text-stak-copper" />
+                    <span className="text-gray-700">20% off ticketed events</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="w-5 h-5 text-stak-copper" />
+                    <span className="text-gray-700">Priority messaging</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <BarChart3 className="w-5 h-5 text-stak-copper" />
+                    <span className="text-gray-700">Analytics dashboard</span>
+                  </div>
+                </div>
+                <Button className="w-full bg-stak-copper hover:bg-stak-copper/90 text-white">
+                  Upgrade to Pro
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Elite Tier */}
+            <Card className="relative border-2 border-gray-900 bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg">
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <Badge className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-gray-900 px-4 py-1 font-semibold">ELITE</Badge>
+              </div>
+              <CardHeader className="text-center pt-8">
+                <CardTitle className="text-2xl font-bold text-white">Elite</CardTitle>
+                <div className="mt-4">
+                  <span className="text-4xl font-bold text-white">$99</span>
+                  <span className="text-gray-300">/month</span>
+                  <p className="text-gray-300 mt-2">Maximum networking leverage</p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-yellow-400" />
+                    <span className="text-gray-200">Everything in Pro</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Trophy className="w-5 h-5 text-yellow-400" />
+                    <span className="text-gray-200">VIP Elite events</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Target className="w-5 h-5 text-yellow-400" />
+                    <span className="text-gray-200">Personal AI concierge</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-5 h-5 text-yellow-400" />
+                    <span className="text-gray-200">50% off all events</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Brain className="w-5 h-5 text-yellow-400" />
+                    <span className="text-gray-200">Custom matching algorithms</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <ExternalLink className="w-5 h-5 text-yellow-400" />
+                    <span className="text-gray-200">Direct founder access</span>
+                  </div>
+                </div>
+                <Button className="w-full bg-gradient-to-r from-yellow-400 to-yellow-600 text-gray-900 font-semibold hover:from-yellow-500 hover:to-yellow-700">
+                  Go Elite
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Feature Comparison */}
+          <Card className="mt-8 bg-white border border-gray-200">
+            <CardHeader>
+              <CardTitle className="text-center text-2xl font-bold text-navy">Feature Comparison</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Features</th>
+                      <th className="text-center py-3 px-4 font-semibold text-gray-700">Core</th>
+                      <th className="text-center py-3 px-4 font-semibold text-stak-copper">Pro</th>
+                      <th className="text-center py-3 px-4 font-semibold text-gray-900">Elite</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3 px-4 text-gray-700">AI Matching</td>
+                      <td className="py-3 px-4 text-center"><CheckCircle className="w-5 h-5 text-emerald-600 mx-auto" /></td>
+                      <td className="py-3 px-4 text-center"><CheckCircle className="w-5 h-5 text-stak-copper mx-auto" /></td>
+                      <td className="py-3 px-4 text-center"><CheckCircle className="w-5 h-5 text-yellow-500 mx-auto" /></td>
+                    </tr>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3 px-4 text-gray-700">Monthly meetups</td>
+                      <td className="py-3 px-4 text-center text-gray-400">—</td>
+                      <td className="py-3 px-4 text-center"><CheckCircle className="w-5 h-5 text-stak-copper mx-auto" /></td>
+                      <td className="py-3 px-4 text-center"><CheckCircle className="w-5 h-5 text-yellow-500 mx-auto" /></td>
+                    </tr>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3 px-4 text-gray-700">Event discounts</td>
+                      <td className="py-3 px-4 text-center text-gray-400">—</td>
+                      <td className="py-3 px-4 text-center text-stak-copper font-semibold">20%</td>
+                      <td className="py-3 px-4 text-center text-yellow-600 font-semibold">50%</td>
+                    </tr>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3 px-4 text-gray-700">AI Insights</td>
+                      <td className="py-3 px-4 text-center text-gray-500">Basic</td>
+                      <td className="py-3 px-4 text-center text-stak-copper font-semibold">Advanced</td>
+                      <td className="py-3 px-4 text-center text-yellow-600 font-semibold">Custom</td>
+                    </tr>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3 px-4 text-gray-700">Personal Concierge</td>
+                      <td className="py-3 px-4 text-center text-gray-400">—</td>
+                      <td className="py-3 px-4 text-center text-gray-400">—</td>
+                      <td className="py-3 px-4 text-center"><CheckCircle className="w-5 h-5 text-yellow-500 mx-auto" /></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Call to Action */}
+          <Card className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white text-center">
+            <CardContent className="p-8">
+              <h3 className="text-2xl font-bold mb-4">Ready to Elevate Your Network?</h3>
+              <p className="text-emerald-100 mb-6 max-w-2xl mx-auto">
+                Join thousands of STAK professionals who are building meaningful connections and growing their businesses through intelligent networking.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button className="bg-white text-emerald-700 hover:bg-emerald-50 font-semibold px-8">
+                  Start Free Trial
+                </Button>
+                <Button variant="outline" className="border-white text-white hover:bg-white hover:text-emerald-700 font-semibold px-8">
+                  Learn More
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Drill-Down Dialog */}
         <Dialog open={drillDownDialog} onOpenChange={setDrillDownDialog}>
         <DialogContent className="bg-white border border-slate-200 max-w-4xl max-h-[80vh] overflow-y-auto">
