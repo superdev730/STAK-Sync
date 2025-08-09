@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Sliders, Brain, Zap, Users } from "lucide-react";
+import { RefreshCw, Sliders, Brain, Zap } from "lucide-react";
 import { MatchCard } from "@/components/MatchCard";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -54,22 +54,7 @@ export default function Discover() {
     }
   };
 
-  const seedUsersMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/seed-users", {}),
-    onSuccess: () => {
-      toast({
-        title: "Sample Users Created!",
-        description: "Demo users have been added to the platform.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to create sample users",
-        variant: "destructive",
-      });
-    }
-  });
+
 
   const generateMatchesMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/matches/generate", {}),
@@ -93,9 +78,7 @@ export default function Discover() {
     generateMatchesMutation.mutate();
   };
 
-  const seedUsers = () => {
-    seedUsersMutation.mutate();
-  };
+
 
   const filteredMatches = matches?.filter(match => match.status === "pending") || [];
 
@@ -103,32 +86,15 @@ export default function Discover() {
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-stak-white mb-4">Find Signal, Cut the Noise</h1>
-        <p className="text-xl text-stak-light-gray mb-6">AI-powered matching for STAK's exclusive membership community</p>
+        <h1 className="text-4xl font-bold text-slate-900 mb-4">Find Signal, Cut the Noise</h1>
+        <p className="text-xl text-slate-600 mb-6">AI-powered matching for STAK's exclusive membership community</p>
         
         {/* Demo Setup */}
         <div className="flex justify-center space-x-4 mb-8">
           <Button 
-            onClick={seedUsers}
-            disabled={seedUsersMutation.isPending}
-            className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
-          >
-            {seedUsersMutation.isPending ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Users className="w-4 h-4 mr-2" />
-                Create Demo Members
-              </>
-            )}
-          </Button>
-          <Button 
             onClick={generateMatches}
             disabled={generateMatchesMutation.isPending}
-            className="bg-stak-black border border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black font-medium"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
           >
             {generateMatchesMutation.isPending ? (
               <>
