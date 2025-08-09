@@ -28,7 +28,7 @@ export async function generateQuickResponses(
       .map(msg => `${msg.senderId === currentUser.id ? 'You' : otherUser.firstName}: ${msg.content}`)
       .join('\n');
 
-    const prompt = `You are helping generate quick response suggestions for a professional networking conversation on STAK Signal between venture capitalists, startup founders, and industry leaders.
+    const prompt = `You are helping generate quick response suggestions for a professional networking conversation on STAK Sync between venture capitalists, startup founders, and industry leaders.
 
 Current user: ${currentUser.firstName} ${currentUser.lastName} (${currentUser.title || 'Professional'})
 Other person: ${otherUser.firstName} ${otherUser.lastName} (${otherUser.title || 'Professional'})

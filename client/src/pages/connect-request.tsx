@@ -157,7 +157,7 @@ export default function ConnectRequest() {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Send Connection Request</h1>
-          <p className="text-gray-600">Connect with a fellow STAK Signal member</p>
+          <p className="text-gray-600">Connect with a fellow STAK Sync member</p>
         </div>
 
         {/* User Preview */}

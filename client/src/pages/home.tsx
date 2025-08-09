@@ -65,7 +65,7 @@ export default function Home() {
       label: "Meetings", 
       value: (userStats.meetings || 0).toString(), 
       icon: Calendar,
-      tooltip: "Total scheduled meetings and events you've arranged through STAK Signal. Includes completed video calls, in-person meetings, and event networking sessions. Tracked to measure your active networking engagement and relationship building progress."
+      tooltip: "Total scheduled meetings and events you've arranged through STAK Sync. Includes completed video calls, in-person meetings, and event networking sessions. Tracked to measure your active networking engagement and relationship building progress."
     },
     { 
       label: "Messages", 

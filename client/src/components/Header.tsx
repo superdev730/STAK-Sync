@@ -74,7 +74,7 @@ export default function Header() {
             <Link href="/landing">
               <div className="flex items-center space-x-3 cursor-pointer">
                 <img src="/api/logo" alt="STAK" className="h-8 w-8" />
-                <h1 className="text-2xl font-bold text-stak-white">STAK Signal</h1>
+                <h1 className="text-2xl font-bold text-stak-white">STAK Sync</h1>
               </div>
             </Link>
             <Button asChild className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium">

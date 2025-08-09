@@ -130,7 +130,7 @@ export default function Landing() {
             Your membership is your key to extraordinary connections. Let us help you discover the relationships that will define your next chapter.
           </p>
           <Button asChild size="lg" className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-8 py-4">
-            <a href="/api/login">Activate Signal</a>
+            <a href="/api/login">Activate Sync</a>
           </Button>
         </div>
       </section>
@@ -140,7 +140,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-2xl font-bold text-stak-copper mb-4">STAK Signal</h3>
+              <h3 className="text-2xl font-bold text-stak-copper mb-4">STAK Sync</h3>
               <p className="text-stak-light-gray leading-relaxed">
                 An exclusive platform for STAK members to discover meaningful connections, forge stronger relationships, and unlock the full potential of our prestigious community.
               </p>

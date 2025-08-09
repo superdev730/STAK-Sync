@@ -393,7 +393,7 @@ function AdminDashboard() {
     <div className="min-h-screen bg-gray-50 text-gray-900 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 text-navy">STAK Signal Admin</h1>
+          <h1 className="text-3xl font-bold mb-2 text-navy">STAK Sync Admin</h1>
           <p className="text-gray-600">Comprehensive platform management and analytics</p>
         </div>
 

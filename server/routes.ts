@@ -897,7 +897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         organizerId: userId,
         attendeeId: match.matchedUserId,
         title: `Meeting: ${organizer.firstName} ${organizer.lastName} & ${attendee.firstName} ${attendee.lastName}`,
-        description: message || "Professional networking meeting via STAK Signal",
+        description: message || "Professional networking meeting via STAK Sync",
         location: "Video Call (link will be provided)",
         scheduledAt,
         status: "pending"
@@ -931,7 +931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create iCal content
         const icalContent = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//STAK Signal//Meeting//EN
+PRODID:-//STAK Sync//Meeting//EN
 BEGIN:VEVENT
 UID:${meeting.id}@staksingal.com
 DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
@@ -950,14 +950,14 @@ END:VCALENDAR`;
         const attendeeEmail = {
           to: attendee.email,
           from: 'noreply@staksingal.com',
-          subject: `Meeting Request from ${organizer.firstName} ${organizer.lastName} - STAK Signal`,
+          subject: `Meeting Request from ${organizer.firstName} ${organizer.lastName} - STAK Sync`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #1f2937;">Meeting Request via STAK Signal</h2>
+              <h2 style="color: #1f2937;">Meeting Request via STAK Sync</h2>
               
               <p>Hi ${attendee.firstName},</p>
               
-              <p><strong>${organizer.firstName} ${organizer.lastName}</strong> would like to schedule a meeting with you through STAK Signal.</p>
+              <p><strong>${organizer.firstName} ${organizer.lastName}</strong> would like to schedule a meeting with you through STAK Sync.</p>
               
               <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <h3 style="color: #374151; margin-top: 0;">Meeting Details</h3>
@@ -968,9 +968,9 @@ END:VCALENDAR`;
                 ${message ? `<p><strong>Message:</strong> ${message}</p>` : ''}
               </div>
               
-              <p>Please log into STAK Signal to accept or decline this meeting request.</p>
+              <p>Please log into STAK Sync to accept or decline this meeting request.</p>
               
-              <p>Best regards,<br>The STAK Signal Team</p>
+              <p>Best regards,<br>The STAK Sync Team</p>
             </div>
           `,
           attachments: [
@@ -987,7 +987,7 @@ END:VCALENDAR`;
         const organizerEmail = {
           to: organizer.email,
           from: 'noreply@staksingal.com',
-          subject: `Meeting Request Sent to ${attendee.firstName} ${attendee.lastName} - STAK Signal`,
+          subject: `Meeting Request Sent to ${attendee.firstName} ${attendee.lastName} - STAK Sync`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #1f2937;">Meeting Request Sent</h2>
@@ -1007,7 +1007,7 @@ END:VCALENDAR`;
               
               <p>You'll receive a notification when ${attendee.firstName} responds to your request.</p>
               
-              <p>Best regards,<br>The STAK Signal Team</p>
+              <p>Best regards,<br>The STAK Sync Team</p>
             </div>
           `,
           attachments: [
@@ -3335,7 +3335,7 @@ END:VCALENDAR`;
       const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
 
       // Build conversation context
-      const systemPrompt = `You are an expert networking profile consultant for STAK Signal, a premium professional networking platform. Your role is to help users create compelling profiles that maximize their networking potential.
+      const systemPrompt = `You are an expert networking profile consultant for STAK Sync, a premium professional networking platform. Your role is to help users create compelling profiles that maximize their networking potential.
 
 Current user profile: ${JSON.stringify(profileData || {})}
 

@@ -51,7 +51,7 @@ export default {
           "4": "var(--chart-4)",
           "5": "var(--chart-5)",
         },
-        // Custom colors for STAK Signal theme
+        // Custom colors for STAK Sync theme
         'stak-black': "hsl(0, 0%, 8%)",
         'stak-copper': "hsl(25, 65%, 65%)",
         'stak-dark-copper': "hsl(25, 45%, 45%)",

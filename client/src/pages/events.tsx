@@ -145,7 +145,7 @@ export default function Events() {
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center gap-2 mb-4">
           <Sparkles className="h-8 w-8 text-stak-copper" />
-          <h1 className="text-4xl font-bold font-playfair text-stak-white">STAK Signal Events</h1>
+          <h1 className="text-4xl font-bold font-playfair text-stak-white">STAK Sync Events</h1>
         </div>
         <p className="text-lg text-stak-light-gray max-w-2xl mx-auto">
           Connect with industry leaders, investors, and innovators at exclusive STAK events designed to accelerate your professional growth.
@@ -319,7 +319,7 @@ export default function Events() {
       <div className="text-center py-12 border-t border-stak-gray">
         <h2 className="text-2xl font-bold font-playfair mb-4 text-stak-white">Ready to Network?</h2>
         <p className="text-stak-light-gray mb-6 max-w-2xl mx-auto">
-          Join STAK Signal events to connect with vetted investors, successful founders, and industry experts. 
+          Join STAK Sync events to connect with vetted investors, successful founders, and industry experts. 
           Every connection is an opportunity to accelerate your journey.
         </p>
         <div className="flex items-center justify-center gap-2">

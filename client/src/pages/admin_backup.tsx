@@ -1676,7 +1676,7 @@ export default function Admin() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-[#CD853F]">STAK Signal Admin</h1>
+            <h1 className="text-3xl font-bold text-[#CD853F]">STAK Sync Admin</h1>
             <p className="text-gray-300 mt-2">Platform management and analytics</p>
           </div>
           <div className="flex items-center gap-4">

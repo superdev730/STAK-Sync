@@ -22,7 +22,7 @@ export async function sendLoginCredentialsEmail(params: LoginCredentialsEmailPar
 <html>
 <head>
     <meta charset="utf-8">
-    <title>STAK Signal - Your Login Credentials</title>
+    <title>STAK Sync - Your Login Credentials</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -38,13 +38,13 @@ export async function sendLoginCredentialsEmail(params: LoginCredentialsEmailPar
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">STAK Signal</div>
-            <div class="tagline">Find Signal, Cut the Noise</div>
+            <div class="logo">STAK Sync</div>
+            <div class="tagline">Find Sync, Cut the Noise</div>
         </div>
         <div class="content">
-            <h2>Welcome to STAK Signal, ${params.firstName}!</h2>
+            <h2>Welcome to STAK Sync, ${params.firstName}!</h2>
             
-            <p>Your STAK Signal account has been created with owner privileges. As a member of the STAK team, you have full administrative access to the platform.</p>
+            <p>Your STAK Sync account has been created with owner privileges. As a member of the STAK team, you have full administrative access to the platform.</p>
             
             <div class="credentials">
                 <h3>🔐 Your Login Credentials</h3>
@@ -55,7 +55,7 @@ export async function sendLoginCredentialsEmail(params: LoginCredentialsEmailPar
             <p><strong>Important Security Notice:</strong> Please change your password immediately upon first login for security purposes.</p>
             
             <div style="text-align: center;">
-                <a href="${params.loginUrl}" class="button">Login to STAK Signal</a>
+                <a href="${params.loginUrl}" class="button">Login to STAK Sync</a>
             </div>
             
             <h3>Your Owner Privileges Include:</h3>
@@ -80,7 +80,7 @@ export async function sendLoginCredentialsEmail(params: LoginCredentialsEmailPar
     await mailService.send({
       to: params.to,
       from: 'noreply@stakventures.com',
-      subject: 'STAK Signal - Your Owner Account Credentials',
+      subject: 'STAK Sync - Your Owner Account Credentials',
       html: emailContent,
     });
 
@@ -98,7 +98,7 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<b
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Welcome to STAK Signal</title>
+    <title>Welcome to STAK Sync</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -113,11 +113,11 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<b
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">STAK Signal</div>
-            <div class="tagline">Find Signal, Cut the Noise</div>
+            <div class="logo">STAK Sync</div>
+            <div class="tagline">Find Sync, Cut the Noise</div>
         </div>
         <div class="content">
-            <h2>Welcome to STAK Signal, ${firstName}!</h2>
+            <h2>Welcome to STAK Sync, ${firstName}!</h2>
             
             <p>You've successfully joined the STAK ecosystem's premier networking platform. Connect with venture capitalists, startup founders, and industry leaders through our AI-powered matching system.</p>
             
@@ -143,7 +143,7 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<b
     await mailService.send({
       to,
       from: 'noreply@stakventures.com',
-      subject: 'Welcome to STAK Signal - Your Journey Begins',
+      subject: 'Welcome to STAK Sync - Your Journey Begins',
       html: emailContent,
     });
 
