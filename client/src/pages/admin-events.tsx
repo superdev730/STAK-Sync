@@ -162,6 +162,8 @@ export default function AdminEvents() {
     switch (type) {
       case 'speaker-series':
         return 'bg-blue-100 text-blue-800';
+      case 'stak-speaker-series':
+        return 'bg-emerald-100 text-emerald-800';
       case 'meetup':
         return 'bg-green-100 text-green-800';
       case 'vc-dinner':
@@ -177,6 +179,8 @@ export default function AdminEvents() {
     switch (type) {
       case 'speaker-series':
         return 'Speaker Series';
+      case 'stak-speaker-series':
+        return 'STAK Speaker Series';
       case 'meetup':
         return 'Weekly Meetup';
       case 'vc-dinner':
@@ -229,6 +233,7 @@ export default function AdminEvents() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="speaker-series">Bi-weekly Speaker Series</SelectItem>
+                      <SelectItem value="stak-speaker-series">STAK Speaker Series</SelectItem>
                       <SelectItem value="meetup">Weekly Meetup</SelectItem>
                       <SelectItem value="vc-dinner">Quarterly VC Partner Dinner</SelectItem>
                       <SelectItem value="leadership-event">Annual Leadership Event</SelectItem>
