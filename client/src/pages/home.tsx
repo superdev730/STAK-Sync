@@ -193,352 +193,286 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto p-6 space-y-8">
-        {/* Profile Completeness & Signal Score */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Profile Completeness Card */}
-          <Card className="bg-white border-0 shadow-lg">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg text-gray-900 flex items-center">
-                    <Target className="w-5 h-5 mr-2 text-green-600" />
-                    Profile Strength
-                  </CardTitle>
-                  <p className="text-gray-600 text-sm">Complete your profile</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="max-w-6xl mx-auto p-4 space-y-6">
+        {/* Live Event Alert - Priority Section */}
+        <Card className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white border-0 shadow-xl">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <Calendar className="w-6 h-6" />
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-green-600">
-                    {user ? Math.round(([(user as any).firstName, (user as any).lastName, (user as any).title, (user as any).company, (user as any).bio, (user as any).location].filter(f => f).length / 6) * 100) : 0}%
-                  </div>
+                <div>
+                  <h2 className="text-xl font-bold">STAK Spring Summit</h2>
+                  <p className="text-emerald-100">Live networking event in progress • 47 attendees online</p>
                 </div>
               </div>
-              <Progress value={user ? Math.round(([(user as any).firstName, (user as any).lastName, (user as any).title, (user as any).company, (user as any).bio, (user as any).location].filter(f => f).length / 6) * 100) : 0} className="h-2 mt-3" />
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Button asChild size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white">
-                <Link href="/profile">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Complete Profile
-                </Link>
+              <Button asChild className="bg-white text-emerald-700 hover:bg-emerald-50 font-semibold">
+                <Link href="/live-dashboard">Join Live Event</Link>
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Core Metrics - AI Matchmaking Focus */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">AI Match Score</p>
+                  <p className="text-2xl font-bold text-emerald-600">{userStats?.matchScore || "85%"}</p>
+                </div>
+                <Brain className="w-8 h-8 text-emerald-600" />
+              </div>
+              <p className="text-xs text-slate-500 mt-2">Active connections ready</p>
             </CardContent>
           </Card>
 
-          {/* Signal Score Card */}
-          <Card className="bg-white border-0 shadow-lg">
-            <CardHeader className="pb-4">
+          <Card className="bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg text-gray-900 flex items-center">
-                    <Zap className="w-5 h-5 mr-2 text-stak-copper" />
-                    Sync Score
-                  </CardTitle>
-                  <p className="text-gray-600 text-sm">Platform engagement</p>
+                  <p className="text-sm font-medium text-slate-600">Connections</p>
+                  <p className="text-2xl font-bold text-slate-900">{userStats?.connections || 0}</p>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-stak-copper">
-                    {userStats ? Math.min((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2, 1000) : 0}
-                  </div>
-                  <div className="text-xs text-gray-500">/ 1000 pts</div>
-                </div>
+                <Users className="w-8 h-8 text-slate-600" />
               </div>
-              <Badge variant="outline" className="text-stak-copper border-stak-copper/30 mt-2">
-                <Trophy className="w-3 h-3 mr-1" />
-                {userStats && ((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2) >= 800 ? "Sync Master" :
-                 userStats && ((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2) >= 400 ? "Sync Builder" : "Sync Starter"}
-              </Badge>
-            </CardHeader>
+              <p className="text-xs text-slate-500 mt-2">Quality network built</p>
+            </CardContent>
           </Card>
 
-          {/* Referral Card */}
-          <Card className="bg-gradient-to-r from-gray-900 to-gray-800 text-white border-0 shadow-lg">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center">
-                <Share2 className="w-5 h-5 mr-2 text-stak-copper" />
-                Share STAK Sync
-              </CardTitle>
-              <p className="text-gray-300 text-sm">Invite colleagues to join</p>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Button variant="secondary" size="sm" className="w-full bg-stak-copper text-gray-900 hover:bg-stak-dark-copper hover:text-white">
-                <Gift className="w-4 h-4 mr-2" />
-                Invite & Earn Rewards
-              </Button>
+          <Card className="bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Messages</p>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-2xl font-bold text-slate-900">{userStats?.messages || 0}</p>
+                    {userStats && (userStats.unreadMessages || 0) > 0 && (
+                      <Badge className="bg-red-500 text-white text-xs">{userStats.unreadMessages}</Badge>
+                    )}
+                  </div>
+                </div>
+                <MessageSquare className="w-8 h-8 text-slate-600" />
+              </div>
+              <p className="text-xs text-slate-500 mt-2">Active conversations</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Meetings</p>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-2xl font-bold text-slate-900">{userStats?.meetings || 0}</p>
+                    {userStats && (userStats.pendingMeetups || 0) > 0 && (
+                      <Badge className="bg-amber-500 text-white text-xs">{userStats.pendingMeetups}</Badge>
+                    )}
+                  </div>
+                </div>
+                <Calendar className="w-8 h-8 text-slate-600" />
+              </div>
+              <p className="text-xs text-slate-500 mt-2">Scheduled & completed</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-stak-copper to-stak-dark-copper text-white rounded-2xl p-8 shadow-lg">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">
-                Welcome back, {(user as any)?.firstName || 'there'}!
-              </h1>
-              <p className="text-white/90 text-lg">
-                Your STAK Sync dashboard is ready
-              </p>
-            </div>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <Link href="/messages">
-              <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm h-16 text-left justify-start">
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <MessageSquare className="h-6 w-6" />
+        {/* Main Action Center */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* AI Matchmaking Panel */}
+          <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-0 shadow-xl">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl flex items-center">
+                <Brain className="w-6 h-6 mr-3 text-emerald-400" />
+                AI Networking Hub
+              </CardTitle>
+              <p className="text-slate-300">Your intelligent connection center</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white h-12">
+                  <Link href="/discover">
+                    <Target className="w-4 h-4 mr-2" />
+                    Find Matches
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700 h-12">
+                  <Link href="/matches">
+                    <Users className="w-4 h-4 mr-2" />
+                    View Connections
+                  </Link>
+                </Button>
+              </div>
+              <div className="bg-slate-800/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Profile Optimization</span>
+                  <Badge className="bg-emerald-600 text-white">
+                    {user ? Math.round(([(user as any).firstName, (user as any).lastName, (user as any).title, (user as any).company, (user as any).bio, (user as any).location].filter(f => f).length / 6) * 100) : 0}%
+                  </Badge>
+                </div>
+                <Progress 
+                  value={user ? Math.round(([(user as any).firstName, (user as any).lastName, (user as any).title, (user as any).company, (user as any).bio, (user as any).location].filter(f => f).length / 6) * 100) : 0} 
+                  className="h-2 bg-slate-700"
+                />
+                <p className="text-xs text-slate-400 mt-2">Complete your profile for better AI matching</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Communication Center */}
+          <Card className="bg-white border border-slate-200 shadow-lg">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl flex items-center text-slate-900">
+                <MessageSquare className="w-6 h-6 mr-3 text-slate-600" />
+                Communication Center
+              </CardTitle>
+              <p className="text-slate-600">Manage your professional conversations</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Button asChild className="bg-slate-900 hover:bg-slate-800 text-white h-12">
+                  <Link href="/messages">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Messages
                     {userStats && (userStats.unreadMessages || 0) > 0 && (
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white flex items-center justify-center">
+                      <Badge className="ml-2 bg-red-500 text-white text-xs">
                         {userStats.unreadMessages}
                       </Badge>
                     )}
-                  </div>
-                  <div>
-                    <div className="font-semibold">Check Messages</div>
-                    <div className="text-sm opacity-90">
-                      {userStats ? (userStats.unreadMessages || 0) > 0 ? `${userStats.unreadMessages} unread` : 'All caught up' : 'Loading...'}
-                    </div>
-                  </div>
-                </div>
-              </Button>
-            </Link>
-            
-            <Link href="/matches">
-              <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm h-16 text-left justify-start">
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <Users className="h-6 w-6" />
-                    {userStats && (userStats.pendingMatches || 0) > 0 && (
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-orange-500 text-white flex items-center justify-center">
-                        {userStats.pendingMatches}
-                      </Badge>
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-semibold">Connection Requests</div>
-                    <div className="text-sm opacity-90">
-                      {userStats ? (userStats.pendingMatches || 0) > 0 ? `${userStats.pendingMatches} pending` : 'No new requests' : 'Loading...'}
-                    </div>
-                  </div>
-                </div>
-              </Button>
-            </Link>
-            
-            <Link href="/events">
-              <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm h-16 text-left justify-start">
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <Calendar className="h-6 w-6" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 h-12">
+                  <Link href="/events">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Schedule
                     {userStats && (userStats.pendingMeetups || 0) > 0 && (
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-blue-500 text-white flex items-center justify-center">
+                      <Badge className="ml-2 bg-amber-500 text-white text-xs">
                         {userStats.pendingMeetups}
                       </Badge>
                     )}
+                  </Link>
+                </Button>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h4 className="font-medium text-slate-900 mb-2">Recent Activity</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm text-slate-600">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full mr-3"></div>
+                    New match: Sarah Chen (96% compatibility)
                   </div>
-                  <div>
-                    <div className="font-semibold">Meetup Requests</div>
-                    <div className="text-sm opacity-90">
-                      {userStats ? (userStats.pendingMeetups || 0) > 0 ? `${userStats.pendingMeetups} pending` : 'No new meetings' : 'Loading...'}
-                    </div>
+                  <div className="flex items-center text-sm text-slate-600">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                    Message from Marcus Rodriguez
+                  </div>
+                  <div className="flex items-center text-sm text-slate-600">
+                    <div className="w-2 h-2 bg-amber-500 rounded-full mr-3"></div>
+                    Meeting confirmed with Emma Thompson
                   </div>
                 </div>
-              </Button>
-            </Link>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Stats Grid */}
-        <TooltipProvider>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {stats.map((stat) => (
-              <Card 
-                key={stat.label} 
-                className="bg-white shadow-md hover:shadow-lg border border-gray-200 text-center cursor-pointer transition-all duration-200 group"
-                onClick={() => handleMetricClick(stat.label)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-center mb-3">
-                    <stat.icon className="w-8 h-8 text-gray-600 group-hover:text-stak-copper transition-colors" />
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-4 h-4 text-gray-400 hover:text-stak-copper ml-2 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg border border-gray-700">
-                        <p className="text-sm leading-relaxed">{stat.tooltip}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900 mb-1 group-hover:text-stak-copper transition-colors">{stat.value}</div>
-                  <div className="text-sm text-gray-600 flex items-center justify-center gap-1">
-                    {stat.label}
-                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TooltipProvider>
-
-        {/* Quick Actions */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-gray-900">Quick Actions</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickActions.map((action) => (
-              <Card key={action.title} className={`bg-white shadow-md hover:shadow-lg border border-gray-200 text-center transition-all duration-200 group relative ${action.urgent ? 'ring-2 ring-red-500' : ''}`}>
-                <Link href={action.href}>
-                  <CardContent className="p-6">
-                    {(action.badge || 0) > 0 && (
-                      <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 text-xs bg-red-500 text-white">
-                        {action.badge}
-                      </Badge>
-                    )}
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${action.color} group-hover:scale-110 transition-transform ${action.urgent ? 'ring-2 ring-current' : ''}`}>
-                      <action.icon className="w-8 h-8" />
-                    </div>
-                    <h3 className={`text-lg font-semibold mb-2 ${action.urgent ? 'text-red-600' : 'text-gray-900'}`}>
-                      {action.title}
-                      {action.urgent && <span className="ml-2 text-red-500">!</span>}
-                    </h3>
-                    <p className={`text-sm ${action.urgent ? 'text-red-500 font-medium' : 'text-gray-600'}`}>
-                      {action.description}
-                    </p>
-                  </CardContent>
+        {/* Quick Access & AI Insights */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Profile Enhancement */}
+          <Card className="bg-white border border-slate-200 shadow-lg">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center text-slate-900">
+                <Sparkles className="w-5 h-5 mr-2 text-emerald-600" />
+                Profile Enhancement
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Link href="/profile">
+                  <Target className="w-4 h-4 mr-2" />
+                  Optimize Profile
                 </Link>
-              </Card>
-            ))}
-          </div>
-        </div>
+              </Button>
+              <Button asChild variant="outline" className="w-full border-slate-300 text-slate-700 hover:bg-slate-50">
+                <Link href="/questionnaire">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Complete Survey
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
 
-        {/* Recent Activity */}
-        <div className="grid lg:grid-cols-2 gap-8">
-          <Card className="bg-white shadow-md border border-gray-200">
-            <CardContent className="p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h3>
-              <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="w-8 h-8 bg-stak-copper/20 rounded-full flex items-center justify-center">
-                      <activity.icon className="w-4 h-4 text-stak-copper" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-gray-900">{activity.description}</p>
-                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                    </div>
-                  </div>
-                ))}
+          {/* Sync Score & Gamification */}
+          <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 shadow-lg">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center text-slate-900">
+                <Trophy className="w-5 h-5 mr-2 text-amber-600" />
+                Sync Level
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center space-y-2">
+                <div className="text-3xl font-bold text-amber-600">
+                  {userStats ? Math.min((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2, 1000) : 0}
+                </div>
+                <p className="text-sm text-slate-600">Sync Points</p>
+                <Badge className="bg-amber-600 text-white">
+                  {userStats && ((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2) >= 800 ? "Sync Master" :
+                   userStats && ((userStats.connections || 0) * 10 + (userStats.meetings || 0) * 15 + (userStats.messages || 0) * 2) >= 400 ? "Sync Builder" : "Sync Starter"}
+                </Badge>
               </div>
             </CardContent>
           </Card>
 
-          {/* AI Insights */}
-          <Card className="bg-white shadow-md border border-gray-200">
-            <CardContent className="p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">AI Insights</h3>
-              <div className="space-y-4">
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">Profile Optimization</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-4 h-4 text-gray-400 hover:text-stak-copper cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg border border-gray-700">
-                          <p className="text-sm leading-relaxed">
-                            AI analyzes your profile completeness, keyword optimization, industry alignment, and engagement patterns. Factors include: professional summary quality, skills relevance, education details, and response to messages. Higher scores lead to better match recommendations.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <Badge className="bg-green-600 text-white">94%</Badge>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Your profile is performing well. Consider adding more industry keywords to improve match quality.
-                  </p>
-                </div>
-                
-                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">Networking Goal</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-4 h-4 text-gray-400 hover:text-stak-copper cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg border border-gray-700">
-                          <p className="text-sm leading-relaxed">
-                            Tracks progress toward your specified networking objectives. AI matches you with relevant professionals based on your goals (funding, partnerships, mentorship, etc.) and monitors completion through successful connections and meeting outcomes.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <Badge className="bg-yellow-600 text-white">Active</Badge>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    You're 60% closer to your Series A funding goal. 3 relevant VCs are in your match queue.
-                  </p>
-                </div>
-
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">Best Time to Connect</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-4 h-4 text-gray-400 hover:text-stak-copper cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg border border-gray-700">
-                          <p className="text-sm leading-relaxed">
-                            AI analyzes when your connections are most active and responsive. Based on login patterns, message response times, and successful interaction data across the STAK network to optimize your outreach timing.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <Badge className="bg-gray-600 text-white">2-4 PM</Badge>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Your connections are most active in the afternoons. Schedule your outreach accordingly.
-                  </p>
-                </div>
-              </div>
+          {/* Share & Invite */}
+          <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-0 shadow-lg">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center">
+                <Share2 className="w-5 h-5 mr-2 text-emerald-400" />
+                Grow Network
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Gift className="w-4 h-4 mr-2" />
+                Invite Colleagues
+              </Button>
             </CardContent>
           </Card>
         </div>
 
         {/* Drill-Down Dialog */}
         <Dialog open={drillDownDialog} onOpenChange={setDrillDownDialog}>
-        <DialogContent className="bg-white border border-gray-200 max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="bg-white border border-slate-200 max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-gray-900 flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-stak-copper" />
+            <DialogTitle className="text-slate-900 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-emerald-600" />
               {drillDownType} - Detailed Records
             </DialogTitle>
-            <DialogDescription className="text-gray-600">
+            <DialogDescription className="text-slate-600">
               Detailed information about your {drillDownType.toLowerCase()}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">{drillDownData.length} records found</p>
+              <p className="text-sm text-slate-600">{drillDownData.length} records found</p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
+                <Button variant="outline" size="sm" className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50">
                   <Filter className="h-4 w-4 mr-2" />
                   Filter
                 </Button>
-                <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
+                <Button variant="outline" size="sm" className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50">
                   <ArrowUpDown className="h-4 w-4 mr-2" />
                   Sort
                 </Button>
               </div>
             </div>
 
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                <div className="grid grid-cols-4 gap-4 text-sm font-medium text-gray-700">
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                <div className="grid grid-cols-4 gap-4 text-sm font-medium text-slate-700">
                   <div>Name/Title</div>
                   <div>Type/Status</div>
                   <div>Date/Time</div>
@@ -549,19 +483,19 @@ export default function Home() {
               <div className="max-h-96 overflow-y-auto">
                 {drillDownData.length > 0 ? (
                   drillDownData.map((record: any, index: number) => (
-                    <div key={record.id || index} className="px-4 py-3 border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                    <div key={record.id || index} className="px-4 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors">
                       <div className="grid grid-cols-4 gap-4 items-center text-sm">
-                        <div className="text-gray-900 font-medium">
+                        <div className="text-slate-900 font-medium">
                           {record.name || record.title || record.email || `Record ${index + 1}`}
                         </div>
-                        <div className="text-gray-600">
+                        <div className="text-slate-600">
                           {record.type || record.status || record.category || 'N/A'}
                         </div>
-                        <div className="text-gray-600">
+                        <div className="text-slate-600">
                           {record.createdAt || record.timestamp || record.date || 'N/A'}
                         </div>
                         <div>
-                          <Button size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                          <Button size="sm" variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50">
                             View
                           </Button>
                         </div>
@@ -569,7 +503,7 @@ export default function Home() {
                     </div>
                   ))
                 ) : (
-                  <div className="px-4 py-8 text-center text-gray-500">
+                  <div className="px-4 py-8 text-center text-slate-500">
                     No detailed records available for this metric
                   </div>
                 )}
