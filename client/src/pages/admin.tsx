@@ -419,6 +419,10 @@ function AdminDashboard() {
               <CreditCard className="h-4 w-4 mr-2" />
               Billing
             </TabsTrigger>
+            <TabsTrigger value="sponsors" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600" onClick={() => window.location.href = '/admin/sponsors'}>
+              <Settings className="h-4 w-4 mr-2" />
+              Sponsors
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="analytics">

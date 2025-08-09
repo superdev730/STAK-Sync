@@ -196,6 +196,11 @@ export const events = pgTable("events", {
   refundPolicy: text("refund_policy"),
   tags: text("tags").array(),
   
+  // Sponsorship and partnerships
+  hostPartners: jsonb("host_partners"), // Array of host partner objects with branding
+  sponsors: jsonb("sponsors"), // Array of sponsor objects with tier and branding
+  sponsorshipTier: varchar("sponsorship_tier"), // title, presenting, gold, silver, bronze
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -294,6 +299,33 @@ export const eventMatches = pgTable("event_matches", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Sponsors and Host Partners
+export const sponsors = pgTable("sponsors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  logoUrl: varchar("logo_url"),
+  websiteUrl: varchar("website_url"),
+  contactEmail: varchar("contact_email"),
+  tier: varchar("tier").notNull(), // title, presenting, gold, silver, bronze, host_partner
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Event sponsors junction table
+export const eventSponsors = pgTable("event_sponsors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  sponsorId: varchar("sponsor_id").notNull().references(() => sponsors.id),
+  tier: varchar("tier").notNull(), // title, presenting, gold, silver, bronze, host_partner
+  customLogoUrl: varchar("custom_logo_url"), // Event-specific logo if different
+  displayOrder: integer("display_order").default(0), // For ordering sponsors
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueEventSponsor: unique().on(table.eventId, table.sponsorId),
+}));
+
 // Token usage tracking
 export const tokenUsage = pgTable("token_usage", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -390,6 +422,7 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
   ticketTypes: many(eventTicketTypes),
   lineItems: many(eventLineItems),
   hosts: many(eventHosts),
+  sponsors: many(eventSponsors),
 }));
 
 export const eventTicketTypesRelations = relations(eventTicketTypes, ({ one }) => ({
@@ -500,6 +533,21 @@ export const eventMatchesRelations = relations(eventMatches, ({ one }) => ({
     fields: [eventMatches.matchedUserId],
     references: [users.id],
     relationName: "matchedUser",
+  }),
+}));
+
+export const sponsorsRelations = relations(sponsors, ({ many }) => ({
+  eventSponsors: many(eventSponsors),
+}));
+
+export const eventSponsorsRelations = relations(eventSponsors, ({ one }) => ({
+  event: one(events, {
+    fields: [eventSponsors.eventId],
+    references: [events.id],
+  }),
+  sponsor: one(sponsors, {
+    fields: [eventSponsors.sponsorId],
+    references: [sponsors.id],
   }),
 }));
 
@@ -695,6 +743,23 @@ export type EventRegistration = typeof eventRegistrations.$inferSelect;
 export type InsertEventRegistration = z.infer<typeof insertEventRegistrationSchema>;
 export type EventRoom = typeof eventRooms.$inferSelect;
 export type InsertEventRoom = z.infer<typeof insertEventRoomSchema>;
+
+// Sponsor and partner types
+export const insertSponsorSchema = createInsertSchema(sponsors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEventSponsorSchema = createInsertSchema(eventSponsors).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Sponsor = typeof sponsors.$inferSelect;
+export type InsertSponsor = z.infer<typeof insertSponsorSchema>;
+export type EventSponsor = typeof eventSponsors.$inferSelect;
+export type InsertEventSponsor = z.infer<typeof insertEventSponsorSchema>;
 export type RoomParticipant = typeof roomParticipants.$inferSelect;
 export type InsertRoomParticipant = z.infer<typeof insertRoomParticipantSchema>;
 export type EventMatch = typeof eventMatches.$inferSelect;

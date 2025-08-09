@@ -12,6 +12,8 @@ import {
   insertEventRegistrationSchema,
   insertEventRoomSchema,
   insertRoomParticipantSchema,
+  insertSponsorSchema,
+  insertEventSponsorSchema,
   matches, 
   users,
   events,
@@ -19,6 +21,8 @@ import {
   eventTicketTypes,
   eventLineItems,
   eventHosts,
+  sponsors,
+  eventSponsors,
   tokenUsage,
   billingAccounts,
   invoices,
@@ -3690,6 +3694,167 @@ Keep responses conversational and helpful.`;
     } catch (error) {
       console.error('Error using invite:', error);
       res.status(500).json({ error: 'Failed to use invite' });
+    }
+  });
+
+  // ===============================================
+  // SPONSOR AND HOST PARTNER MANAGEMENT
+  // ===============================================
+
+  // Get all sponsors
+  app.get('/api/sponsors', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const allSponsors = await db.select().from(sponsors);
+      res.json(allSponsors);
+    } catch (error) {
+      console.error("Error fetching sponsors:", error);
+      res.status(500).json({ message: "Failed to fetch sponsors" });
+    }
+  });
+
+  // Create new sponsor
+  app.post('/api/sponsors', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const sponsorData = insertSponsorSchema.parse(req.body);
+      const [newSponsor] = await db.insert(sponsors).values(sponsorData).returning();
+      res.json(newSponsor);
+    } catch (error) {
+      console.error("Error creating sponsor:", error);
+      res.status(500).json({ message: "Failed to create sponsor" });
+    }
+  });
+
+  // Update sponsor
+  app.put('/api/sponsors/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const sponsorData = insertSponsorSchema.parse(req.body);
+      const [updatedSponsor] = await db
+        .update(sponsors)
+        .set({ ...sponsorData, updatedAt: new Date() })
+        .where(eq(sponsors.id, id))
+        .returning();
+      
+      if (!updatedSponsor) {
+        return res.status(404).json({ message: "Sponsor not found" });
+      }
+      
+      res.json(updatedSponsor);
+    } catch (error) {
+      console.error("Error updating sponsor:", error);
+      res.status(500).json({ message: "Failed to update sponsor" });
+    }
+  });
+
+  // Delete sponsor
+  app.delete('/api/sponsors/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // First remove all event sponsor relationships
+      await db.delete(eventSponsors).where(eq(eventSponsors.sponsorId, id));
+      
+      // Then delete the sponsor
+      const deletedSponsor = await db.delete(sponsors).where(eq(sponsors.id, id)).returning();
+      
+      if (deletedSponsor.length === 0) {
+        return res.status(404).json({ message: "Sponsor not found" });
+      }
+      
+      res.json({ message: "Sponsor deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting sponsor:", error);
+      res.status(500).json({ message: "Failed to delete sponsor" });
+    }
+  });
+
+  // Get event sponsors for a specific event
+  app.get('/api/events/:eventId/sponsors', isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      
+      const eventSponsorsList = await db
+        .select({
+          id: eventSponsors.id,
+          tier: eventSponsors.tier,
+          customLogoUrl: eventSponsors.customLogoUrl,
+          displayOrder: eventSponsors.displayOrder,
+          sponsor: sponsors
+        })
+        .from(eventSponsors)
+        .leftJoin(sponsors, eq(eventSponsors.sponsorId, sponsors.id))
+        .where(eq(eventSponsors.eventId, eventId))
+        .orderBy(eventSponsors.displayOrder, eventSponsors.tier);
+      
+      res.json(eventSponsorsList);
+    } catch (error) {
+      console.error("Error fetching event sponsors:", error);
+      res.status(500).json({ message: "Failed to fetch event sponsors" });
+    }
+  });
+
+  // Add sponsor to event
+  app.post('/api/events/:eventId/sponsors', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const eventSponsorData = insertEventSponsorSchema.parse({
+        ...req.body,
+        eventId
+      });
+      
+      const [newEventSponsor] = await db
+        .insert(eventSponsors)
+        .values(eventSponsorData)
+        .returning();
+      
+      res.json(newEventSponsor);
+    } catch (error) {
+      console.error("Error adding sponsor to event:", error);
+      res.status(500).json({ message: "Failed to add sponsor to event" });
+    }
+  });
+
+  // Update event sponsor
+  app.put('/api/events/:eventId/sponsors/:sponsorshipId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { sponsorshipId } = req.params;
+      const eventSponsorData = insertEventSponsorSchema.partial().parse(req.body);
+      
+      const [updatedEventSponsor] = await db
+        .update(eventSponsors)
+        .set(eventSponsorData)
+        .where(eq(eventSponsors.id, sponsorshipId))
+        .returning();
+      
+      if (!updatedEventSponsor) {
+        return res.status(404).json({ message: "Event sponsorship not found" });
+      }
+      
+      res.json(updatedEventSponsor);
+    } catch (error) {
+      console.error("Error updating event sponsor:", error);
+      res.status(500).json({ message: "Failed to update event sponsor" });
+    }
+  });
+
+  // Remove sponsor from event
+  app.delete('/api/events/:eventId/sponsors/:sponsorshipId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { sponsorshipId } = req.params;
+      
+      const deletedEventSponsor = await db
+        .delete(eventSponsors)
+        .where(eq(eventSponsors.id, sponsorshipId))
+        .returning();
+      
+      if (deletedEventSponsor.length === 0) {
+        return res.status(404).json({ message: "Event sponsorship not found" });
+      }
+      
+      res.json({ message: "Sponsor removed from event successfully" });
+    } catch (error) {
+      console.error("Error removing sponsor from event:", error);
+      res.status(500).json({ message: "Failed to remove sponsor from event" });
     }
   });
 

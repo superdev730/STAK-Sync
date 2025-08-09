@@ -15,6 +15,7 @@ import Admin from "@/pages/admin";
 import AdminUsers from "@/pages/admin-users";
 import AdminEvents from "@/pages/admin-events";
 import AdminBilling from "@/pages/admin-billing";
+import AdminSponsors from "@/pages/admin-sponsors";
 import Profile from "@/pages/profile";
 import ProfileDetail from "@/pages/profile-detail";
 import ConnectRequest from "@/pages/connect-request";
@@ -56,6 +57,7 @@ function Router() {
             <Route path="/admin/users" component={AdminUsers} />
             <Route path="/admin/events" component={AdminEvents} />
             <Route path="/admin/billing" component={AdminBilling} />
+            <Route path="/admin/sponsors" component={AdminSponsors} />
             <Route path="/profile" component={Profile} />
             <Route path="/profile/:userId" component={Profile} />
             <Route path="/profile-detail" component={ProfileDetail} />
