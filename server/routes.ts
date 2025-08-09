@@ -3449,5 +3449,249 @@ Keep responses conversational and helpful.`;
     }
   });
 
+  // New user management API endpoints - rebuilt from scratch
+  app.get('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const search = req.query.search as string;
+
+      const result = await storage.getAllUsers(page, limit, search);
+      
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: req.user.claims.sub,
+        action: 'view_users',
+        targetType: 'users',
+        details: { page, limit, search },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ error: 'Failed to fetch users' });
+    }
+  });
+
+  app.post('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      const userData = req.body;
+
+      // Create the user
+      const newUser = await storage.createUserByAdmin({
+        ...userData,
+        id: undefined, // Let database generate ID
+      });
+
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: req.user.claims.sub,
+        action: 'user_created',
+        targetType: 'user',
+        targetId: newUser.id,
+        details: { 
+          email: userData.email,
+          adminRole: userData.adminRole,
+          isStakTeamMember: userData.isStakTeamMember
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.status(201).json(newUser);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      res.status(500).json({ error: 'Failed to create user' });
+    }
+  });
+
+  app.put('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const userData = req.body;
+
+      // Get existing user for logging
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Update the user
+      const updatedUser = await storage.updateUser(userId, userData);
+
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: req.user.claims.sub,
+        action: 'user_updated',
+        targetType: 'user',
+        targetId: userId,
+        details: { 
+          changes: userData,
+          previousEmail: existingUser.email
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      res.status(500).json({ error: 'Failed to update user' });
+    }
+  });
+
+  app.delete('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+
+      // Get existing user for logging
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Delete the user
+      await storage.deleteUser(userId);
+
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: req.user.claims.sub,
+        action: 'user_deleted',
+        targetType: 'user',
+        targetId: userId,
+        details: { email: existingUser.email },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      res.status(500).json({ error: 'Failed to delete user' });
+    }
+  });
+
+  // Invite system API endpoints
+  app.post('/api/admin/invites', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminUserId = req.user.claims.sub;
+      const inviteData = req.body;
+
+      // Calculate expiration date
+      const expiresAt = inviteData.expiresIn 
+        ? new Date(Date.now() + parseInt(inviteData.expiresIn) * 24 * 60 * 60 * 1000)
+        : undefined;
+
+      const invite = await storage.createInvite({
+        createdByUserId: adminUserId,
+        invitedEmail: inviteData.invitedEmail || null,
+        adminRole: inviteData.adminRole || null,
+        isStakTeamMember: inviteData.isStakTeamMember || false,
+        maxUses: inviteData.maxUses || 1,
+        currentUses: 0,
+        expiresAt,
+      });
+
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId,
+        action: 'invite_created',
+        targetType: 'invite',
+        targetId: invite.id,
+        details: { 
+          inviteCode: invite.inviteCode,
+          invitedEmail: inviteData.invitedEmail,
+          adminRole: inviteData.adminRole
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.status(201).json(invite);
+    } catch (error) {
+      console.error('Error creating invite:', error);
+      res.status(500).json({ error: 'Failed to create invite' });
+    }
+  });
+
+  app.get('/api/admin/invites', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminUserId = req.user.claims.sub;
+      const invites = await storage.getInvitesByUser(adminUserId);
+      res.json(invites);
+    } catch (error) {
+      console.error('Error fetching invites:', error);
+      res.status(500).json({ error: 'Failed to fetch invites' });
+    }
+  });
+
+  // Public invite redemption endpoint
+  app.get('/api/invite/:inviteCode', async (req, res) => {
+    try {
+      const { inviteCode } = req.params;
+      const invite = await storage.getInvite(inviteCode);
+
+      if (!invite) {
+        return res.status(404).json({ error: 'Invite not found' });
+      }
+
+      // Check if invite is still valid
+      if (invite.expiresAt && new Date() > new Date(invite.expiresAt)) {
+        return res.status(400).json({ error: 'Invite has expired' });
+      }
+
+      if (invite.currentUses >= invite.maxUses) {
+        return res.status(400).json({ error: 'Invite has been fully used' });
+      }
+
+      res.json({
+        inviteCode: invite.inviteCode,
+        invitedEmail: invite.invitedEmail,
+        adminRole: invite.adminRole,
+        isStakTeamMember: invite.isStakTeamMember
+      });
+    } catch (error) {
+      console.error('Error fetching invite:', error);
+      res.status(500).json({ error: 'Failed to fetch invite' });
+    }
+  });
+
+  app.post('/api/invite/:inviteCode/use', isAuthenticated, async (req: any, res) => {
+    try {
+      const { inviteCode } = req.params;
+      const userId = req.user.claims.sub;
+
+      const invite = await storage.getInvite(inviteCode);
+      if (!invite) {
+        return res.status(404).json({ error: 'Invite not found' });
+      }
+
+      // Check if invite is still valid
+      if (invite.expiresAt && new Date() > new Date(invite.expiresAt)) {
+        return res.status(400).json({ error: 'Invite has expired' });
+      }
+
+      if (invite.currentUses >= invite.maxUses) {
+        return res.status(400).json({ error: 'Invite has been fully used' });
+      }
+
+      // Use the invite
+      await storage.useInvite(inviteCode, userId);
+
+      // Update user with invite permissions
+      if (invite.adminRole || invite.isStakTeamMember) {
+        await storage.updateUserRole(userId, invite.adminRole, invite.isStakTeamMember);
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error using invite:', error);
+      res.status(500).json({ error: 'Failed to use invite' });
+    }
+  });
+
   return httpServer;
 }

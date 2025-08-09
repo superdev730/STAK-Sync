@@ -86,6 +86,22 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Invite system for easy user onboarding
+export const invites = pgTable("invites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  inviteCode: varchar("invite_code").unique().notNull(),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => users.id),
+  invitedEmail: varchar("invited_email"),
+  adminRole: adminRoleEnum("admin_role"), // If set, user becomes admin
+  isStakTeamMember: boolean("is_stak_team_member").default(false),
+  usedByUserId: varchar("used_by_user_id").references(() => users.id),
+  maxUses: integer("max_uses").default(1),
+  currentUses: integer("current_uses").default(0),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  usedAt: timestamp("used_at"),
+});
+
 // Matches between users
 export const matches = pgTable("matches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -533,6 +549,19 @@ export const questionnaireResponsesRelations = relations(questionnaireResponses,
   }),
 }));
 
+export const invitesRelations = relations(invites, ({ one }) => ({
+  createdBy: one(users, {
+    fields: [invites.createdByUserId],
+    references: [users.id],
+    relationName: "createdBy",
+  }),
+  usedBy: one(users, {
+    fields: [invites.usedByUserId],
+    references: [users.id],
+    relationName: "usedBy",
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -605,6 +634,12 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   updatedAt: true,
 });
 
+export const insertInviteSchema = createInsertSchema(invites).omit({
+  id: true,
+  createdAt: true,
+  usedAt: true,
+});
+
 export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).omit({
   id: true,
   createdAt: true,
@@ -666,6 +701,8 @@ export type EventMatch = typeof eventMatches.$inferSelect;
 export type InsertEventMatch = z.infer<typeof insertEventMatchSchema>;
 export type EventAttendeeImport = typeof eventAttendeeImports.$inferSelect;
 export type InsertEventAttendeeImport = z.infer<typeof insertEventAttendeeImportSchema>;
+export type Invite = typeof invites.$inferSelect;
+export type InsertInvite = z.infer<typeof insertInviteSchema>;
 
 // Live event presence tracking
 export const eventPresence = pgTable("event_presence", {

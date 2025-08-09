@@ -10,6 +10,7 @@ import {
   roomParticipants,
   eventMatches,
   eventAttendeeImports,
+  invites,
   type User,
   type UpsertUser,
   type Match,
@@ -32,6 +33,8 @@ import {
   type InsertEventMatch,
   type EventAttendeeImport,
   type InsertEventAttendeeImport,
+  type Invite,
+  type InsertInvite,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, ilike, count } from "drizzle-orm";
@@ -93,9 +96,17 @@ export interface IStorage {
   
   // Admin user management
   isUserAdmin(userId: string): Promise<boolean>;
-  getAllUsers(page?: number, limit?: number): Promise<{ users: User[], total: number }>;
+  getAllUsers(page?: number, limit?: number, search?: string): Promise<{ users: User[], total: number }>;
   searchUsers(query: string): Promise<User[]>;
+  createUserByAdmin(userData: Partial<User>): Promise<User>;
   deleteUser(userId: string): Promise<void>;
+  updateUserRole(userId: string, adminRole?: string | null, isStakTeamMember?: boolean): Promise<User>;
+  
+  // Invite system
+  createInvite(inviteData: InsertInvite): Promise<Invite>;
+  getInvite(inviteCode: string): Promise<Invite | undefined>;
+  useInvite(inviteCode: string, userId: string): Promise<Invite>;
+  getInvitesByUser(userId: string): Promise<Invite[]>;
   
   // Additional admin methods (simplified for basic functionality)
   logAdminAction(log: any): Promise<any>;
@@ -596,15 +607,30 @@ export class DatabaseStorage implements IStorage {
     return !!(user?.adminRole);
   }
 
-  async getAllUsers(page: number = 1, limit: number = 50): Promise<{ users: User[], total: number }> {
+  async getAllUsers(page: number = 1, limit: number = 50, search?: string): Promise<{ users: User[], total: number }> {
     const offset = (page - 1) * limit;
     
-    const [totalResult] = await db.select({ count: count() }).from(users);
+    let baseQuery = db.select().from(users);
+    let countQuery = db.select({ count: count() }).from(users);
+    
+    // Add search filtering
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      const searchCondition = or(
+        ilike(users.firstName, searchTerm),
+        ilike(users.lastName, searchTerm),
+        ilike(users.email, searchTerm),
+        ilike(users.company, searchTerm)
+      );
+      
+      baseQuery = baseQuery.where(searchCondition);
+      countQuery = countQuery.where(searchCondition);
+    }
+    
+    const [totalResult] = await countQuery;
     const total = totalResult?.count || 0;
     
-    const allUsers = await db
-      .select()
-      .from(users)
+    const allUsers = await baseQuery
       .orderBy(desc(users.createdAt))
       .limit(limit)
       .offset(offset);
@@ -675,6 +701,91 @@ export class DatabaseStorage implements IStorage {
       updatedAt: new Date(),
       user: updatedUser
     };
+  }
+
+  // User creation by admin
+  async createUserByAdmin(userData: Partial<User>): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...userData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return user;
+  }
+
+  // Update user role
+  async updateUserRole(userId: string, adminRole?: string | null, isStakTeamMember?: boolean): Promise<User> {
+    const updates: any = { updatedAt: new Date() };
+    if (adminRole !== undefined) updates.adminRole = adminRole;
+    if (isStakTeamMember !== undefined) updates.isStakTeamMember = isStakTeamMember;
+
+    const [user] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    return user;
+  }
+
+  // Invite system methods
+  async createInvite(inviteData: InsertInvite): Promise<Invite> {
+    // Generate unique invite code
+    const inviteCode = Math.random().toString(36).substring(2, 12).toUpperCase();
+    
+    const [invite] = await db
+      .insert(invites)
+      .values({
+        ...inviteData,
+        inviteCode,
+        createdAt: new Date(),
+      })
+      .returning();
+    
+    return invite;
+  }
+
+  async getInvite(inviteCode: string): Promise<Invite | undefined> {
+    const [invite] = await db
+      .select()
+      .from(invites)
+      .where(eq(invites.inviteCode, inviteCode))
+      .limit(1);
+    
+    return invite;
+  }
+
+  async useInvite(inviteCode: string, userId: string): Promise<Invite> {
+    const [invite] = await db
+      .update(invites)
+      .set({
+        usedByUserId: userId,
+        currentUses: sql`${invites.currentUses} + 1`,
+        usedAt: new Date(),
+      })
+      .where(eq(invites.inviteCode, inviteCode))
+      .returning();
+    
+    if (!invite) {
+      throw new Error('Invite not found');
+    }
+    
+    return invite;
+  }
+
+  async getInvitesByUser(userId: string): Promise<Invite[]> {
+    return await db
+      .select()
+      .from(invites)
+      .where(eq(invites.createdByUserId, userId))
+      .orderBy(desc(invites.createdAt));
   }
 }
 

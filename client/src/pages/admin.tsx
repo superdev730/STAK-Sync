@@ -403,7 +403,7 @@ function AdminDashboard() {
               <BarChart3 className="h-4 w-4 mr-2" />
               Analytics
             </TabsTrigger>
-            <TabsTrigger value="users" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
+            <TabsTrigger value="users" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600" onClick={() => window.location.href = '/admin/users'}>
               <Users className="h-4 w-4 mr-2" />
               User Management
             </TabsTrigger>
