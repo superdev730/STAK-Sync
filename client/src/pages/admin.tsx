@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Link } from "wouter";
 import { 
   Users, 
   Calendar as CalendarIcon, 
@@ -609,12 +610,14 @@ function AdminDashboard() {
                                     {user.firstName?.[0] || user.email[0].toUpperCase()}
                                   </div>
                                   <div>
-                                    <p className="text-gray-900 font-medium">
-                                      {user.firstName && user.lastName 
-                                        ? `${user.firstName} ${user.lastName}` 
-                                        : user.email.split('@')[0]
-                                      }
-                                    </p>
+                                    <Link href={`/admin/user/${user.id}`}>
+                                      <p className="text-gray-900 font-medium hover:text-stak-copper cursor-pointer transition-colors">
+                                        {user.firstName && user.lastName 
+                                          ? `${user.firstName} ${user.lastName}` 
+                                          : user.email.split('@')[0]
+                                        }
+                                      </p>
+                                    </Link>
                                     <p className="text-sm text-gray-600">{user.company || 'No company'}</p>
                                   </div>
                                 </div>

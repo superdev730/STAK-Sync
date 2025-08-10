@@ -303,6 +303,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoint to get detailed user profile for analysis
+  app.get('/api/admin/user/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      if (!adminUser?.adminRole || !['admin', 'super_admin', 'owner'].includes(adminUser.adminRole)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { userId } = req.params;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching admin user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+
+  // Admin endpoint to get user match analytics for analysis
+  app.get('/api/admin/user/:userId/match-analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      if (!adminUser?.adminRole || !['admin', 'super_admin', 'owner'].includes(adminUser.adminRole)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { userId } = req.params;
+      const userMatches = await storage.getMatches(userId);
+      
+      // Calculate analytics
+      const totalMatches = userMatches.length;
+      const connectedMatches = userMatches.filter(m => m.status === 'connected').length;
+      const pendingMatches = userMatches.filter(m => m.status === 'pending').length;
+      const passedMatches = userMatches.filter(m => m.status === 'passed').length;
+      
+      const avgMatchScore = totalMatches > 0 
+        ? Math.round(userMatches.reduce((sum, m) => sum + m.matchScore, 0) / totalMatches)
+        : 0;
+
+      const topIndustries = userMatches
+        .filter(m => m.matchedUser?.industries)
+        .flatMap(m => m.matchedUser.industries || [])
+        .reduce((acc: Record<string, number>, industry: string) => {
+          acc[industry] = (acc[industry] || 0) + 1;
+          return acc;
+        }, {});
+
+      const analytics = {
+        totalMatches,
+        connectedMatches,
+        pendingMatches,
+        passedMatches,
+        connectionRate: totalMatches > 0 ? Math.round((connectedMatches / totalMatches) * 100) : 0,
+        avgMatchScore,
+        topIndustries: Object.entries(topIndustries)
+          .sort(([,a], [,b]) => (b as number) - (a as number))
+          .slice(0, 5)
+          .map(([industry, count]) => ({ industry, count })),
+        recentActivity: userMatches
+          .filter(m => m.createdAt)
+          .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+          .slice(0, 5)
+          .map(m => ({
+            type: 'match',
+            description: `${m.status === 'connected' ? 'Connected with' : 'New match:'} ${m.matchedUser?.firstName} ${m.matchedUser?.lastName}`,
+            score: m.matchScore,
+            date: m.createdAt
+          }))
+      };
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching admin user match analytics:", error);
+      res.status(500).json({ message: "Failed to fetch user match analytics" });
+    }
+  });
+
+  // Admin endpoint to get user matches for detailed analysis
+  app.get('/api/admin/user/:userId/matches', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      if (!adminUser?.adminRole || !['admin', 'super_admin', 'owner'].includes(adminUser.adminRole)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { userId } = req.params;
+      const userMatches = await storage.getMatches(userId);
+      
+      res.json(userMatches);
+    } catch (error) {
+      console.error("Error fetching admin user matches:", error);
+      res.status(500).json({ message: "Failed to fetch user matches" });
+    }
+  });
+
 
 
   // Generate AI matches (authenticated)

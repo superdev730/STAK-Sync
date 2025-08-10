@@ -13,6 +13,7 @@ import EventsNew from "@/pages/events-new";
 import LiveDashboard from "@/pages/live-dashboard";
 import Admin from "@/pages/admin";
 import AdminUsers from "@/pages/admin-users";
+import AdminUserProfile from "@/pages/admin-user-profile";
 import AdminEvents from "@/pages/admin-events";
 import AdminBilling from "@/pages/admin-billing";
 import AdminSponsors from "@/pages/admin-sponsors";
@@ -55,6 +56,7 @@ function Router() {
             <Route path="/live-dashboard" component={LiveDashboard} />
             <Route path="/admin" component={Admin} />
             <Route path="/admin/users" component={AdminUsers} />
+            <Route path="/admin/user/:userId" component={AdminUserProfile} />
             <Route path="/admin/events" component={AdminEvents} />
             <Route path="/admin/billing" component={AdminBilling} />
             <Route path="/admin/sponsors" component={AdminSponsors} />
