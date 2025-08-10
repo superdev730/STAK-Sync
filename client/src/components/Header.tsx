@@ -29,20 +29,15 @@ export default function Header() {
   });
 
   // Calculate unread message count
-  const unreadMessages = conversations?.filter(conv => 
+  const unreadMessages = Array.isArray(conversations) ? conversations.filter((conv: any) => 
     conv.senderId !== user?.id && !conv.isRead
-  ).length || 0;
+  ).length : 0;
 
-  // Calculate new matches count (matches from last 7 days)
-  const newMatches = matches?.filter(match => {
-    const matchDate = new Date(match.createdAt);
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    return matchDate > weekAgo;
-  }).length || 0;
+  // Calculate total matches count (show all matches, not just new ones)
+  const totalMatches = Array.isArray(matches) ? matches.length : 0;
 
   // Calculate total notifications
-  const totalNotifications = unreadMessages + newMatches;
+  const totalNotifications = unreadMessages;
 
   const navigation = [
     { name: "Home", href: "/landing" },
@@ -51,7 +46,7 @@ export default function Header() {
     { 
       name: "Matches", 
       href: "/matches",
-      count: newMatches 
+      count: totalMatches 
     },
     { 
       name: "Messages", 
