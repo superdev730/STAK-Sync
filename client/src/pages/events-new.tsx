@@ -159,7 +159,7 @@ export default function EventsNew() {
 
   // Queries
   const { data: events = [], isLoading } = useQuery<Event[]>({
-    queryKey: ["/api/events/new"],
+    queryKey: ["/api/events"],
   });
 
   const { data: myEvents = [] } = useQuery<Event[]>({
@@ -175,14 +175,14 @@ export default function EventsNew() {
   // Mutations
   const createEventMutation = useMutation({
     mutationFn: async (eventData: any) => {
-      return await apiRequest("POST", "/api/events/create", eventData);
+      return await apiRequest("POST", "/api/events", eventData);
     },
     onSuccess: () => {
       toast({
         title: "Event Created",
         description: "Your event has been created successfully!",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/events/new"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events/my-events"] });
       setShowCreateDialog(false);
       resetForm();
@@ -212,7 +212,7 @@ export default function EventsNew() {
         title: "Registration Successful",
         description: "You've been registered for this event!",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/events/new"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
     },
     onError: (error: any) => {
       toast({
