@@ -37,7 +37,7 @@ import {
 } from "@shared/schema";
 import { csvImportService } from "./csvImportService";
 import { db } from "./db";
-import { eq, and, or, sum, count, gte, sql, ilike, inArray, desc } from "drizzle-orm";
+import { eq, and, or, sum, count, gte, lt, sql, ilike, inArray, desc } from "drizzle-orm";
 import { generateQuickResponses } from "./aiResponses";
 import { tokenUsageService } from "./tokenUsageService";
 import { ObjectStorageService } from "./objectStorage";

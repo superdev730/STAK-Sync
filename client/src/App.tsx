@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
+import HomeNew from "@/pages/home-new";
 import Discover from "@/pages/discover";
 import Matches from "@/pages/matches";
 import Messages from "@/pages/messages";
@@ -50,7 +51,7 @@ function Router() {
       ) : (
         <Layout>
           <Switch>
-            <Route path="/" component={Home} />
+            <Route path="/" component={HomeNew} />
             <Route path="/discover" component={Discover} />
             <Route path="/matches" component={Matches} />
             <Route path="/messages" component={Messages} />
