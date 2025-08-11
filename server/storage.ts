@@ -110,6 +110,8 @@ export interface IStorage {
   unregisterFromEvent(eventId: string, userId: string): Promise<void>;
   getEventRegistrations(eventId: string): Promise<(EventRegistration & { user: User })[]>;
   getUserEventRegistrations(userId: string): Promise<(EventRegistration & { event: Event })[]>;
+  getUserEventRegistration(eventId: string, userId: string): Promise<EventRegistration | undefined>;
+  getEventRegistrationCount(eventId: string): Promise<number>;
   
   // Event room operations
   getEventRooms(eventId: string): Promise<(EventRoom & { participantCount: number; participants: (RoomParticipant & { user: User })[] })[]>;
@@ -568,6 +570,27 @@ export class DatabaseStorage implements IStorage {
       ...row.registration,
       event: row.event,
     }));
+  }
+
+  async getUserEventRegistration(eventId: string, userId: string): Promise<EventRegistration | undefined> {
+    const [registration] = await db
+      .select()
+      .from(eventRegistrations)
+      .where(
+        and(
+          eq(eventRegistrations.eventId, eventId),
+          eq(eventRegistrations.userId, userId)
+        )
+      );
+    return registration;
+  }
+
+  async getEventRegistrationCount(eventId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(eventRegistrations)
+      .where(eq(eventRegistrations.eventId, eventId));
+    return result?.count || 0;
   }
 
   async getPendingEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]> {

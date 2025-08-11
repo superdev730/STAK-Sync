@@ -1626,22 +1626,7 @@ END:VCALENDAR`;
     }
   });
 
-  app.post('/api/events/:eventId/register', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.claims?.sub;
-      const { eventId } = req.params;
 
-      const registration = await storage.registerForEvent({
-        eventId,
-        userId
-      });
-
-      res.json(registration);
-    } catch (error) {
-      console.error('Error registering for event:', error);
-      res.status(500).json({ error: 'Failed to register for event' });
-    }
-  });
 
   app.delete('/api/events/:eventId/register', isAuthenticated, async (req: any, res) => {
     try {
@@ -2783,46 +2768,35 @@ END:VCALENDAR`;
     }
   });
 
-  // Register for event
+  // Register for event with comprehensive validation and payment handling
   app.post('/api/events/:eventId/register', isAuthenticated, async (req: any, res) => {
     try {
       const { eventId } = req.params;
       const { ticketTypeId, lineItemIds = [] } = req.body;
       const userId = req.user?.claims?.sub;
 
-      // Check if already registered
-      const [existingReg] = await db
-        .select()
-        .from(eventRegistrations)
-        .where(and(
-          eq(eventRegistrations.eventId, eventId),
-          eq(eventRegistrations.userId, userId)
-        ));
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
 
-      if (existingReg) {
+      // Check if user is already registered using storage method
+      const existingRegistration = await storage.getUserEventRegistration(eventId, userId);
+      if (existingRegistration) {
         return res.status(400).json({ message: 'Already registered for this event' });
       }
 
-      // Check event capacity
-      const [event] = await db
-        .select()
-        .from(events)
-        .where(eq(events.id, eventId));
-
+      // Check if event exists and has capacity using storage method
+      const event = await storage.getEvent(eventId);
       if (!event) {
         return res.status(404).json({ message: 'Event not found' });
       }
 
-      const [regCount] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(eventRegistrations)
-        .where(eq(eventRegistrations.eventId, eventId));
-
-      if (regCount.count >= event.capacity) {
+      const registrationCount = await storage.getEventRegistrationCount(eventId);
+      if (registrationCount >= event.capacity) {
         return res.status(400).json({ message: 'Event is at capacity' });
       }
 
-      // Calculate total amount
+      // Calculate total amount based on event pricing
       let totalAmount = parseFloat(event.basePrice || '0');
 
       if (ticketTypeId) {
@@ -2836,7 +2810,7 @@ END:VCALENDAR`;
         }
       }
 
-      // Add line item costs
+      // Add line item costs if provided
       if (lineItemIds.length > 0) {
         const lineItems = await db
           .select()
@@ -2846,18 +2820,15 @@ END:VCALENDAR`;
         totalAmount += lineItems.reduce((sum, item) => sum + parseFloat(item.price), 0);
       }
 
-      // Create registration
-      const [registration] = await db
-        .insert(eventRegistrations)
-        .values({
-          eventId,
-          userId,
-          ticketTypeId,
-          totalAmount: totalAmount.toString(),
-          paymentStatus: totalAmount > 0 ? 'pending' : 'paid',
-          additionalInfo: { lineItemIds },
-        })
-        .returning();
+      // Create registration using storage method
+      const registration = await storage.registerForEvent({
+        eventId,
+        userId,
+        ticketTypeId,
+        totalAmount: totalAmount.toString(),
+        paymentStatus: totalAmount > 0 ? 'pending' : 'paid',
+        additionalInfo: { lineItemIds },
+      });
 
       res.json({ success: true, registration });
     } catch (error) {
@@ -3860,39 +3831,7 @@ END:VCALENDAR`;
     }
   });
 
-  app.post('/api/events/:eventId/register', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { eventId } = req.params;
 
-      // Check if user is already registered
-      const existingRegistration = await storage.getUserEventRegistration(eventId, userId);
-      if (existingRegistration) {
-        return res.status(400).json({ message: 'Already registered for this event' });
-      }
-
-      // Check if event has capacity
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: 'Event not found' });
-      }
-
-      const registrationCount = await storage.getEventRegistrationCount(eventId);
-      if (registrationCount >= event.capacity) {
-        return res.status(400).json({ message: 'Event is at capacity' });
-      }
-
-      // Register user for event
-      const registration = await storage.registerForEvent({
-        eventId,
-        userId
-      });
-      res.json(registration);
-    } catch (error) {
-      console.error('Error registering for event:', error);
-      res.status(500).json({ message: 'Failed to register for event' });
-    }
-  });
 
   // AI Guide API route
   app.post('/api/ai/guide', isAuthenticated, async (req: any, res) => {
