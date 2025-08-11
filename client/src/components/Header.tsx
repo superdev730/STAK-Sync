@@ -46,12 +46,12 @@ export default function Header() {
     { 
       name: "Matches", 
       href: "/matches",
-      count: totalMatches 
+      count: totalMatches > 0 ? totalMatches : undefined
     },
     { 
       name: "Messages", 
       href: "/messages",
-      count: unreadMessages 
+      count: unreadMessages > 0 ? unreadMessages : undefined
     },
     { name: "Events", href: "/events" },
   ];
@@ -103,7 +103,7 @@ export default function Header() {
                     }`}
                   >
                     {item.name}
-                    {item.count && item.count > 0 && (
+                    {item.count && (
                       <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white border-0 flex items-center justify-center">
                         {item.count > 99 ? '99+' : item.count}
                       </Badge>
