@@ -715,6 +715,123 @@ export const insertEventAttendeeGoalSchema = createInsertSchema(eventAttendeeGoa
   updatedAt: true,
 });
 
+// Event Matchmaking Tables for AI-powered pre-event matching
+export const eventMatchmakingRuns = pgTable("event_matchmaking_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  runType: varchar("run_type").notNull(), // "pre_event", "live_event", "final"
+  status: varchar("status").notNull().default("pending"), // "pending", "running", "completed", "failed"
+  totalAttendees: integer("total_attendees").notNull().default(0),
+  matchesGenerated: integer("matches_generated").notNull().default(0),
+  avgMatchScore: decimal("avg_match_score", { precision: 5, scale: 2 }),
+  executionTimeMs: integer("execution_time_ms"),
+  errorMessage: text("error_message"),
+  scheduledFor: timestamp("scheduled_for"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const preEventMatches = pgTable("pre_event_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  matchmakingRunId: varchar("matchmaking_run_id").notNull().references(() => eventMatchmakingRuns.id),
+  user1Id: varchar("user1_id").notNull().references(() => users.id),
+  user2Id: varchar("user2_id").notNull().references(() => users.id),
+  matchScore: decimal("match_score", { precision: 5, scale: 2 }).notNull(),
+  compatibilityFactors: jsonb("compatibility_factors").$type<{
+    sharedInterests: string[];
+    industryAlignment: number;
+    goalAlignment: number;
+    roleComplementarity: number;
+    experienceLevel: number;
+    networkingGoalMatch: number;
+  }>(),
+  recommendedMeetingType: varchar("recommended_meeting_type"), // "coffee", "formal_meeting", "group_discussion"
+  suggestedTopics: text("suggested_topics").array(),
+  priorityLevel: varchar("priority_level").notNull().default("medium"), // "high", "medium", "low"
+  notificationSent: boolean("notification_sent").notNull().default(false),
+  userViewed: boolean("user_viewed").notNull().default(false),
+  meetingScheduled: boolean("meeting_scheduled").notNull().default(false),
+  matchReasoning: text("match_reasoning"), // AI-generated explanation
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const eventNotifications = pgTable("event_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  notificationType: varchar("notification_type").notNull(), // "goals_reminder", "matches_available", "event_starting"
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  sentAt: timestamp("sent_at"),
+  status: varchar("status").notNull().default("scheduled"), // "scheduled", "sent", "failed"
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  actionUrl: varchar("action_url"),
+  metadata: jsonb("metadata").$type<{
+    goalsCount?: number;
+    matchesCount?: number;
+    eventStartTime?: string;
+    reminderType?: string;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Event Matchmaking Relations
+export const eventMatchmakingRunsRelations = relations(eventMatchmakingRuns, ({ one, many }) => ({
+  event: one(events, {
+    fields: [eventMatchmakingRuns.eventId],
+    references: [events.id],
+  }),
+  matches: many(preEventMatches),
+}));
+
+export const preEventMatchesRelations = relations(preEventMatches, ({ one }) => ({
+  event: one(events, {
+    fields: [preEventMatches.eventId],
+    references: [events.id],
+  }),
+  matchmakingRun: one(eventMatchmakingRuns, {
+    fields: [preEventMatches.matchmakingRunId],
+    references: [eventMatchmakingRuns.id],
+  }),
+  user1: one(users, {
+    fields: [preEventMatches.user1Id],
+    references: [users.id],
+  }),
+  user2: one(users, {
+    fields: [preEventMatches.user2Id],
+    references: [users.id],
+  }),
+}));
+
+export const eventNotificationsRelations = relations(eventNotifications, ({ one }) => ({
+  event: one(events, {
+    fields: [eventNotifications.eventId],
+    references: [events.id],
+  }),
+  user: one(users, {
+    fields: [eventNotifications.userId],
+    references: [users.id],
+  }),
+}));
+
+// Schemas for new matchmaking tables
+export const insertEventMatchmakingRunSchema = createInsertSchema(eventMatchmakingRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPreEventMatchSchema = createInsertSchema(preEventMatches).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEventNotificationSchema = createInsertSchema(eventNotifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Billing insert schemas
 export const insertTokenUsageSchema = createInsertSchema(tokenUsage).omit({
   id: true,
@@ -821,6 +938,14 @@ export type EventAttendeeGoal = typeof eventAttendeeGoals.$inferSelect;
 export type InsertEventAttendeeGoal = z.infer<typeof insertEventAttendeeGoalSchema>;
 export type Invite = typeof invites.$inferSelect;
 export type InsertInvite = z.infer<typeof insertInviteSchema>;
+
+// Event Matchmaking Types
+export type EventMatchmakingRun = typeof eventMatchmakingRuns.$inferSelect;
+export type InsertEventMatchmakingRun = z.infer<typeof insertEventMatchmakingRunSchema>;
+export type PreEventMatch = typeof preEventMatches.$inferSelect;
+export type InsertPreEventMatch = z.infer<typeof insertPreEventMatchSchema>;
+export type EventNotification = typeof eventNotifications.$inferSelect;
+export type InsertEventNotification = z.infer<typeof insertEventNotificationSchema>;
 
 // Live event presence tracking
 export const eventPresence = pgTable("event_presence", {

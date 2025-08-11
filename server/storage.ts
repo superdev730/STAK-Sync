@@ -11,6 +11,9 @@ import {
   eventMatches,
   eventAttendeeImports,
   eventAttendeeGoals,
+  eventMatchmakingRuns,
+  preEventMatches,
+  eventNotifications,
   invites,
   type User,
   type UpsertUser,
@@ -36,11 +39,17 @@ import {
   type InsertEventAttendeeImport,
   type EventAttendeeGoal,
   type InsertEventAttendeeGoal,
+  type EventMatchmakingRun,
+  type InsertEventMatchmakingRun,
+  type PreEventMatch,
+  type InsertPreEventMatch,
+  type EventNotification,
+  type InsertEventNotification,
   type Invite,
   type InsertInvite,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, sql, ilike, count } from "drizzle-orm";
+import { eq, desc, and, or, sql, ilike, count, lte, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -1071,6 +1080,477 @@ export class DatabaseStorage implements IStorage {
     }
 
     return suggestions.slice(0, 3); // Return top 3 suggestions
+  }
+
+  // Event Matchmaking Methods
+  async createMatchmakingRun(run: InsertEventMatchmakingRun): Promise<EventMatchmakingRun> {
+    const [result] = await db
+      .insert(eventMatchmakingRuns)
+      .values(run)
+      .returning();
+    return result;
+  }
+
+  async getMatchmakingRun(runId: string): Promise<EventMatchmakingRun | undefined> {
+    const [result] = await db
+      .select()
+      .from(eventMatchmakingRuns)
+      .where(eq(eventMatchmakingRuns.id, runId));
+    return result;
+  }
+
+  async updateMatchmakingRun(runId: string, updates: Partial<EventMatchmakingRun>): Promise<void> {
+    await db
+      .update(eventMatchmakingRuns)
+      .set({ ...updates })
+      .where(eq(eventMatchmakingRuns.id, runId));
+  }
+
+  async createPreEventMatch(match: InsertPreEventMatch): Promise<PreEventMatch> {
+    const [result] = await db
+      .insert(preEventMatches)
+      .values(match)
+      .returning();
+    return result;
+  }
+
+  async getPreEventMatches(eventId: string, userId?: string): Promise<PreEventMatch[]> {
+    const query = db
+      .select()
+      .from(preEventMatches)
+      .where(eq(preEventMatches.eventId, eventId));
+
+    if (userId) {
+      return await query.where(
+        or(
+          eq(preEventMatches.user1Id, userId),
+          eq(preEventMatches.user2Id, userId)
+        )
+      );
+    }
+
+    return await query;
+  }
+
+  async scheduleEventNotification(notification: InsertEventNotification): Promise<EventNotification> {
+    const [result] = await db
+      .insert(eventNotifications)
+      .values(notification)
+      .returning();
+    return result;
+  }
+
+  async getPendingNotifications(): Promise<EventNotification[]> {
+    return await db
+      .select()
+      .from(eventNotifications)
+      .where(
+        and(
+          eq(eventNotifications.status, "scheduled"),
+          lte(eventNotifications.scheduledFor, new Date())
+        )
+      );
+  }
+
+  async markNotificationSent(notificationId: string): Promise<void> {
+    await db
+      .update(eventNotifications)
+      .set({ 
+        status: "sent", 
+        sentAt: new Date() 
+      })
+      .where(eq(eventNotifications.id, notificationId));
+  }
+
+  async getUsersWithoutEventGoals(eventId: string): Promise<User[]> {
+    // Get registered users who haven't set any goals for this event
+    const usersWithoutGoals = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        displayName: users.displayName,
+        bio: users.bio,
+        industries: users.industries,
+        skills: users.skills,
+        networkingGoals: users.networkingGoals,
+      })
+      .from(users)
+      .innerJoin(eventRegistrations, eq(users.id, eventRegistrations.userId))
+      .leftJoin(
+        eventAttendeeGoals,
+        and(
+          eq(eventAttendeeGoals.eventId, eventId),
+          eq(eventAttendeeGoals.userId, users.id),
+          eq(eventAttendeeGoals.isActive, true)
+        )
+      )
+      .where(
+        and(
+          eq(eventRegistrations.eventId, eventId),
+          isNull(eventAttendeeGoals.id) // No goals set
+        )
+      );
+
+    return usersWithoutGoals;
+  }
+
+  async runAIMatchmaking(eventId: string): Promise<{
+    matchmakingRunId: string;
+    matchesGenerated: number;
+    avgScore: number;
+  }> {
+    const startTime = Date.now();
+    
+    // Create matchmaking run record
+    const matchmakingRun = await this.createMatchmakingRun({
+      eventId,
+      runType: "pre_event",
+      status: "running",
+      startedAt: new Date(),
+    });
+
+    try {
+      // Get all registered attendees with their goals
+      const attendees = await db
+        .select({
+          user: users,
+          goals: eventAttendeeGoals,
+        })
+        .from(users)
+        .innerJoin(eventRegistrations, eq(users.id, eventRegistrations.userId))
+        .leftJoin(
+          eventAttendeeGoals,
+          and(
+            eq(eventAttendeeGoals.eventId, eventId),
+            eq(eventAttendeeGoals.userId, users.id),
+            eq(eventAttendeeGoals.isActive, true)
+          )
+        )
+        .where(eq(eventRegistrations.eventId, eventId));
+
+      // Group goals by user
+      const attendeeMap = new Map();
+      attendees.forEach(({ user, goals }) => {
+        if (!attendeeMap.has(user.id)) {
+          attendeeMap.set(user.id, {
+            user,
+            goals: [],
+          });
+        }
+        if (goals) {
+          attendeeMap.get(user.id).goals.push(goals);
+        }
+      });
+
+      const attendeeList = Array.from(attendeeMap.values());
+      const matches: InsertPreEventMatch[] = [];
+      let totalScore = 0;
+
+      // Generate matches between all pairs of attendees
+      for (let i = 0; i < attendeeList.length; i++) {
+        for (let j = i + 1; j < attendeeList.length; j++) {
+          const attendee1 = attendeeList[i];
+          const attendee2 = attendeeList[j];
+          
+          const matchData = this.calculateMatchScore(attendee1, attendee2);
+          
+          // Only create matches with score > 30
+          if (matchData.score > 30) {
+            matches.push({
+              eventId,
+              matchmakingRunId: matchmakingRun.id,
+              user1Id: attendee1.user.id,
+              user2Id: attendee2.user.id,
+              matchScore: matchData.score.toString(),
+              compatibilityFactors: matchData.factors,
+              recommendedMeetingType: matchData.meetingType,
+              suggestedTopics: matchData.topics,
+              priorityLevel: matchData.score > 70 ? "high" : matchData.score > 50 ? "medium" : "low",
+              matchReasoning: matchData.reasoning,
+            });
+            totalScore += matchData.score;
+          }
+        }
+      }
+
+      // Batch insert matches
+      if (matches.length > 0) {
+        await db.insert(preEventMatches).values(matches);
+      }
+
+      const avgScore = matches.length > 0 ? totalScore / matches.length : 0;
+      const executionTime = Date.now() - startTime;
+
+      // Update matchmaking run with results
+      await this.updateMatchmakingRun(matchmakingRun.id, {
+        status: "completed",
+        totalAttendees: attendeeList.length,
+        matchesGenerated: matches.length,
+        avgMatchScore: avgScore.toString(),
+        executionTimeMs: executionTime,
+        completedAt: new Date(),
+      });
+
+      return {
+        matchmakingRunId: matchmakingRun.id,
+        matchesGenerated: matches.length,
+        avgScore,
+      };
+
+    } catch (error) {
+      // Update run with error status
+      await this.updateMatchmakingRun(matchmakingRun.id, {
+        status: "failed",
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+        completedAt: new Date(),
+      });
+      throw error;
+    }
+  }
+
+  private calculateMatchScore(
+    attendee1: { user: User; goals: EventAttendeeGoal[] },
+    attendee2: { user: User; goals: EventAttendeeGoal[] }
+  ): {
+    score: number;
+    factors: any;
+    meetingType: string;
+    topics: string[];
+    reasoning: string;
+  } {
+    const user1 = attendee1.user;
+    const user2 = attendee2.user;
+    const goals1 = attendee1.goals;
+    const goals2 = attendee2.goals;
+
+    // Calculate various compatibility factors
+    const industryAlignment = this.calculateIndustryAlignment(user1.industries, user2.industries);
+    const skillsAlignment = this.calculateSkillsAlignment(user1.skills, user2.skills);
+    const goalAlignment = this.calculateGoalAlignment(goals1, goals2);
+    const roleComplementarity = this.calculateRoleComplementarity(user1, user2);
+    const networkingGoalMatch = this.calculateNetworkingGoalMatch(user1.networkingGoals, user2.networkingGoals);
+
+    // Weight and combine factors
+    const score = Math.round(
+      (industryAlignment * 0.25) +
+      (skillsAlignment * 0.2) +
+      (goalAlignment * 0.3) +
+      (roleComplementarity * 0.15) +
+      (networkingGoalMatch * 0.1)
+    );
+
+    const sharedInterests = this.findSharedInterests(user1, user2, goals1, goals2);
+    const suggestedTopics = this.generateSuggestedTopics(user1, user2, goals1, goals2);
+    const meetingType = this.recommendMeetingType(score, goals1, goals2);
+    const reasoning = this.generateMatchReasoning(user1, user2, goals1, goals2, score);
+
+    return {
+      score,
+      factors: {
+        sharedInterests,
+        industryAlignment,
+        goalAlignment,
+        roleComplementarity,
+        experienceLevel: Math.min(skillsAlignment, 80),
+        networkingGoalMatch,
+      },
+      meetingType,
+      topics: suggestedTopics,
+      reasoning,
+    };
+  }
+
+  private calculateIndustryAlignment(industries1?: string[], industries2?: string[]): number {
+    if (!industries1 || !industries2 || industries1.length === 0 || industries2.length === 0) {
+      return 30; // Default score for missing data
+    }
+    
+    const set1 = new Set(industries1);
+    const set2 = new Set(industries2);
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+    
+    return Math.round((intersection.size / union.size) * 100);
+  }
+
+  private calculateSkillsAlignment(skills1?: string, skills2?: string): number {
+    if (!skills1 || !skills2) return 40; // Default score
+    
+    const skillsArray1 = skills1.split(',').map(s => s.trim().toLowerCase());
+    const skillsArray2 = skills2.split(',').map(s => s.trim().toLowerCase());
+    
+    const set1 = new Set(skillsArray1);
+    const set2 = new Set(skillsArray2);
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    
+    return Math.min(Math.round((intersection.size / Math.max(set1.size, set2.size)) * 100), 80);
+  }
+
+  private calculateGoalAlignment(goals1: EventAttendeeGoal[], goals2: EventAttendeeGoal[]): number {
+    if (goals1.length === 0 || goals2.length === 0) return 20; // Low score for missing goals
+    
+    let alignmentScore = 0;
+    let comparisons = 0;
+    
+    for (const goal1 of goals1) {
+      for (const goal2 of goals2) {
+        // Check for complementary goals (e.g., one seeking investors, other offering investment)
+        if (this.areGoalsComplementary(goal1, goal2)) {
+          alignmentScore += 90;
+        } else if (goal1.goalType === goal2.goalType) {
+          alignmentScore += 60;
+        } else {
+          alignmentScore += 20;
+        }
+        comparisons++;
+      }
+    }
+    
+    return comparisons > 0 ? Math.round(alignmentScore / comparisons) : 20;
+  }
+
+  private areGoalsComplementary(goal1: EventAttendeeGoal, goal2: EventAttendeeGoal): boolean {
+    const complementaryPairs = [
+      ["investment", "funding"],
+      ["hiring", "job_seeking"],
+      ["partnership", "collaboration"],
+      ["mentoring", "learning"],
+    ];
+    
+    return complementaryPairs.some(([type1, type2]) => 
+      (goal1.goalType === type1 && goal2.goalType === type2) ||
+      (goal1.goalType === type2 && goal2.goalType === type1)
+    );
+  }
+
+  private calculateRoleComplementarity(user1: User, user2: User): number {
+    // This would be enhanced with actual role/title fields
+    // For now, use a simple scoring based on networking goals and industries
+    if (user1.networkingGoals && user2.networkingGoals) {
+      const goals1 = user1.networkingGoals.toLowerCase();
+      const goals2 = user2.networkingGoals.toLowerCase();
+      
+      if ((goals1.includes('investor') && goals2.includes('founder')) ||
+          (goals1.includes('founder') && goals2.includes('investor'))) {
+        return 85;
+      }
+      if ((goals1.includes('mentor') && goals2.includes('mentee')) ||
+          (goals1.includes('mentee') && goals2.includes('mentor'))) {
+        return 80;
+      }
+    }
+    return 50; // Default neutral score
+  }
+
+  private calculateNetworkingGoalMatch(goals1?: string, goals2?: string): number {
+    if (!goals1 || !goals2) return 30;
+    
+    const goalWords1 = goals1.toLowerCase().split(',').map(g => g.trim());
+    const goalWords2 = goals2.toLowerCase().split(',').map(g => g.trim());
+    
+    const commonWords = goalWords1.filter(word => 
+      goalWords2.some(word2 => word2.includes(word) || word.includes(word2))
+    );
+    
+    return Math.min(Math.round((commonWords.length / Math.max(goalWords1.length, goalWords2.length)) * 100), 70);
+  }
+
+  private findSharedInterests(
+    user1: User, 
+    user2: User, 
+    goals1: EventAttendeeGoal[], 
+    goals2: EventAttendeeGoal[]
+  ): string[] {
+    const interests = new Set<string>();
+    
+    // Add shared industries
+    const industries1 = user1.industries || [];
+    const industries2 = user2.industries || [];
+    industries1.forEach(industry => {
+      if (industries2.includes(industry)) {
+        interests.add(industry);
+      }
+    });
+    
+    // Add shared goal interests
+    goals1.forEach(goal1 => {
+      goals2.forEach(goal2 => {
+        goal1.specificInterests?.forEach(interest => {
+          if (goal2.specificInterests?.includes(interest)) {
+            interests.add(interest);
+          }
+        });
+      });
+    });
+    
+    return Array.from(interests).slice(0, 5);
+  }
+
+  private generateSuggestedTopics(
+    user1: User, 
+    user2: User, 
+    goals1: EventAttendeeGoal[], 
+    goals2: EventAttendeeGoal[]
+  ): string[] {
+    const topics = new Set<string>();
+    
+    // Add industry-specific topics
+    const sharedIndustries = (user1.industries || []).filter(industry => 
+      (user2.industries || []).includes(industry)
+    );
+    sharedIndustries.forEach(industry => topics.add(`${industry} Trends`));
+    
+    // Add goal-based topics
+    goals1.forEach(goal => {
+      if (goal.goalType === "networking") topics.add("Professional Networking");
+      if (goal.goalType === "investment") topics.add("Investment Opportunities");
+      if (goal.goalType === "partnership") topics.add("Strategic Partnerships");
+      if (goal.goalType === "learning") topics.add("Industry Best Practices");
+    });
+    
+    return Array.from(topics).slice(0, 4);
+  }
+
+  private recommendMeetingType(score: number, goals1: EventAttendeeGoal[], goals2: EventAttendeeGoal[]): string {
+    if (score > 70) return "formal_meeting";
+    if (score > 50) return "coffee";
+    return "group_discussion";
+  }
+
+  private generateMatchReasoning(
+    user1: User, 
+    user2: User, 
+    goals1: EventAttendeeGoal[], 
+    goals2: EventAttendeeGoal[],
+    score: number
+  ): string {
+    const reasons = [];
+    
+    // Industry alignment
+    const sharedIndustries = (user1.industries || []).filter(industry => 
+      (user2.industries || []).includes(industry)
+    );
+    if (sharedIndustries.length > 0) {
+      reasons.push(`Both work in ${sharedIndustries.join(', ')}`);
+    }
+    
+    // Goal complementarity
+    const hasComplementaryGoals = goals1.some(g1 => 
+      goals2.some(g2 => this.areGoalsComplementary(g1, g2))
+    );
+    if (hasComplementaryGoals) {
+      reasons.push("Have complementary networking objectives");
+    }
+    
+    // Shared interests
+    const sharedInterests = this.findSharedInterests(user1, user2, goals1, goals2);
+    if (sharedInterests.length > 0) {
+      reasons.push(`Share interest in ${sharedInterests.slice(0, 2).join(', ')}`);
+    }
+    
+    const quality = score > 70 ? "strong" : score > 50 ? "good" : "potential";
+    return `${quality.charAt(0).toUpperCase() + quality.slice(1)} match: ${reasons.join('. ')}.`;
   }
 }
 

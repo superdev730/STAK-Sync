@@ -32,7 +32,8 @@ import {
 } from "lucide-react";
 import { STAKReceptionImport } from "@/components/STAKReceptionImport";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { Calculator } from "lucide-react";
+import { AIMatchmakingManager } from "@/components/AIMatchmakingManager";
+import { Calculator, Brain } from "lucide-react";
 
 interface User {
   id: string;
@@ -470,6 +471,10 @@ function AdminDashboard() {
             <TabsTrigger value="import" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
               <Users className="h-4 w-4 mr-2" />
               Import
+            </TabsTrigger>
+            <TabsTrigger value="ai-matching" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
+              <Brain className="h-4 w-4 mr-2" />
+              AI Matching
             </TabsTrigger>
           </TabsList>
 
@@ -1049,6 +1054,75 @@ function AdminDashboard() {
 
           <TabsContent value="import">
             <STAKReceptionImport />
+          </TabsContent>
+
+          <TabsContent value="ai-matching">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-semibold text-navy mb-2">AI Matchmaking System</h3>
+                <p className="text-gray-600">Manage AI-powered pre-event networking and attendee matchmaking</p>
+              </div>
+
+              {/* Event Selection */}
+              {events && events.length > 0 ? (
+                <div className="space-y-4">
+                  <h4 className="text-lg font-medium text-gray-900">Select Event for AI Matchmaking</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {events.map((event: any) => (
+                      <Card key={event.id} className="bg-white border border-gray-200 shadow-sm hover:border-[#CD853F] transition-colors cursor-pointer">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base text-navy">{event.title}</CardTitle>
+                          <CardDescription className="text-sm">
+                            {new Date(event.startDate).toLocaleDateString()} • {event.registrationCount || 0} attendees
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Button 
+                            onClick={() => setEditingEventId(event.id)}
+                            className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-white"
+                          >
+                            <Brain className="h-4 w-4 mr-2" />
+                            Manage AI Matching
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Events Available</h3>
+                  <p className="text-gray-500 mb-4">Create events first to manage AI matchmaking</p>
+                  <Button 
+                    onClick={() => setActiveTab("events")}
+                    className="bg-[#CD853F] hover:bg-[#CD853F]/80 text-white"
+                  >
+                    Go to Event Management
+                  </Button>
+                </div>
+              )}
+
+              {/* AI Matchmaking Manager for Selected Event */}
+              {editingEventId && events && (
+                <div className="mt-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium text-gray-900">AI Matchmaking Manager</h4>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setEditingEventId(null)}
+                      className="text-gray-600 hover:text-gray-900"
+                    >
+                      Back to Event List
+                    </Button>
+                  </div>
+                  <AIMatchmakingManager 
+                    eventId={editingEventId}
+                    event={events.find((e: any) => e.id === editingEventId)}
+                  />
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="tax">

@@ -25,6 +25,9 @@ import {
   sponsors,
   eventSponsors,
   eventAttendeeGoals,
+  eventMatchmakingRuns,
+  preEventMatches,
+  eventNotifications,
   tokenUsage,
   billingAccounts,
   invoices,
@@ -34,7 +37,7 @@ import {
 } from "@shared/schema";
 import { csvImportService } from "./csvImportService";
 import { db } from "./db";
-import { eq, and, or, sum, count, gte, sql, ilike, inArray } from "drizzle-orm";
+import { eq, and, or, sum, count, gte, sql, ilike, inArray, desc } from "drizzle-orm";
 import { generateQuickResponses } from "./aiResponses";
 import { tokenUsageService } from "./tokenUsageService";
 import { ObjectStorageService } from "./objectStorage";
@@ -4615,6 +4618,163 @@ Keep responses conversational and helpful.`;
     } catch (error) {
       console.error('Error deleting event goal:', error);
       res.status(500).json({ message: "Failed to delete event goal" });
+    }
+  });
+
+  // AI Matchmaking endpoints
+  app.post('/api/events/:eventId/matchmaking/run', isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Check if user is admin or event organizer
+      const event = await storage.getEvent(eventId);
+      if (!event || (event.organizerId !== userId && req.user.role !== "admin" && req.user.role !== "owner")) {
+        return res.status(403).json({ error: "Only event organizers and admins can run matchmaking" });
+      }
+      
+      const result = await storage.runAIMatchmaking(eventId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error running AI matchmaking:", error);
+      res.status(500).json({ error: "Failed to run AI matchmaking" });
+    }
+  });
+
+  app.get('/api/events/:eventId/pre-matches', isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const matches = await storage.getPreEventMatches(eventId, userId);
+      res.json(matches);
+    } catch (error) {
+      console.error("Error fetching pre-event matches:", error);
+      res.status(500).json({ error: "Failed to fetch matches" });
+    }
+  });
+
+  app.get('/api/events/:eventId/matchmaking/status', isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Get latest matchmaking run for this event
+      const runs = await db
+        .select()
+        .from(eventMatchmakingRuns)
+        .where(eq(eventMatchmakingRuns.eventId, eventId))
+        .orderBy(desc(eventMatchmakingRuns.createdAt))
+        .limit(1);
+      
+      const latestRun = runs[0];
+      res.json(latestRun || null);
+    } catch (error) {
+      console.error("Error fetching matchmaking status:", error);
+      res.status(500).json({ error: "Failed to fetch matchmaking status" });
+    }
+  });
+
+  // Notification scheduling endpoints
+  app.post('/api/events/:eventId/notifications/schedule', isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Check if user is admin or event organizer
+      const event = await storage.getEvent(eventId);
+      if (!event || (event.organizerId !== userId && req.user.role !== "admin" && req.user.role !== "owner")) {
+        return res.status(403).json({ error: "Only event organizers and admins can schedule notifications" });
+      }
+
+      // Schedule goal reminder notifications for users without goals
+      const usersWithoutGoals = await storage.getUsersWithoutEventGoals(eventId);
+      const eventStartDate = new Date(event.startDate);
+      
+      const notifications = [];
+      
+      for (const user of usersWithoutGoals) {
+        // 1 day before event
+        const oneDayBefore = new Date(eventStartDate.getTime() - 24 * 60 * 60 * 1000);
+        notifications.push({
+          eventId,
+          userId: user.id,
+          notificationType: "goals_reminder" as const,
+          scheduledFor: oneDayBefore,
+          title: `Set Your Goals for ${event.title}`,
+          message: `Don't miss out on AI-powered networking! Set your goals for ${event.title} to get personalized attendee matches.`,
+          actionUrl: `/events/${eventId}/goals`,
+          metadata: {
+            reminderType: "1_day_before",
+            eventStartTime: event.startDate,
+          },
+        });
+
+        // 1 hour before event
+        const oneHourBefore = new Date(eventStartDate.getTime() - 60 * 60 * 1000);
+        notifications.push({
+          eventId,
+          userId: user.id,
+          notificationType: "goals_reminder" as const,
+          scheduledFor: oneHourBefore,
+          title: `Last Chance: Set Goals for ${event.title}`,
+          message: `Event starts in 1 hour! Set your networking goals now to maximize your connections at ${event.title}.`,
+          actionUrl: `/events/${eventId}/goals`,
+          metadata: {
+            reminderType: "1_hour_before",
+            eventStartTime: event.startDate,
+          },
+        });
+      }
+      
+      // Schedule all notifications
+      const scheduledNotifications = [];
+      for (const notification of notifications) {
+        const scheduled = await storage.scheduleEventNotification(notification);
+        scheduledNotifications.push(scheduled);
+      }
+      
+      res.json({
+        message: `Scheduled ${scheduledNotifications.length} notifications for ${usersWithoutGoals.length} users`,
+        notifications: scheduledNotifications,
+      });
+    } catch (error) {
+      console.error("Error scheduling notifications:", error);
+      res.status(500).json({ error: "Failed to schedule notifications" });
+    }
+  });
+
+  app.get('/api/events/:eventId/users-without-goals', isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Check if user is admin or event organizer
+      const event = await storage.getEvent(eventId);
+      if (!event || (event.organizerId !== userId && req.user.role !== "admin" && req.user.role !== "owner")) {
+        return res.status(403).json({ error: "Only event organizers and admins can view this data" });
+      }
+      
+      const users = await storage.getUsersWithoutEventGoals(eventId);
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users without goals:", error);
+      res.status(500).json({ error: "Failed to fetch users without goals" });
     }
   });
 
