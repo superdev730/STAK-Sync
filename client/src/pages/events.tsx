@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Search, Calendar, MapPin, Users, Clock, ExternalLink, Star, Sparkles } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Search, Calendar, MapPin, Users, Clock, ExternalLink, Star, Sparkles, Plus, DollarSign, Building, Shield, Award, Zap, Info } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -140,40 +142,232 @@ export default function Events() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8 bg-white text-gray-900">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Sparkles className="h-8 w-8 text-[#CD853F]" />
-          <h1 className="text-4xl font-bold font-playfair text-black">Platform Events</h1>
-        </div>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Manage your platform events and registrations
-        </p>
-      </div>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        {/* Header with Create Event CTA */}
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div>
+              <h1 className="text-4xl font-bold text-stak-black mb-2">Events & Meetups</h1>
+              <p className="text-gray-600 text-lg">Connect, learn, and grow with the STAK community</p>
+            </div>
+            
+            {/* Enhanced Create Event Button */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-6 py-3 flex items-center space-x-2 shadow-lg">
+                  <Plus className="h-5 w-5" />
+                  <span>Host Your Event</span>
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl bg-white">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold text-stak-black flex items-center space-x-2">
+                    <Building className="h-6 w-6 text-stak-copper" />
+                    <span>Host Your Event at STAK</span>
+                  </DialogTitle>
+                  <DialogDescription className="text-lg text-gray-600">
+                    Create professional networking events and monetize your expertise through STAK's premium venue and member network.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-6">
+                  {/* Key Benefits */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                      <Users className="h-5 w-5 text-stak-copper mt-1" />
+                      <div>
+                        <h3 className="font-semibold text-stak-black">Curated Audience</h3>
+                        <p className="text-sm text-gray-600">Access to STAK's premium member network of VCs, founders, and industry leaders</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                      <Building className="h-5 w-5 text-stak-copper mt-1" />
+                      <div>
+                        <h3 className="font-semibold text-stak-black">Premium Venues</h3>
+                        <p className="text-sm text-gray-600">Professional spaces with state-of-the-art AV and networking facilities</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                      <DollarSign className="h-5 w-5 text-stak-copper mt-1" />
+                      <div>
+                        <h3 className="font-semibold text-stak-black">Revenue Sharing</h3>
+                        <p className="text-sm text-gray-600">Earn from ticket sales with competitive revenue sharing on paid events</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                      <Award className="h-5 w-5 text-stak-copper mt-1" />
+                      <div>
+                        <h3 className="font-semibold text-stak-black">Professional Support</h3>
+                        <p className="text-sm text-gray-600">Event planning assistance and marketing support from STAK team</p>
+                      </div>
+                    </div>
+                  </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search events..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white border-gray-300 text-black"
-          />
-        </div>
-        <Tabs value={selectedFilter} onValueChange={setSelectedFilter} className="w-auto">
-          <TabsList className="bg-gray-100">
-            <TabsTrigger value="all" className="text-gray-700 data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">All Events</TabsTrigger>
-            <TabsTrigger value="upcoming" className="text-gray-700 data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">Upcoming</TabsTrigger>
-            <TabsTrigger value="registered" className="text-gray-700 data-[state=active]:bg-[#CD853F] data-[state=active]:text-black">My Events</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+                  {/* Process Overview */}
+                  <Alert className="border-stak-copper bg-stak-copper/5">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle className="text-stak-black">Event Approval Process</AlertTitle>
+                    <AlertDescription className="text-gray-700">
+                      All member-hosted events require STAK team approval to ensure quality and alignment with our community standards. 
+                      Venue fees may apply for premium spaces. Revenue sharing terms vary by event type and ticket pricing.
+                    </AlertDescription>
+                  </Alert>
 
-      {/* Events Grid */}
-      {filteredEvents.length === 0 ? (
+                  {/* Pricing Tiers */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-stak-black">Event Hosting Tiers</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card className="border-gray-200">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold text-stak-black">Community</CardTitle>
+                          <div className="text-2xl font-bold text-stak-black">Free</div>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="text-xs space-y-1 text-gray-600">
+                            <li>• Up to 25 attendees</li>
+                            <li>• Basic meeting rooms</li>
+                            <li>• No venue fee</li>
+                            <li>• Free events only</li>
+                          </ul>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card className="border-stak-copper ring-2 ring-stak-copper/20">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold text-stak-copper">Professional</CardTitle>
+                          <div className="text-2xl font-bold text-stak-black">$200</div>
+                          <div className="text-xs text-gray-500">venue fee</div>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="text-xs space-y-1 text-gray-600">
+                            <li>• Up to 75 attendees</li>
+                            <li>• Premium event spaces</li>
+                            <li>• AV equipment included</li>
+                            <li>• 70% revenue share</li>
+                          </ul>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card className="border-gray-200">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold text-stak-black">Enterprise</CardTitle>
+                          <div className="text-2xl font-bold text-stak-black">$500</div>
+                          <div className="text-xs text-gray-500">venue fee</div>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="text-xs space-y-1 text-gray-600">
+                            <li>• Up to 200 attendees</li>
+                            <li>• Full venue access</li>
+                            <li>• Catering options</li>
+                            <li>• 80% revenue share</li>
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  {/* CTA */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button 
+                      className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold"
+                      onClick={() => window.open('/events/create', '_blank')}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Event Proposal
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="border-gray-300 text-stak-black hover:bg-gray-50"
+                      onClick={() => window.open('mailto:events@stakventures.com?subject=Event Hosting Inquiry', '_blank')}
+                    >
+                      Contact Events Team
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* Enhanced Revenue Opportunities Banner */}
+        <Alert className="mb-6 border-stak-copper bg-gradient-to-r from-stak-copper/10 to-gray-50">
+          <Zap className="h-4 w-4" />
+          <AlertTitle className="text-stak-black font-semibold">Monetize Your Expertise</AlertTitle>
+          <AlertDescription className="text-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
+              <div>
+                Turn your knowledge into revenue through premium workshops, masterclasses, and networking events. 
+                STAK provides the venue, audience, and infrastructure - you bring the expertise.
+              </div>
+              <Button size="sm" variant="outline" className="border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-white">
+                Learn More
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search events..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white border-gray-300 text-stak-black"
+            />
+          </div>
+          <Tabs value={selectedFilter} onValueChange={setSelectedFilter} className="w-auto">
+            <TabsList className="bg-gray-100">
+              <TabsTrigger value="all" className="text-gray-700 data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">All Events</TabsTrigger>
+              <TabsTrigger value="upcoming" className="text-gray-700 data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">Upcoming</TabsTrigger>
+              <TabsTrigger value="registered" className="text-gray-700 data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">My Events</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {/* Featured Event Types for Members */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-stak-black mb-4">Popular Event Types</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-gray-200">
+              <div className="text-center">
+                <DollarSign className="h-8 w-8 text-stak-copper mx-auto mb-2" />
+                <h3 className="font-semibold text-sm text-stak-black">Workshops</h3>
+                <p className="text-xs text-gray-600">$50-200/ticket</p>
+              </div>
+            </Card>
+            <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-gray-200">
+              <div className="text-center">
+                <Users className="h-8 w-8 text-stak-copper mx-auto mb-2" />
+                <h3 className="font-semibold text-sm text-stak-black">Networking</h3>
+                <p className="text-xs text-gray-600">$25-75/ticket</p>
+              </div>
+            </Card>
+            <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-gray-200">
+              <div className="text-center">
+                <Award className="h-8 w-8 text-stak-copper mx-auto mb-2" />
+                <h3 className="font-semibold text-sm text-stak-black">Masterclass</h3>
+                <p className="text-xs text-gray-600">$100-500/ticket</p>
+              </div>
+            </Card>
+            <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-gray-200">
+              <div className="text-center">
+                <Building className="h-8 w-8 text-stak-copper mx-auto mb-2" />
+                <h3 className="font-semibold text-sm text-stak-black">Conferences</h3>
+                <p className="text-xs text-gray-600">$200-1000/ticket</p>
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* Events Grid */}
+        {filteredEvents.length === 0 ? (
         <div className="text-center py-12">
           <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2 text-black">No Events Found</h3>
@@ -277,8 +471,31 @@ export default function Events() {
                           variant="ghost"
                           size="sm"
                           onClick={() => window.open(event.lumaUrl, '_blank')}
-                          className="px-2 text-gray-600 hover:text-[#CD853F]"
+                          className="px-2 text-gray-600 hover:text-stak-copper"
                         >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {event.eventbriteUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(event.eventbriteUrl, '_blank')}
+                          className="px-2 text-gray-600 hover:text-stak-copper"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+      </div>
+    </div>
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       )}

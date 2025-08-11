@@ -1468,7 +1468,48 @@ END:VCALENDAR`;
     }
   });
 
-  // Also add a general events endpoint for non-admin users
+  // Member event creation endpoint (requires approval)
+  app.post('/api/events/member-proposal', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const eventData = { 
+        ...req.body, 
+        organizerId: userId,
+        status: 'pending_approval', // All member events require approval
+        requiresApproval: true,
+        isPublic: false, // Hidden until approved
+        price: req.body.price || "0"
+      };
+      
+      // Add member-specific data
+      const memberEventData = {
+        ...eventData,
+        hostingTier: req.body.hostingTier || 'community',
+        revenueSharePercentage: req.body.revenueSharePercentage || 0,
+        venueFee: req.body.venueFee || 0,
+        expectedAttendees: req.body.expectedAttendees || eventData.capacity,
+        eventCategory: req.body.eventCategory || 'networking',
+        marketingSupport: req.body.marketingSupport || false,
+        proposalNotes: req.body.proposalNotes || '',
+        submittedAt: new Date().toISOString()
+      };
+      
+      const event = await storage.createEvent(memberEventData);
+      
+      // TODO: Send notification to admin team for approval
+      
+      res.json({ 
+        success: true, 
+        event, 
+        message: 'Event proposal submitted for approval. You will be notified once reviewed by our team.'
+      });
+    } catch (error) {
+      console.error('Error creating member event proposal:', error);
+      res.status(500).json({ message: 'Failed to submit event proposal' });
+    }
+  });
+
+  // Also add a general events endpoint for non-admin users (backwards compatibility)
   app.post('/api/events', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
@@ -1492,6 +1533,56 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error updating event:', error);
       res.status(500).json({ message: 'Failed to update event' });
+    }
+  });
+
+  // Admin endpoint to approve/reject member event proposals
+  app.put('/api/admin/events/:id/approval', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { action, notes, venueFee, revenueSharePercentage } = req.body;
+      const adminUserId = req.user?.claims?.sub;
+      
+      if (!action || !['approve', 'reject'].includes(action)) {
+        return res.status(400).json({ message: 'Invalid action. Must be "approve" or "reject"' });
+      }
+      
+      const updateData: any = {
+        status: action === 'approve' ? 'published' : 'rejected',
+        isPublic: action === 'approve',
+        approvedBy: adminUserId,
+        approvedAt: new Date().toISOString(),
+        approvalNotes: notes || ''
+      };
+      
+      if (action === 'approve') {
+        updateData.venueFee = venueFee || 0;
+        updateData.revenueSharePercentage = revenueSharePercentage || 0;
+      }
+      
+      const event = await storage.updateEvent(id, updateData);
+      
+      // TODO: Send notification to event organizer
+      
+      res.json({ 
+        success: true, 
+        event,
+        message: `Event ${action}d successfully` 
+      });
+    } catch (error) {
+      console.error('Error updating event approval:', error);
+      res.status(500).json({ message: 'Failed to update event approval' });
+    }
+  });
+
+  // Get pending member event proposals for admin review
+  app.get('/api/admin/events/pending', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const pendingEvents = await storage.getPendingEvents();
+      res.json(pendingEvents);
+    } catch (error) {
+      console.error('Error fetching pending events:', error);
+      res.status(500).json({ message: 'Failed to fetch pending events' });
     }
   });
 

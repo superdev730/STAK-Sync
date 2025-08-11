@@ -73,6 +73,7 @@ export interface IStorage {
   getEvent(eventId: string): Promise<(Event & { organizer: User; registrationCount: number; rooms: EventRoom[] }) | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(eventId: string, updates: Partial<Event>): Promise<Event>;
+  getPendingEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]>;
   deleteEvent(eventId: string): Promise<void>;
   getAllEventsForAdmin(): Promise<(Event & { organizer: User; registrationCount: number })[]>;
   
@@ -520,6 +521,27 @@ export class DatabaseStorage implements IStorage {
     return result.map(row => ({
       ...row.registration,
       event: row.event,
+    }));
+  }
+
+  async getPendingEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]> {
+    const result = await db
+      .select({
+        event: events,
+        organizer: users,
+        registrationCount: count(eventRegistrations.id),
+      })
+      .from(events)
+      .leftJoin(users, eq(events.organizerId, users.id))
+      .leftJoin(eventRegistrations, eq(events.id, eventRegistrations.eventId))
+      .where(eq(events.status, 'pending_approval'))
+      .groupBy(events.id, users.id)
+      .orderBy(desc(events.createdAt));
+    
+    return result.map(row => ({
+      ...row.event,
+      organizer: row.organizer as User,
+      registrationCount: Number(row.registrationCount) || 0,
     }));
   }
 
