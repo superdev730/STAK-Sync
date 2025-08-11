@@ -54,15 +54,13 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
   const queryClient = useQueryClient();
 
   // Fetch event matches
-  const { data: matches = [], isLoading: matchesLoading } = useQuery<EventMatch[]>({
+  const { data: matches = [], isLoading: matchesLoading } = useQuery({
     queryKey: ['/api/events', eventId, 'matches'],
-    queryFn: () => apiRequest('GET', `/api/events/${eventId}/matches`),
   });
 
   // Fetch user's event goals
-  const { data: goals = [], isLoading: goalsLoading } = useQuery<EventGoal[]>({
+  const { data: goals = [], isLoading: goalsLoading } = useQuery({
     queryKey: ['/api/events', eventId, 'goals'],
-    queryFn: () => apiRequest('GET', `/api/events/${eventId}/goals`),
   });
 
   // Connection mutation
@@ -90,9 +88,9 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
     connectMutation.mutate(userId);
   };
 
-  const completedGoals = goals.filter(goal => goal.completed).length;
-  const matchesWithHighScore = matches.filter(match => match.matchScore >= 75).length;
-  const connectionRate = matches.length > 0 ? (matches.filter(m => m.isConnected).length / matches.length) * 100 : 0;
+  const completedGoals = Array.isArray(goals) ? goals.filter((goal: any) => goal.completed).length : 0;
+  const matchesWithHighScore = Array.isArray(matches) ? matches.filter((match: any) => match.matchScore >= 75).length : 0;
+  const connectionRate = Array.isArray(matches) && matches.length > 0 ? (matches.filter((m: any) => m.isConnected).length / matches.length) * 100 : 0;
 
   if (matchesLoading || goalsLoading) {
     return (
@@ -130,7 +128,7 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
             <Zap className="h-4 w-4 text-stak-copper" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{matches.length}</div>
+            <div className="text-2xl font-bold">{Array.isArray(matches) ? matches.length : 0}</div>
             <p className="text-xs text-gray-600">
               {matchesWithHighScore} high-score matches
             </p>
@@ -143,9 +141,9 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
             <Target className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{completedGoals}/{goals.length}</div>
+            <div className="text-2xl font-bold">{completedGoals}/{Array.isArray(goals) ? goals.length : 0}</div>
             <Progress 
-              value={goals.length > 0 ? (completedGoals / goals.length) * 100 : 0} 
+              value={Array.isArray(goals) && goals.length > 0 ? (completedGoals / goals.length) * 100 : 0} 
               className="mt-2 h-2"
             />
           </CardContent>
@@ -171,7 +169,7 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {matches.length > 0 ? Math.round(matches.reduce((sum, m) => sum + m.matchScore, 0) / matches.length) : 0}
+              {Array.isArray(matches) && matches.length > 0 ? Math.round(matches.reduce((sum: any, m: any) => sum + m.matchScore, 0) / matches.length) : 0}
             </div>
             <p className="text-xs text-gray-600">
               Average match quality
@@ -208,9 +206,9 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Networking Goals Set</span>
-                    <span className="text-green-600">{goals.length > 0 ? "Complete" : "Pending"}</span>
+                    <span className="text-green-600">{Array.isArray(goals) && goals.length > 0 ? "Complete" : "Pending"}</span>
                   </div>
-                  <Progress value={goals.length > 0 ? 100 : 0} className="h-2" />
+                  <Progress value={Array.isArray(goals) && goals.length > 0 ? 100 : 0} className="h-2" />
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -256,7 +254,7 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
         </TabsContent>
 
         <TabsContent value="matches" className="space-y-4">
-          {matches.length === 0 ? (
+          {!Array.isArray(matches) || matches.length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
                 <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -271,7 +269,7 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {matches.slice(0, 6).map((match) => (
+              {(matches as any[])?.slice(0, 6).map((match: any) => (
                 <Card key={match.id} className="group hover:shadow-lg transition-shadow">
                   <CardHeader className="space-y-2">
                     <div className="flex items-center gap-3">
@@ -305,7 +303,7 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
                       <div>
                         <p className="text-xs font-medium text-gray-700 mb-1">Common Interests</p>
                         <div className="flex flex-wrap gap-1">
-                          {match.commonInterests.slice(0, 3).map((interest, index) => (
+                          {match.commonInterests?.slice(0, 3).map((interest: any, index: any) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {interest}
                             </Badge>
@@ -340,7 +338,7 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
         </TabsContent>
 
         <TabsContent value="goals" className="space-y-4">
-          {goals.length === 0 ? (
+          {!Array.isArray(goals) || goals.length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
                 <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -356,7 +354,7 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
             </Card>
           ) : (
             <div className="space-y-3">
-              {goals.map((goal) => (
+              {(goals as any[])?.map((goal: any) => (
                 <Card key={goal.id} className={`border-l-4 ${
                   goal.priority === 'high' ? 'border-l-red-500' :
                   goal.priority === 'medium' ? 'border-l-yellow-500' :
@@ -369,11 +367,11 @@ export function EventMatchmakingDashboard({ eventId, eventTitle }: EventMatchmak
                           {goal.goal}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" size="sm">
+                          <Badge variant="outline" className="text-xs">
                             {goal.priority} priority
                           </Badge>
                           {goal.completed && (
-                            <Badge className="bg-green-600 text-white" size="sm">
+                            <Badge className="bg-green-600 text-white text-xs">
                               Completed
                             </Badge>
                           )}

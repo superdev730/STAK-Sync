@@ -275,8 +275,55 @@ export default function AdminEvents() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="imageUrl">Cover Photo URL</Label>
-                <Input id="imageUrl" name="imageUrl" type="url" placeholder="https://..." />
+                <Label htmlFor="imageUrl">Cover Photo</Label>
+                <div className="space-y-3">
+                  <Input 
+                    id="imageUrl" 
+                    name="imageUrl" 
+                    type="url" 
+                    placeholder="https://..." 
+                    onChange={(e) => {
+                      const url = e.target.value.trim();
+                      const preview = document.getElementById('image-preview');
+                      const thumbnail = document.getElementById('thumbnail-image') as HTMLImageElement;
+                      
+                      if (url && url.startsWith('http')) {
+                        thumbnail.src = url;
+                        thumbnail.onload = () => {
+                          preview?.classList.remove('hidden');
+                        };
+                        thumbnail.onerror = () => {
+                          preview?.classList.add('hidden');
+                        };
+                      } else {
+                        preview?.classList.add('hidden');
+                      }
+                    }}
+                  />
+                  
+                  {/* Image Preview/Thumbnail */}
+                  <div className="space-y-2">
+                    <div id="image-preview" className="hidden">
+                      <div className="relative w-full max-w-md">
+                        <img 
+                          id="thumbnail-image"
+                          src="" 
+                          alt="Cover photo preview" 
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        />
+                        <div className="absolute top-2 right-2">
+                          <Badge className="bg-green-600 text-white text-xs">
+                            ✓ Preview
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600">
+                      Enter a direct image URL or upload to your preferred hosting service
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">
