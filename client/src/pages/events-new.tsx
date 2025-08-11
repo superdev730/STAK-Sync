@@ -430,15 +430,35 @@ export default function EventsNew() {
     return matchesSearch && matchesType && matchesTab;
   });
 
-  const formatEventDate = (date: string, time: string) => {
-    const eventDate = new Date(`${date}T${time}`);
-    return eventDate.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
+  const formatEventDate = (date: string, time?: string) => {
+    try {
+      if (!date) return "Invalid Date";
+      
+      // Handle different date formats
+      let eventDate: Date;
+      if (time) {
+        // New schema: separate date and time
+        eventDate = new Date(`${date}T${time}:00`);
+      } else {
+        // Old schema or single datetime field
+        eventDate = new Date(date);
+      }
+      
+      if (isNaN(eventDate.getTime())) {
+        return "Invalid Date";
+      }
+      
+      return eventDate.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      console.error("Date formatting error:", error);
+      return "Invalid Date";
+    }
   };
 
   const getYouTubeEmbedUrl = (videoId: string) => {

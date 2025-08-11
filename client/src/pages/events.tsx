@@ -82,26 +82,36 @@ export default function Events() {
 
   const formatDate = (dateString: string) => {
     try {
+      if (!dateString) return "Invalid Date";
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "Invalid Date";
+      }
       return date.toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric', 
         year: 'numeric' 
       });
-    } catch {
-      return dateString;
+    } catch (error) {
+      console.error("Date formatting error:", error);
+      return "Invalid Date";
     }
   };
 
   const formatTime = (dateString: string) => {
     try {
+      if (!dateString) return '';
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return '';
+      }
       return date.toLocaleTimeString('en-US', { 
         hour: 'numeric', 
         minute: '2-digit',
         hour12: true 
       });
-    } catch {
+    } catch (error) {
+      console.error("Time formatting error:", error);
       return '';
     }
   };
