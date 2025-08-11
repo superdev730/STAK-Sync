@@ -33,7 +33,8 @@ import {
 import { STAKReceptionImport } from "@/components/STAKReceptionImport";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { AIMatchmakingManager } from "@/components/AIMatchmakingManager";
-import { Calculator, Brain } from "lucide-react";
+import { BadgeManager } from "@/components/BadgeManager";
+import { Calculator, Brain, Award } from "lucide-react";
 
 interface User {
   id: string;
@@ -475,6 +476,10 @@ function AdminDashboard() {
             <TabsTrigger value="ai-matching" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
               <Brain className="h-4 w-4 mr-2" />
               AI Matching
+            </TabsTrigger>
+            <TabsTrigger value="badges" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
+              <Award className="h-4 w-4 mr-2" />
+              Badges
             </TabsTrigger>
           </TabsList>
 
@@ -1122,6 +1127,17 @@ function AdminDashboard() {
                   />
                 </div>
               )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="badges">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-semibold text-navy mb-2">STAK Badges & Recognition</h3>
+                <p className="text-gray-600">Manage the badge system, award recognition, and track user achievements</p>
+              </div>
+
+              <BadgeManager userId="" isAdmin={true} />
             </div>
           </TabsContent>
 

@@ -26,6 +26,14 @@ export const billingPlanEnum = pgEnum("billing_plan", ["free_stak_basic", "paid_
 // Billing status enumeration
 export const billingStatusEnum = pgEnum("billing_status", ["active", "past_due", "canceled", "incomplete"]);
 
+// Badge system enums
+export const badgeTypeEnum = pgEnum("badge_type", [
+  "connector", "innovator", "event_mvp", "early_adopter", "speaker", "breakout_leader", 
+  "networking_pro", "community_builder", "thought_leader", "mentor", "sponsor_appreciation"
+]);
+
+export const badgeTierEnum = pgEnum("badge_tier", ["bronze", "silver", "gold", "platinum", "diamond"]);
+
 // Session storage table.
 export const sessions = pgTable(
   "sessions",
@@ -947,6 +955,75 @@ export type InsertPreEventMatch = z.infer<typeof insertPreEventMatchSchema>;
 export type EventNotification = typeof eventNotifications.$inferSelect;
 export type InsertEventNotification = z.infer<typeof insertEventNotificationSchema>;
 
+// Badge system for recognition and social proof
+export const badges = pgTable("badges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description").notNull(),
+  badgeType: badgeTypeEnum("badge_type").notNull(),
+  tier: badgeTierEnum("tier").default("bronze"),
+  iconUrl: varchar("icon_url"),
+  backgroundColor: varchar("background_color").default("#CD853F"), // STAK copper default
+  textColor: varchar("text_color").default("#FFFFFF"),
+  isActive: boolean("is_active").default(true),
+  isEventSpecific: boolean("is_event_specific").default(false),
+  eventId: varchar("event_id").references(() => events.id), // null for general badges
+  requirements: jsonb("requirements"), // criteria for earning the badge
+  rarity: varchar("rarity").default("common"), // common, uncommon, rare, legendary
+  points: integer("points").default(0), // points awarded for earning this badge
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const userBadges = pgTable("user_badges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  badgeId: varchar("badge_id").notNull().references(() => badges.id),
+  eventId: varchar("event_id").references(() => events.id), // for event-specific badges
+  earnedAt: timestamp("earned_at").defaultNow(),
+  isVisible: boolean("is_visible").default(true), // user can choose to hide badges
+  metadata: jsonb("metadata"), // context about how badge was earned
+  verifiedBy: varchar("verified_by").references(() => users.id), // admin who verified (for manual badges)
+  verifiedAt: timestamp("verified_at"),
+}, (table) => [
+  unique().on(table.userId, table.badgeId, table.eventId), // prevent duplicate badges per event
+]);
+
+export const badgeAchievements = pgTable("badge_achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  badgeId: varchar("badge_id").notNull().references(() => badges.id),
+  progress: jsonb("progress"), // tracking progress toward badge requirements
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  eventId: varchar("event_id").references(() => events.id), // for event-specific progress
+});
+
+// Badge system schemas and types
+export const insertBadgeSchema = createInsertSchema(badges).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserBadgeSchema = createInsertSchema(userBadges).omit({
+  id: true,
+  earnedAt: true,
+});
+
+export const insertBadgeAchievementSchema = createInsertSchema(badgeAchievements).omit({
+  id: true,
+  lastUpdated: true,
+});
+
+export type Badge = typeof badges.$inferSelect;
+export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type UserBadge = typeof userBadges.$inferSelect;
+export type InsertUserBadge = z.infer<typeof insertUserBadgeSchema>;
+export type BadgeAchievement = typeof badgeAchievements.$inferSelect;
+export type InsertBadgeAchievement = z.infer<typeof insertBadgeAchievementSchema>;
+
 // Live event presence tracking
 export const eventPresence = pgTable("event_presence", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1171,3 +1248,47 @@ export type BusinessMetric = typeof businessMetrics.$inferSelect;
 export type InsertBusinessMetric = typeof businessMetrics.$inferInsert;
 export type GrowthMetric = typeof growthMetrics.$inferSelect;
 export type InsertGrowthMetric = typeof growthMetrics.$inferInsert;
+
+// Badge relations
+export const badgesRelations = relations(badges, ({ many, one }) => ({
+  userBadges: many(userBadges),
+  achievements: many(badgeAchievements),
+  event: one(events, {
+    fields: [badges.eventId],
+    references: [events.id],
+  }),
+}));
+
+export const userBadgesRelations = relations(userBadges, ({ one }) => ({
+  user: one(users, {
+    fields: [userBadges.userId],
+    references: [users.id],
+  }),
+  badge: one(badges, {
+    fields: [userBadges.badgeId],
+    references: [badges.id],
+  }),
+  event: one(events, {
+    fields: [userBadges.eventId],
+    references: [events.id],
+  }),
+  verifiedBy: one(users, {
+    fields: [userBadges.verifiedBy],
+    references: [users.id],
+  }),
+}));
+
+export const badgeAchievementsRelations = relations(badgeAchievements, ({ one }) => ({
+  user: one(users, {
+    fields: [badgeAchievements.userId],
+    references: [users.id],
+  }),
+  badge: one(badges, {
+    fields: [badgeAchievements.badgeId],
+    references: [badges.id],
+  }),
+  event: one(events, {
+    fields: [badgeAchievements.eventId],
+    references: [events.id],
+  }),
+}));

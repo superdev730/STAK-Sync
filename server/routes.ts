@@ -1930,6 +1930,111 @@ END:VCALENDAR`;
     }
   });
 
+  // ===== BADGE SYSTEM ROUTES =====
+  
+  // Get all badges
+  app.get('/api/badges', async (req, res) => {
+    try {
+      const badges = await storage.getBadges();
+      res.json(badges);
+    } catch (error) {
+      console.error('Error fetching badges:', error);
+      res.status(500).json({ error: 'Failed to fetch badges' });
+    }
+  });
+
+  // Get user's badges
+  app.get('/api/users/:userId/badges', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const userBadges = await storage.getUserBadges(userId);
+      res.json(userBadges);
+    } catch (error) {
+      console.error('Error fetching user badges:', error);
+      res.status(500).json({ error: 'Failed to fetch user badges' });
+    }
+  });
+
+  // Update badge visibility
+  app.patch('/api/users/:userId/badges/:badgeId/visibility', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId, badgeId } = req.params;
+      const { isVisible } = req.body;
+      
+      // Only allow users to update their own badge visibility
+      if (req.user?.claims?.sub !== userId) {
+        return res.status(403).json({ error: 'Can only update your own badge visibility' });
+      }
+      
+      const updatedBadge = await storage.updateBadgeVisibility(userId, badgeId, isVisible);
+      res.json(updatedBadge);
+    } catch (error) {
+      console.error('Error updating badge visibility:', error);
+      res.status(500).json({ error: 'Failed to update badge visibility' });
+    }
+  });
+
+  // Admin: Create new badge
+  app.post('/api/admin/badges', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const badgeData = req.body;
+      const newBadge = await storage.createBadge(badgeData);
+      res.json(newBadge);
+    } catch (error) {
+      console.error('Error creating badge:', error);
+      res.status(500).json({ error: 'Failed to create badge' });
+    }
+  });
+
+  // Admin: Update badge
+  app.patch('/api/admin/badges/:badgeId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { badgeId } = req.params;
+      const updates = req.body;
+      const updatedBadge = await storage.updateBadge(badgeId, updates);
+      res.json(updatedBadge);
+    } catch (error) {
+      console.error('Error updating badge:', error);
+      res.status(500).json({ error: 'Failed to update badge' });
+    }
+  });
+
+  // Admin: Award badge to user
+  app.post('/api/admin/badges/:badgeId/award', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { badgeId } = req.params;
+      const { userId, eventId, metadata } = req.body;
+      
+      const verifiedBy = req.user?.claims?.sub;
+      
+      const userBadge = await storage.awardBadge({
+        userId,
+        badgeId,
+        eventId,
+        metadata,
+        verifiedBy,
+        verifiedAt: new Date(),
+      });
+      
+      res.json(userBadge);
+    } catch (error) {
+      console.error('Error awarding badge:', error);
+      res.status(500).json({ error: 'Failed to award badge' });
+    }
+  });
+
+  // Admin: Remove badge from user
+  app.delete('/api/admin/users/:userId/badges/:badgeId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId, badgeId } = req.params;
+      await storage.removeBadge(userId, badgeId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error removing badge:', error);
+      res.status(500).json({ error: 'Failed to remove badge' });
+    }
+  });
+
   // ===== BILLING SYSTEM ROUTES =====
   
   // Admin billing statistics

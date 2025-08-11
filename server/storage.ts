@@ -15,6 +15,9 @@ import {
   preEventMatches,
   eventNotifications,
   invites,
+  badges,
+  userBadges,
+  badgeAchievements,
   type User,
   type UpsertUser,
   type Match,
@@ -47,6 +50,12 @@ import {
   type InsertEventNotification,
   type Invite,
   type InsertInvite,
+  type Badge,
+  type InsertBadge,
+  type UserBadge,
+  type InsertUserBadge,
+  type BadgeAchievement,
+  type InsertBadgeAchievement,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, ilike, count, lte, isNull } from "drizzle-orm";
@@ -156,6 +165,24 @@ export interface IStorage {
     estimatedDistance: number;
   }): Promise<any>;
   checkForMutualProximityDetection(userId: string, detectedUserId: string): Promise<boolean>;
+  
+  // Badge operations
+  getBadges(): Promise<Badge[]>;
+  getBadge(badgeId: string): Promise<Badge | undefined>;
+  createBadge(badge: InsertBadge): Promise<Badge>;
+  updateBadge(badgeId: string, updates: Partial<Badge>): Promise<Badge>;
+  deleteBadge(badgeId: string): Promise<void>;
+  
+  // User badge operations
+  getUserBadges(userId: string): Promise<(UserBadge & { badge: Badge })[]>;
+  awardBadge(userBadge: InsertUserBadge): Promise<UserBadge>;
+  removeBadge(userId: string, badgeId: string): Promise<void>;
+  updateBadgeVisibility(userId: string, badgeId: string, isVisible: boolean): Promise<UserBadge>;
+  
+  // Badge achievement operations
+  getBadgeAchievements(userId: string): Promise<(BadgeAchievement & { badge: Badge })[]>;
+  updateBadgeProgress(userId: string, badgeId: string, progress: any): Promise<BadgeAchievement>;
+  completeBadgeAchievement(achievementId: string): Promise<BadgeAchievement>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1551,6 +1578,130 @@ export class DatabaseStorage implements IStorage {
     
     const quality = score > 70 ? "strong" : score > 50 ? "good" : "potential";
     return `${quality.charAt(0).toUpperCase() + quality.slice(1)} match: ${reasons.join('. ')}.`;
+  }
+
+  // Badge operations
+  async getBadges(): Promise<Badge[]> {
+    return await db.select().from(badges).where(eq(badges.isActive, true)).orderBy(badges.name);
+  }
+
+  async getBadge(badgeId: string): Promise<Badge | undefined> {
+    const [badge] = await db.select().from(badges).where(eq(badges.id, badgeId));
+    return badge;
+  }
+
+  async createBadge(badge: InsertBadge): Promise<Badge> {
+    const [newBadge] = await db.insert(badges).values(badge).returning();
+    return newBadge;
+  }
+
+  async updateBadge(badgeId: string, updates: Partial<Badge>): Promise<Badge> {
+    const [updatedBadge] = await db
+      .update(badges)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(badges.id, badgeId))
+      .returning();
+    return updatedBadge;
+  }
+
+  async deleteBadge(badgeId: string): Promise<void> {
+    await db.update(badges).set({ isActive: false }).where(eq(badges.id, badgeId));
+  }
+
+  // User badge operations
+  async getUserBadges(userId: string): Promise<(UserBadge & { badge: Badge })[]> {
+    const result = await db
+      .select({
+        userBadge: userBadges,
+        badge: badges,
+      })
+      .from(userBadges)
+      .innerJoin(badges, eq(userBadges.badgeId, badges.id))
+      .where(and(eq(userBadges.userId, userId), eq(userBadges.isVisible, true)))
+      .orderBy(desc(userBadges.earnedAt));
+
+    return result.map(row => ({
+      ...row.userBadge,
+      badge: row.badge,
+    }));
+  }
+
+  async awardBadge(userBadge: InsertUserBadge): Promise<UserBadge> {
+    const [newUserBadge] = await db.insert(userBadges).values(userBadge).returning();
+    return newUserBadge;
+  }
+
+  async removeBadge(userId: string, badgeId: string): Promise<void> {
+    await db
+      .delete(userBadges)
+      .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badgeId)));
+  }
+
+  async updateBadgeVisibility(userId: string, badgeId: string, isVisible: boolean): Promise<UserBadge> {
+    const [updatedUserBadge] = await db
+      .update(userBadges)
+      .set({ isVisible })
+      .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badgeId)))
+      .returning();
+    return updatedUserBadge;
+  }
+
+  // Badge achievement operations
+  async getBadgeAchievements(userId: string): Promise<(BadgeAchievement & { badge: Badge })[]> {
+    const result = await db
+      .select({
+        achievement: badgeAchievements,
+        badge: badges,
+      })
+      .from(badgeAchievements)
+      .innerJoin(badges, eq(badgeAchievements.badgeId, badges.id))
+      .where(eq(badgeAchievements.userId, userId))
+      .orderBy(desc(badgeAchievements.lastUpdated));
+
+    return result.map(row => ({
+      ...row.achievement,
+      badge: row.badge,
+    }));
+  }
+
+  async updateBadgeProgress(userId: string, badgeId: string, progress: any): Promise<BadgeAchievement> {
+    const [achievement] = await db
+      .select()
+      .from(badgeAchievements)
+      .where(and(eq(badgeAchievements.userId, userId), eq(badgeAchievements.badgeId, badgeId)));
+
+    if (achievement) {
+      const [updatedAchievement] = await db
+        .update(badgeAchievements)
+        .set({ progress, lastUpdated: new Date() })
+        .where(eq(badgeAchievements.id, achievement.id))
+        .returning();
+      return updatedAchievement;
+    } else {
+      const [newAchievement] = await db
+        .insert(badgeAchievements)
+        .values({
+          userId,
+          badgeId,
+          progress,
+          isCompleted: false,
+        })
+        .returning();
+      return newAchievement;
+    }
+  }
+
+  async completeBadgeAchievement(achievementId: string): Promise<BadgeAchievement> {
+    const [completedAchievement] = await db
+      .update(badgeAchievements)
+      .set({ 
+        isCompleted: true, 
+        completedAt: new Date(),
+        lastUpdated: new Date() 
+      })
+      .where(eq(badgeAchievements.id, achievementId))
+      .returning();
+    return completedAchievement;
   }
 }
 
