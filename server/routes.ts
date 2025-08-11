@@ -1410,8 +1410,81 @@ END:VCALENDAR`;
   // Event API endpoints
   app.get('/api/events', isAuthenticated, async (req: any, res) => {
     try {
-      const events = await storage.getEvents();
-      res.json(events);
+      const userId = req.user?.claims?.sub;
+      
+      // Get events with organizer info
+      const eventsData = await db
+        .select({
+          id: events.id,
+          title: events.title,
+          description: events.description,
+          startDate: events.startDate,
+          startTime: events.startTime,
+          endDate: events.endDate,
+          endTime: events.endTime,
+          location: events.location,
+          isVirtual: events.isVirtual,
+          capacity: events.capacity,
+          isPaid: events.isPaid,
+          basePrice: events.basePrice,
+          currency: events.currency,
+          coverImageUrl: events.coverImageUrl,
+          youtubeVideoId: events.youtubeVideoId,
+          organizerId: events.organizerId,
+          hostIds: events.hostIds,
+          status: events.status,
+          isFeatured: events.isFeatured,
+          isPublic: events.isPublic,
+          tags: events.tags,
+          createdAt: events.createdAt,
+          updatedAt: events.updatedAt,
+          organizerFirstName: users.firstName,
+          organizerLastName: users.lastName,
+          organizerImageUrl: users.profileImageUrl,
+        })
+        .from(events)
+        .leftJoin(users, eq(events.organizerId, users.id))
+        .where(and(
+          eq(events.status, "published"),
+          eq(events.isPublic, true)
+        ))
+        .orderBy(sql`${events.isFeatured} DESC, ${events.createdAt} DESC`);
+
+      // Get registration counts and user registration status
+      const eventsWithCounts = await Promise.all(
+        eventsData.map(async (event) => {
+          const [registrationCount] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(eventRegistrations)
+            .where(eq(eventRegistrations.eventId, event.id));
+
+          let isUserRegistered = false;
+          if (userId) {
+            const [userReg] = await db
+              .select()
+              .from(eventRegistrations)
+              .where(and(
+                eq(eventRegistrations.eventId, event.id),
+                eq(eventRegistrations.userId, userId)
+              ));
+            isUserRegistered = !!userReg;
+          }
+
+          return {
+            ...event,
+            organizer: {
+              firstName: event.organizerFirstName,
+              lastName: event.organizerLastName,
+              profileImageUrl: event.organizerImageUrl
+            },
+            registered: registrationCount.count || 0,
+            isUserRegistered,
+            basePrice: parseFloat(event.basePrice || '0'),
+          };
+        })
+      );
+
+      res.json(eventsWithCounts);
     } catch (error) {
       console.error('Error fetching events:', error);
       res.status(500).json({ error: 'Failed to fetch events' });

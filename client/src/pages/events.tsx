@@ -11,6 +11,7 @@ import { Search, Calendar, MapPin, Users, Clock, ExternalLink, Star, Sparkles, P
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { EventGoalsManager } from "@/components/EventGoalsManager";
+import { EventMatchmakingDashboard } from "@/components/EventMatchmakingDashboard";
 
 interface Event {
   id: string;
@@ -492,62 +493,71 @@ export default function Events() {
                     )}
                   </div>
 
-                  {/* Event Goals Button - Only show for registered users */}
+                  {/* Enhanced Features for Registered Users */}
                   {event.isUserRegistered && (
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" className="w-full border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-white">
-                          <Target className="w-4 h-4 mr-2" />
-                          Set Event Goals
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Event Goals & Missions</DialogTitle>
-                          <DialogDescription>
-                            Set your networking objectives for {event.title} to enhance AI matching
-                          </DialogDescription>
-                        </DialogHeader>
-                        <EventGoalsManager eventId={event.id} />
-                      </DialogContent>
-                    </Dialog>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-      </div>
-    </div>
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {event.eventbriteUrl && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.open(event.eventbriteUrl, '_blank')}
-                          className="px-2 text-gray-600 hover:text-[#CD853F]"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
+                    <div className="space-y-2">
+                      {/* Event Goals */}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" className="w-full border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-white">
+                            <Target className="w-4 h-4 mr-2" />
+                            Set Event Goals
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>Event Goals & Missions</DialogTitle>
+                            <DialogDescription>
+                              Set your networking objectives for {event.title} to enhance AI matching
+                            </DialogDescription>
+                          </DialogHeader>
+                          <EventGoalsManager eventId={event.id} />
+                        </DialogContent>
+                      </Dialog>
+
+                      {/* AI Matchmaking Dashboard */}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" className="w-full border-green-500 text-green-700 hover:bg-green-50">
+                            <Zap className="w-4 h-4 mr-2" />
+                            AI Matchmaking Dashboard
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>AI Matchmaking Dashboard</DialogTitle>
+                            <DialogDescription>
+                              Your personalized networking insights and AI-powered match recommendations
+                            </DialogDescription>
+                          </DialogHeader>
+                          <EventMatchmakingDashboard eventId={event.id} eventTitle={event.title} />
+                        </DialogContent>
+                      </Dialog>
+
+                      {/* Event Status Card */}
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-green-800">
+                          <Award className="w-4 h-4" />
+                          <span className="text-sm font-medium">You're Registered!</span>
+                        </div>
+                        <p className="text-xs text-green-600 mt-1">
+                          Access exclusive pre-event networking features and AI-powered matching
+                        </p>
+                      </div>
                     </div>
                   )}
-                </div>
-
-                {/* Registration Progress */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-gray-600">
-                    <span>Registration</span>
-                    <span>{Math.round((event.registered / event.capacity) * 100)}% full</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div
-                      className="bg-[#CD853F] h-1.5 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min((event.registered / event.capacity) * 100, 100)}%` }}
-                    ></div>
+                  {/* Registration Progress */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Registration</span>
+                      <span>{Math.round((event.registered / event.capacity) * 100)}% full</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div
+                        className="bg-[#CD853F] h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min((event.registered / event.capacity) * 100, 100)}%` }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -556,18 +566,19 @@ export default function Events() {
         </div>
       )}
 
-      {/* CTA Section */}
-      <div className="text-center py-12 border-t border-gray-200">
-        <h2 className="text-2xl font-bold font-playfair mb-4 text-black">Ready to Network?</h2>
-        <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-          Join STAK Sync events to connect with vetted investors, successful founders, and industry experts. 
-          Every connection is an opportunity to accelerate your journey.
-        </p>
-        <div className="flex items-center justify-center gap-2">
-          <Star className="h-5 w-5 text-[#CD853F]" />
-          <span className="text-sm text-gray-600">
-            Curated for STAK's exclusive membership community
-          </span>
+        {/* CTA Section */}
+        <div className="text-center py-12 border-t border-gray-200">
+          <h2 className="text-2xl font-bold font-playfair mb-4 text-black">Ready to Network?</h2>
+          <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+            Join STAK Sync events to connect with vetted investors, successful founders, and industry experts. 
+            Every connection is an opportunity to accelerate your journey.
+          </p>
+          <div className="flex items-center justify-center gap-2">
+            <Star className="h-5 w-5 text-[#CD853F]" />
+            <span className="text-sm text-gray-600">
+              Curated for STAK's exclusive membership community
+            </span>
+          </div>
         </div>
       </div>
     </div>
