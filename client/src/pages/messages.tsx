@@ -183,7 +183,7 @@ export default function Messages() {
     conversations.forEach((message) => {
       const otherUser = message.senderId === currentUser.id ? message.receiver : message.sender;
       
-      if (!userMap.has(otherUser.id) || (message.createdAt && userMap.get(otherUser.id)?.lastMessage.createdAt && new Date(message.createdAt) > new Date(userMap.get(otherUser.id)!.lastMessage.createdAt))) {
+      if (!userMap.has(otherUser.id) || (message.createdAt && userMap.get(otherUser.id)?.lastMessage.createdAt && new Date(message.createdAt) > new Date(userMap.get(otherUser.id)!.lastMessage.createdAt || new Date()))) {
         const unreadCount = conversations.filter(m => 
           m.senderId === otherUser.id && 
           m.receiverId === currentUser.id && 

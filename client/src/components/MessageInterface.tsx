@@ -56,6 +56,52 @@ function getUserBadges(user: User) {
   ];
 }
 
+// Function to get sync reasoning for each user
+function getSyncReason(user: User) {
+  const syncReasons: Record<string, string> = {
+    'demo-sarah': 'High synergy in AI/ML infrastructure expertise and scale-up experience. Both focused on technical leadership in high-growth environments.',
+    'demo-michael': 'Perfect investor-founder alignment with fintech focus and enterprise AI interest. Strong potential for Series A partnership.',
+    'demo-jessica': 'Complementary healthcare and B2B SaaS expertise creates partnership opportunities in healthcare AI market.',
+    'demo-david': 'STAK ecosystem member with extensive fintech network offers valuable portfolio introductions and funding connections.'
+  };
+  return syncReasons[user.id] || 'Professional networking opportunity with shared interests and complementary expertise.';
+}
+
+// Function to get commonalities with the user
+function getCommonalities(user: User) {
+  const commonalities: Record<string, string[]> = {
+    'demo-sarah': [
+      'Both have AI/ML expertise',
+      'Experience with high-growth startups',
+      'Technical leadership roles',
+      'Both attending STAK Summit 2025'
+    ],
+    'demo-michael': [
+      'Interest in enterprise AI solutions',
+      'Fintech industry focus',
+      'Series A funding experience',
+      'STAK network member'
+    ],
+    'demo-jessica': [
+      'Healthcare industry experience',
+      'B2B SaaS business model',
+      'Startup funding goals',
+      'Innovation in regulated markets'
+    ],
+    'demo-david': [
+      'STAK ecosystem membership',
+      'Fintech industry knowledge',
+      'Investment and startup experience',
+      'Professional networking goals'
+    ]
+  };
+  return commonalities[user.id] || [
+    'Professional networking interests',
+    'Industry expertise',
+    'Growth-oriented mindset'
+  ];
+}
+
 interface MessageInterfaceProps {
   currentUser: User;
   otherUser: User;
@@ -178,7 +224,7 @@ export default function MessageInterface({
                 {otherUser.firstName} {otherUser.lastName}
               </h2>
               <Link href={matchId ? `/match-analysis?matchId=${matchId}` : `/profile-detail?userId=${otherUser.id}`}>
-                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 cursor-pointer hover:bg-green-200 transition-colors">
+                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-stak-copper/20 text-stak-dark-copper border border-stak-copper/30 cursor-pointer hover:bg-stak-copper/30 transition-colors">
                   Match: {getMatchScore(otherUser)}%
                 </div>
               </Link>
@@ -188,12 +234,37 @@ export default function MessageInterface({
               <span className="font-medium">{otherUser.title}</span>
               {otherUser.company && <span> at {otherUser.company}</span>}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-3">
               {getUserBadges(otherUser).map((badge, index) => (
                 <span key={index} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
                   {badge.text}
                 </span>
               ))}
+            </div>
+            
+            {/* Match Insights Panel */}
+            <div className="bg-gradient-to-r from-stak-copper/10 to-stak-dark-copper/10 border border-stak-copper/20 rounded-lg p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <Sparkles className="h-4 w-4 text-stak-copper" />
+                <h3 className="font-semibold text-stak-black text-sm">Why You're a Great Sync</h3>
+              </div>
+              
+              <p className="text-xs text-gray-700 mb-3 leading-relaxed">
+                {getSyncReason(otherUser)}
+              </p>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <h4 className="font-medium text-xs text-stak-black mb-1">What You Have in Common</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {getCommonalities(otherUser).map((commonality, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-white border border-stak-copper/30 text-gray-700">
+                        {commonality}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -226,13 +297,13 @@ export default function MessageInterface({
                 <div
                   className={`max-w-xs p-4 rounded-2xl ${
                     isOwnMessage
-                      ? 'bg-blue-600 text-white rounded-tr-sm shadow-sm'
+                      ? 'bg-stak-copper text-white rounded-tr-sm shadow-sm'
                       : 'bg-white text-gray-900 rounded-tl-sm shadow-sm border border-gray-200'
                   }`}
                 >
                   <p className="text-sm leading-relaxed">{message.content}</p>
                   <p className={`text-xs mt-2 ${
-                    isOwnMessage ? 'text-blue-100' : 'text-gray-500'
+                    isOwnMessage ? 'text-white/80' : 'text-gray-500'
                   }`}>
                     {message.createdAt && new Date(message.createdAt).toLocaleTimeString([], {
                       hour: '2-digit',
@@ -275,11 +346,11 @@ export default function MessageInterface({
             }}
             onKeyPress={handleKeyPress}
             placeholder="Type your message..."
-            className="flex-1 border-gray-300 focus:border-navy focus:ring-navy"
+            className="flex-1 border-gray-300 focus:border-stak-copper focus:ring-stak-copper"
           />
           <Button
             onClick={() => handleSendMessage()}
-            className="bg-navy text-white p-2 rounded-full hover:bg-blue-800"
+            className="bg-stak-copper text-white p-2 rounded-full hover:bg-stak-dark-copper transition-colors"
             disabled={!newMessage.trim()}
           >
             <Send className="h-4 w-4" />
