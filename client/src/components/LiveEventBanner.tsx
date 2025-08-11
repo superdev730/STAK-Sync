@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Clock, Users, Calendar } from 'lucide-react';
+import { Clock, Users, Calendar, Zap, Trophy, TrendingUp, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useQuery } from '@tanstack/react-query';
+import { Badge } from '@/components/ui/badge';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 interface LiveEvent {
   id: string;
@@ -13,6 +15,14 @@ interface LiveEvent {
   eventType: string;
   attendeeCount?: number;
   imageUrl?: string;
+  registrationCount?: number;
+}
+
+interface EventStats {
+  totalMatches: number;
+  topMatchScore: number;
+  activeConnections: number;
+  highQualityMatches: number; // matches above 80%
 }
 
 interface TimeRemaining {
@@ -25,11 +35,27 @@ interface TimeRemaining {
 export function LiveEventBanner() {
   const [timeRemaining, setTimeRemaining] = useState<TimeRemaining | null>(null);
   const [isEventStarted, setIsEventStarted] = useState(false);
+  const [isEventActive, setIsEventActive] = useState(false);
 
   // Fetch today's live events
   const { data: liveEvent } = useQuery<LiveEvent>({
     queryKey: ['/api/events/live-today'],
     refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  // Fetch event stats if event is live
+  const { data: eventStats } = useQuery<EventStats>({
+    queryKey: ['/api/events', liveEvent?.id, 'stats'],
+    enabled: !!liveEvent?.id && isEventActive,
+    refetchInterval: 10000, // Refetch every 10 seconds for real-time stats
+  });
+
+  // Start AI matchmaking mutation
+  const startMatchmakingMutation = useMutation({
+    mutationFn: async () => {
+      if (!liveEvent?.id) throw new Error('No live event available');
+      return apiRequest(`/api/events/${liveEvent.id}/start-matchmaking`, 'POST');
+    },
   });
 
   useEffect(() => {
@@ -44,17 +70,20 @@ export function LiveEventBanner() {
         // Event has ended
         setTimeRemaining(null);
         setIsEventStarted(false);
+        setIsEventActive(false);
         return;
       }
 
       if (now >= eventStart) {
-        // Event has started
+        // Event has started and is active
         setIsEventStarted(true);
+        setIsEventActive(true);
         setTimeRemaining(null);
         return;
       }
 
       // Event hasn't started yet - show countdown
+      setIsEventActive(false);
       const timeDiff = eventStart - now;
       
       const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
@@ -145,13 +174,92 @@ export function LiveEventBanner() {
             ) : null}
           </div>
 
-          <Button 
-            onClick={handleJoinEvent}
-            className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80 font-semibold px-6 py-2"
-          >
-            {isEventStarted ? 'Join Live Event' : 'Enter Early'}
-          </Button>
+          {/* Event Statistics and Actions */}
+          <div className="flex items-center gap-4">
+            {/* Live Event Statistics Scoreboard */}
+            {isEventActive && eventStats && (
+              <div className="flex items-center gap-4 mr-4">
+                <div className="flex items-center gap-3 bg-black/40 rounded-lg px-3 py-2 border border-gray-700">
+                  <div className="flex items-center gap-1">
+                    <Trophy className="h-4 w-4 text-[#CD853F]" />
+                    <div className="text-center">
+                      <div className="text-white font-bold text-sm">{eventStats.topMatchScore}%</div>
+                      <div className="text-gray-400 text-xs">Top Match</div>
+                    </div>
+                  </div>
+                  <div className="w-px h-6 bg-gray-600" />
+                  <div className="flex items-center gap-1">
+                    <Zap className="h-4 w-4 text-green-400" />
+                    <div className="text-center">
+                      <div className="text-white font-bold text-sm">{eventStats.highQualityMatches}</div>
+                      <div className="text-gray-400 text-xs">Quality Matches</div>
+                    </div>
+                  </div>
+                  <div className="w-px h-6 bg-gray-600" />
+                  <div className="flex items-center gap-1">
+                    <TrendingUp className="h-4 w-4 text-blue-400" />
+                    <div className="text-center">
+                      <div className="text-white font-bold text-sm">{eventStats.activeConnections}</div>
+                      <div className="text-gray-400 text-xs">Connections</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* AI Matchmaking CTA */}
+            {isEventActive && (
+              <Button
+                onClick={() => startMatchmakingMutation.mutate()}
+                disabled={startMatchmakingMutation.isPending}
+                className="bg-gradient-to-r from-[#CD853F] to-[#B8860B] text-black hover:from-[#CD853F]/90 hover:to-[#B8860B]/90 font-semibold px-4 py-2 flex items-center gap-2"
+              >
+                <Zap className="h-4 w-4" />
+                {startMatchmakingMutation.isPending ? 'Starting...' : 'AI Matchmaking'}
+              </Button>
+            )}
+
+            {/* Join Event Button */}
+            <Button 
+              onClick={handleJoinEvent}
+              className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80 font-semibold px-6 py-2"
+            >
+              {isEventStarted ? 'Join Live Event' : 'Enter Early'}
+            </Button>
+          </div>
         </div>
+
+        {/* Additional Event Information Bar for Live Events */}
+        {isEventActive && (
+          <div className="mt-3 pt-3 border-t border-gray-700">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <Badge variant="secondary" className="bg-red-500/20 text-red-400 border-red-500/30">
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse mr-2" />
+                  LIVE NOW
+                </Badge>
+                
+                {liveEvent.registrationCount && (
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Users className="h-4 w-4" />
+                    <span className="font-medium">{liveEvent.registrationCount} registered</span>
+                  </div>
+                )}
+                
+                {eventStats && (
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Timer className="h-4 w-4" />
+                    <span className="font-medium">{eventStats.totalMatches} total matches generated</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="text-gray-400 text-sm">
+                Real-time networking • AI-powered matching
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

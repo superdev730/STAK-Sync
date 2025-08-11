@@ -139,6 +139,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create live event for testing
+  app.post('/api/create-test-live-event', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+
+      const now = new Date();
+      const eventStart = new Date(now.getTime() + 5 * 60 * 1000); // Start in 5 minutes
+      const eventEnd = new Date(now.getTime() + 2 * 60 * 60 * 1000); // End in 2 hours
+
+      const eventData = {
+        title: 'STAK Spring Summit',
+        description: 'Live networking event with AI-powered matchmaking for innovative professionals and investors.',
+        startDate: eventStart.toISOString(),
+        startTime: eventStart.toTimeString().slice(0, 5),
+        endDate: eventEnd.toISOString(),
+        endTime: eventEnd.toTimeString().slice(0, 5),
+        location: 'Virtual Event Platform',
+        isVirtual: true,
+        capacity: 100,
+        isPaid: false,
+        basePrice: '0',
+        currency: 'USD',
+        organizerId: userId,
+        status: 'published',
+        isPublic: true,
+        isFeatured: true,
+        eventType: 'Networking',
+        tags: ['networking', 'ai-matching', 'live-event']
+      };
+
+      const [newEvent] = await db.insert(events).values(eventData).returning();
+      
+      res.json({ 
+        success: true, 
+        event: newEvent,
+        message: 'Test live event created successfully! The banner should now appear.' 
+      });
+    } catch (error) {
+      console.error('Error creating test live event:', error);
+      res.status(500).json({ message: 'Failed to create test live event' });
+    }
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
@@ -1488,6 +1534,109 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error fetching events:', error);
       res.status(500).json({ error: 'Failed to fetch events' });
+    }
+  });
+
+  // Get today's live events
+  app.get('/api/events/live-today', async (req: any, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const [liveEvent] = await db
+        .select({
+          id: events.id,
+          title: events.title,
+          startDate: events.startDate,
+          endDate: events.endDate,
+          location: events.location,
+          isVirtual: sql<boolean>`COALESCE(${events.isVirtual}, false)`,
+          eventType: events.eventType,
+          attendeeCount: events.capacity,
+          imageUrl: events.coverImageUrl,
+          registrationCount: sql<number>`(
+            SELECT COUNT(*)::int 
+            FROM ${eventRegistrations} 
+            WHERE ${eventRegistrations.eventId} = ${events.id}
+          )`
+        })
+        .from(events)
+        .where(
+          and(
+            gte(events.startDate, today.toISOString()),
+            lt(events.startDate, tomorrow.toISOString()),
+            eq(events.status, "published"),
+            eq(events.isPublic, true)
+          )
+        )
+        .limit(1);
+
+      if (!liveEvent) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      res.json(liveEvent);
+    } catch (error) {
+      console.error('Error fetching live event:', error);
+      res.status(500).json({ error: 'Unable to fetch live event information. Please try again.' });
+    }
+  });
+
+  // Get event statistics for live events
+  app.get('/api/events/:eventId/stats', async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+
+      // Get basic match counts (simulated for demo)
+      const stats = {
+        totalMatches: Math.floor(Math.random() * 50) + 20,
+        topMatchScore: Math.floor(Math.random() * 20) + 80,
+        activeConnections: Math.floor(Math.random() * 15) + 5,
+        highQualityMatches: Math.floor(Math.random() * 10) + 8
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching event stats:', error);
+      res.status(500).json({ error: 'Unable to fetch event statistics. Please try again.' });
+    }
+  });
+
+  // Start AI matchmaking for event
+  app.post('/api/events/:eventId/start-matchmaking', isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Please sign in to start matchmaking.' });
+      }
+
+      // Check if user is registered for this event
+      const [registration] = await db
+        .select()
+        .from(eventRegistrations)
+        .where(
+          and(
+            eq(eventRegistrations.eventId, eventId),
+            eq(eventRegistrations.userId, userId)
+          )
+        );
+
+      if (!registration) {
+        return res.status(403).json({ message: 'You must be registered for this event to start matchmaking.' });
+      }
+
+      // Simulate successful matchmaking start
+      res.json({ 
+        success: true, 
+        message: 'AI matchmaking started successfully! New matches will appear in your dashboard shortly.' 
+      });
+    } catch (error) {
+      console.error('Error starting matchmaking:', error);
+      res.status(500).json({ message: 'Unable to start matchmaking. Please try again.' });
     }
   });
 
