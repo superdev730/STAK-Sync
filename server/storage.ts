@@ -10,6 +10,7 @@ import {
   roomParticipants,
   eventMatches,
   eventAttendeeImports,
+  eventAttendeeGoals,
   invites,
   type User,
   type UpsertUser,
@@ -33,6 +34,8 @@ import {
   type InsertEventMatch,
   type EventAttendeeImport,
   type InsertEventAttendeeImport,
+  type EventAttendeeGoal,
+  type InsertEventAttendeeGoal,
   type Invite,
   type InsertInvite,
 } from "@shared/schema";
@@ -73,6 +76,13 @@ export interface IStorage {
   getEvent(eventId: string): Promise<(Event & { organizer: User; registrationCount: number; rooms: EventRoom[] }) | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(eventId: string, updates: Partial<Event>): Promise<Event>;
+  
+  // Event attendee goals operations
+  getEventAttendeeGoals(eventId: string, userId: string): Promise<EventAttendeeGoal[]>;
+  createEventAttendeeGoal(goal: InsertEventAttendeeGoal): Promise<EventAttendeeGoal>;
+  updateEventAttendeeGoal(goalId: string, updates: Partial<EventAttendeeGoal>): Promise<EventAttendeeGoal>;
+  deleteEventAttendeeGoal(goalId: string): Promise<void>;
+  generateAIGoalSuggestions(eventId: string, userId: string): Promise<InsertEventAttendeeGoal[]>;
   getPendingEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]>;
   deleteEvent(eventId: string): Promise<void>;
   getAllEventsForAdmin(): Promise<(Event & { organizer: User; registrationCount: number })[]>;
@@ -941,6 +951,126 @@ export class DatabaseStorage implements IStorage {
     // For now, just return success
     // In a real implementation, you would update user account status
     return { success: true };
+  }
+
+  // Event attendee goals operations
+  async getEventAttendeeGoals(eventId: string, userId: string): Promise<EventAttendeeGoal[]> {
+    return await db
+      .select()
+      .from(eventAttendeeGoals)
+      .where(
+        and(
+          eq(eventAttendeeGoals.eventId, eventId),
+          eq(eventAttendeeGoals.userId, userId),
+          eq(eventAttendeeGoals.isActive, true)
+        )
+      )
+      .orderBy(eventAttendeeGoals.priority, eventAttendeeGoals.createdAt);
+  }
+
+  async createEventAttendeeGoal(goal: InsertEventAttendeeGoal): Promise<EventAttendeeGoal> {
+    const [newGoal] = await db
+      .insert(eventAttendeeGoals)
+      .values(goal)
+      .returning();
+    return newGoal;
+  }
+
+  async updateEventAttendeeGoal(goalId: string, updates: Partial<EventAttendeeGoal>): Promise<EventAttendeeGoal> {
+    const [updatedGoal] = await db
+      .update(eventAttendeeGoals)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(eventAttendeeGoals.id, goalId))
+      .returning();
+    return updatedGoal;
+  }
+
+  async deleteEventAttendeeGoal(goalId: string): Promise<void> {
+    await db
+      .update(eventAttendeeGoals)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(eventAttendeeGoals.id, goalId));
+  }
+
+  async generateAIGoalSuggestions(eventId: string, userId: string): Promise<InsertEventAttendeeGoal[]> {
+    // Get user profile and event details to generate personalized goal suggestions
+    const user = await this.getUser(userId);
+    const event = await this.getEvent(eventId);
+    
+    if (!user || !event) {
+      return [];
+    }
+
+    // For now, return intelligent static suggestions based on user profile
+    // In the future, this could use AI/LLM to generate truly personalized suggestions
+    const userIndustries = user.industries || ["Technology"];
+    const userSkills = user.skills?.split(',') || ["Leadership", "Innovation"];
+    const userGoals = user.networkingGoals?.split(',') || ["Professional Growth"];
+
+    const suggestions: InsertEventAttendeeGoal[] = [
+      {
+        eventId,
+        userId,
+        goalType: "networking",
+        priority: "high",
+        description: `Connect with ${userIndustries[0]} leaders to expand your professional network and explore ${userGoals[0]} opportunities`,
+        specificInterests: [...userSkills.slice(0, 3), "Industry Insights", "Professional Growth"],
+        targetAudience: "founders",
+        targetCompanySize: "scale-up",
+        targetIndustries: userIndustries,
+        targetRoles: ["CEO", "CTO", "VP Engineering", "Founder"],
+        aiSuggested: true,
+        userAccepted: false,
+      },
+      {
+        eventId,
+        userId,
+        goalType: "learning",
+        priority: "medium",
+        description: `Discover emerging trends in ${userIndustries[0]} and learn best practices from industry experts`,
+        specificInterests: [...userSkills.slice(0, 2), "Innovation", "Market Trends"],
+        targetAudience: "enterprise",
+        targetCompanySize: "enterprise",
+        targetIndustries: userIndustries,
+        targetRoles: ["Director", "VP", "Senior Manager", "Chief Officer"],
+        aiSuggested: true,
+        userAccepted: false,
+      },
+      {
+        eventId,
+        userId,
+        goalType: "partnership",
+        priority: "medium",
+        description: "Explore strategic partnerships and collaboration opportunities that align with your business objectives",
+        specificInterests: ["Strategic Partnerships", "Business Development", "Collaboration"],
+        targetAudience: "startups",
+        targetCompanySize: "startup",
+        targetIndustries: userIndustries,
+        targetRoles: ["CEO", "Business Development", "Partnerships", "Strategy"],
+        aiSuggested: true,
+        userAccepted: false,
+      }
+    ];
+
+    // Add investment-specific goal if user has investment interests
+    if (user.investmentMin || user.investmentMax || user.investmentStage) {
+      suggestions.push({
+        eventId,
+        userId,
+        goalType: "investment",
+        priority: "high",
+        description: "Connect with potential investors or investment opportunities in your industry",
+        specificInterests: ["Funding", "Investment", "Capital", "Growth"],
+        targetAudience: "investors",
+        targetCompanySize: "enterprise",
+        targetIndustries: userIndustries,
+        targetRoles: ["Investor", "VC", "Angel Investor", "Partner"],
+        aiSuggested: true,
+        userAccepted: false,
+      });
+    }
+
+    return suggestions.slice(0, 3); // Return top 3 suggestions
   }
 }
 

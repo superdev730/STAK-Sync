@@ -14,6 +14,7 @@ import {
   insertRoomParticipantSchema,
   insertSponsorSchema,
   insertEventSponsorSchema,
+  insertEventAttendeeGoalSchema,
   matches, 
   users,
   events,
@@ -23,10 +24,13 @@ import {
   eventHosts,
   sponsors,
   eventSponsors,
+  eventAttendeeGoals,
   tokenUsage,
   billingAccounts,
   invoices,
-  invoiceLineItems
+  invoiceLineItems,
+  type EventAttendeeGoal,
+  type InsertEventAttendeeGoal
 } from "@shared/schema";
 import { csvImportService } from "./csvImportService";
 import { db } from "./db";
@@ -4526,6 +4530,93 @@ Keep responses conversational and helpful.`;
       return Math.round(accuracy);
     }
   }
+
+  // Event attendee goals endpoints
+  app.get('/api/events/:eventId/goals', isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const goals = await storage.getEventAttendeeGoals(eventId, userId);
+      res.json(goals);
+    } catch (error) {
+      console.error('Error fetching event goals:', error);
+      res.status(500).json({ message: "Failed to fetch event goals" });
+    }
+  });
+
+  app.post('/api/events/:eventId/goals/suggestions', isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const suggestions = await storage.generateAIGoalSuggestions(eventId, userId);
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error generating goal suggestions:', error);
+      res.status(500).json({ message: "Failed to generate goal suggestions" });
+    }
+  });
+
+  app.post('/api/events/:eventId/goals', isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const goalData = insertEventAttendeeGoalSchema.parse({
+        ...req.body,
+        eventId,
+        userId,
+      });
+
+      const goal = await storage.createEventAttendeeGoal(goalData);
+      res.status(201).json(goal);
+    } catch (error) {
+      console.error('Error creating event goal:', error);
+      res.status(500).json({ message: "Failed to create event goal" });
+    }
+  });
+
+  app.put('/api/events/:eventId/goals/:goalId', isAuthenticated, async (req, res) => {
+    try {
+      const { goalId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const goal = await storage.updateEventAttendeeGoal(goalId, req.body);
+      res.json(goal);
+    } catch (error) {
+      console.error('Error updating event goal:', error);
+      res.status(500).json({ message: "Failed to update event goal" });
+    }
+  });
+
+  app.delete('/api/events/:eventId/goals/:goalId', isAuthenticated, async (req, res) => {
+    try {
+      const { goalId } = req.params;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      await storage.deleteEventAttendeeGoal(goalId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting event goal:', error);
+      res.status(500).json({ message: "Failed to delete event goal" });
+    }
+  });
 
   return httpServer;
 }

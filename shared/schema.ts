@@ -306,6 +306,28 @@ export const roomParticipants = pgTable("room_participants", {
   isActive: boolean("is_active").default(true),
 });
 
+// Event attendee goals - networking objectives set before the event
+export const eventAttendeeGoals = pgTable("event_attendee_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  goalType: varchar("goal_type").notNull(), // networking, learning, partnership, investment, hiring, selling
+  priority: varchar("priority").default("medium"), // high, medium, low
+  description: text("description").notNull(),
+  specificInterests: text("specific_interests").array(), // Array of specific topics/areas
+  targetAudience: varchar("target_audience"), // founders, investors, enterprise, startups, etc.
+  targetCompanySize: varchar("target_company_size"), // startup, scale-up, enterprise
+  targetIndustries: text("target_industries").array(),
+  targetRoles: text("target_roles").array(), // CTO, CEO, VP Engineering, etc.
+  isActive: boolean("is_active").default(true),
+  aiSuggested: boolean("ai_suggested").default(false), // Was this goal AI-suggested?
+  userAccepted: boolean("user_accepted").default(true), // Did user accept AI suggestion?
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserEventGoal: unique().on(table.eventId, table.userId, table.goalType, table.description),
+}));
+
 // Event-specific matches
 export const eventMatches = pgTable("event_matches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -316,6 +338,7 @@ export const eventMatches = pgTable("event_matches", {
   roomId: varchar("room_id").references(() => eventRooms.id),
   status: varchar("status").default("pending"), // pending, connected, passed
   eventSpecificFactors: jsonb("event_specific_factors"), // event-context matching factors
+  goalAlignment: jsonb("goal_alignment"), // How well goals align between users
   suggestedMeetingTime: timestamp("suggested_meeting_time"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -686,6 +709,12 @@ export const insertEventMatchSchema = createInsertSchema(eventMatches).omit({
   updatedAt: true,
 });
 
+export const insertEventAttendeeGoalSchema = createInsertSchema(eventAttendeeGoals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Billing insert schemas
 export const insertTokenUsageSchema = createInsertSchema(tokenUsage).omit({
   id: true,
@@ -788,6 +817,8 @@ export type EventMatch = typeof eventMatches.$inferSelect;
 export type InsertEventMatch = z.infer<typeof insertEventMatchSchema>;
 export type EventAttendeeImport = typeof eventAttendeeImports.$inferSelect;
 export type InsertEventAttendeeImport = z.infer<typeof insertEventAttendeeImportSchema>;
+export type EventAttendeeGoal = typeof eventAttendeeGoals.$inferSelect;
+export type InsertEventAttendeeGoal = z.infer<typeof insertEventAttendeeGoalSchema>;
 export type Invite = typeof invites.$inferSelect;
 export type InsertInvite = z.infer<typeof insertInviteSchema>;
 

@@ -7,9 +7,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Search, Calendar, MapPin, Users, Clock, ExternalLink, Star, Sparkles, Plus, DollarSign, Building, Shield, Award, Zap, Info } from "lucide-react";
+import { Search, Calendar, MapPin, Users, Clock, ExternalLink, Star, Sparkles, Plus, DollarSign, Building, Shield, Award, Zap, Info, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { EventGoalsManager } from "@/components/EventGoalsManager";
 
 interface Event {
   id: string;
@@ -447,46 +448,69 @@ export default function Events() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex gap-2 pt-2">
-                  {!event.isUserRegistered && event.registered < event.capacity && new Date(event.startDate) > new Date() ? (
-                    <Button
-                      onClick={() => handleRegister(event.id)}
-                      disabled={registerMutation.isPending}
-                      className="flex-1 bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
-                    >
-                      {registerMutation.isPending ? "Registering..." : "Register"}
-                    </Button>
-                  ) : (
-                    <Button variant="outline" className="flex-1 border-gray-300 text-gray-600" disabled>
-                      {event.isUserRegistered ? "Registered" : 
-                       event.registered >= event.capacity ? "Full" : "Past Event"}
-                    </Button>
-                  )}
+                <div className="space-y-2 pt-2">
+                  <div className="flex gap-2">
+                    {!event.isUserRegistered && event.registered < event.capacity && new Date(event.startDate) > new Date() ? (
+                      <Button
+                        onClick={() => handleRegister(event.id)}
+                        disabled={registerMutation.isPending}
+                        className="flex-1 bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                      >
+                        {registerMutation.isPending ? "Registering..." : "Register"}
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="flex-1 border-gray-300 text-gray-600" disabled>
+                        {event.isUserRegistered ? "Registered" : 
+                         event.registered >= event.capacity ? "Full" : "Past Event"}
+                      </Button>
+                    )}
 
-                  {/* External Links */}
-                  {(event.lumaUrl || event.eventbriteUrl) && (
-                    <div className="flex gap-1">
-                      {event.lumaUrl && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.open(event.lumaUrl, '_blank')}
-                          className="px-2 text-gray-600 hover:text-stak-copper"
-                        >
-                          <ExternalLink className="h-4 w-4" />
+                    {/* External Links */}
+                    {(event.lumaUrl || event.eventbriteUrl) && (
+                      <div className="flex gap-1">
+                        {event.lumaUrl && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(event.lumaUrl, '_blank')}
+                            className="px-2 text-gray-600 hover:text-stak-copper"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {event.eventbriteUrl && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(event.eventbriteUrl, '_blank')}
+                            className="px-2 text-gray-600 hover:text-stak-copper"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Event Goals Button - Only show for registered users */}
+                  {event.isUserRegistered && (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-white">
+                          <Target className="w-4 h-4 mr-2" />
+                          Set Event Goals
                         </Button>
-                      )}
-                      {event.eventbriteUrl && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.open(event.eventbriteUrl, '_blank')}
-                          className="px-2 text-gray-600 hover:text-stak-copper"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Event Goals & Missions</DialogTitle>
+                          <DialogDescription>
+                            Set your networking objectives for {event.title} to enhance AI matching
+                          </DialogDescription>
+                        </DialogHeader>
+                        <EventGoalsManager eventId={event.id} />
+                      </DialogContent>
+                    </Dialog>
                   )}
                 </div>
               </CardContent>
