@@ -1107,11 +1107,11 @@ export default function EventsNew() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {eventForm.tags.map((tag, index) => (
-                    <Badge key={index} className="bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1 px-2 py-1">
+                    <Badge key={index} className="bg-[#CD853F] text-white border border-[#CD853F] flex items-center gap-1 px-2 py-1">
                       {tag}
                       <button 
                         onClick={() => removeTag(tag)} 
-                        className="ml-1 text-blue-600 hover:text-blue-800 text-sm font-bold"
+                        className="ml-1 text-white hover:text-gray-200 text-sm font-bold"
                       >
                         ×
                       </button>

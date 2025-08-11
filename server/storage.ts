@@ -73,6 +73,8 @@ export interface IStorage {
   getEvent(eventId: string): Promise<(Event & { organizer: User; registrationCount: number; rooms: EventRoom[] }) | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(eventId: string, updates: Partial<Event>): Promise<Event>;
+  deleteEvent(eventId: string): Promise<void>;
+  getAllEventsForAdmin(): Promise<(Event & { organizer: User; registrationCount: number })[]>;
   
   // Event registration operations
   registerForEvent(registration: InsertEventRegistration): Promise<EventRegistration>;
@@ -406,6 +408,45 @@ export class DatabaseStorage implements IStorage {
       .where(eq(events.id, eventId))
       .returning();
     return event;
+  }
+
+  async deleteEvent(eventId: string): Promise<void> {
+    // Delete related records first
+    await db.delete(eventRegistrations).where(eq(eventRegistrations.eventId, eventId));
+    await db.delete(roomParticipants).where(sql`${roomParticipants.roomId} IN (SELECT id FROM ${eventRooms} WHERE ${eventRooms.eventId} = ${eventId})`);
+    await db.delete(eventRooms).where(eq(eventRooms.eventId, eventId));
+    await db.delete(eventMatches).where(eq(eventMatches.eventId, eventId));
+    
+    // Finally delete the event
+    await db.delete(events).where(eq(events.id, eventId));
+  }
+
+  async getAllEventsForAdmin(): Promise<(Event & { organizer: User; registrationCount: number })[]> {
+    const result = await db
+      .select({
+        event: events,
+        organizer: users,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.organizerId, users.id))
+      .orderBy(desc(events.createdAt));
+
+    const eventsWithCounts = await Promise.all(
+      result.map(async (row) => {
+        const registrations = await db
+          .select({ count: count() })
+          .from(eventRegistrations)
+          .where(eq(eventRegistrations.eventId, row.event.id));
+
+        return {
+          ...row.event,
+          organizer: row.organizer || { firstName: 'Unknown', lastName: 'User', email: '', id: '' } as User,
+          registrationCount: registrations[0]?.count || 0,
+        };
+      })
+    );
+
+    return eventsWithCounts;
   }
 
   async registerForEvent(registration: InsertEventRegistration): Promise<EventRegistration> {

@@ -43,10 +43,10 @@ app.use((req, res, next) => {
   const { AdminSetupService } = await import("./adminSetup");
   await AdminSetupService.setupInitialAdmin();
   
-  // Seed demo users
-  console.log("Setting up demo users...");
-  const { seedSampleUsers } = await import("./seedData");
-  await seedSampleUsers();
+  // Demo user seeding disabled for production testing
+  // console.log("Setting up demo users...");
+  // const { seedSampleUsers } = await import("./seedData");
+  // await seedSampleUsers();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

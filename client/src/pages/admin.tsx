@@ -82,6 +82,7 @@ function AdminDashboard() {
     isStakTeamMember: false
   });
   const [activeInsightView, setActiveInsightView] = useState<string | null>(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
   // Data fetching
   const { data: analytics, isLoading } = useQuery({
@@ -121,9 +122,9 @@ function AdminDashboard() {
     queryKey: ['/api/admin/urgent-actions'],
   });
 
-  // Add events query to show actual event data
+  // Add admin events query to show actual event data with admin privileges
   const { data: events, isLoading: eventsLoading } = useQuery({
-    queryKey: ['/api/events'],
+    queryKey: ['/api/admin/events'],
     retry: false, // Don't retry if endpoint doesn't exist
   });
 
@@ -270,22 +271,14 @@ function AdminDashboard() {
 
   const createEventMutation = useMutation({
     mutationFn: async (eventData: any) => {
-      // Combine date and time into proper format
-      const startDateTime = new Date(`${eventData.startDate}T${eventData.startTime}`);
-      const eventPayload = {
-        ...eventData,
-        startDate: startDateTime.toISOString(),
-        endDate: new Date(startDateTime.getTime() + 2 * 60 * 60 * 1000).toISOString(), // Default 2 hours
-      };
-      return apiRequest('/api/events', 'POST', eventPayload);
+      return apiRequest('/api/admin/events', 'POST', eventData);
     },
     onSuccess: () => {
       toast({
         title: "Success",
         description: "Event created successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics/30d'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/events'] });
       setShowCreateEventDialog(false);
       setEventData({
         title: '',
@@ -305,6 +298,48 @@ function AdminDashboard() {
       toast({
         title: "Error",
         description: error.message || "Failed to create event",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateEventMutation = useMutation({
+    mutationFn: async ({ eventId, eventData }: { eventId: string; eventData: any }) => {
+      return apiRequest(`/api/admin/events/${eventId}`, 'PUT', eventData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Event updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/events'] });
+      setShowCreateEventDialog(false);
+      setEditingEventId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update event",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      return apiRequest(`/api/admin/events/${eventId}`, 'DELETE');
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Event deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/events'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete event",
         variant: "destructive",
       });
     },
@@ -751,10 +786,24 @@ function AdminDashboard() {
                                   coverImageUrl: event.coverImageUrl || '',
                                   videoUrl: event.videoUrl || ''
                                 });
+                                setEditingEventId(event.id);
                                 setShowCreateEventDialog(true);
                               }}
                             >
                               Edit
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 ml-2"
+                              onClick={() => {
+                                if (confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+                                  deleteEventMutation.mutate(event.id);
+                                }
+                              }}
+                              title="Delete Event"
+                            >
+                              <UserX className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
@@ -1449,10 +1498,27 @@ function AdminDashboard() {
               </Button>
               <Button 
                 className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80"
-                onClick={() => createEventMutation.mutate(eventData)}
-                disabled={createEventMutation.isPending || !eventData.title || !eventData.startDate}
+                onClick={() => {
+                  // Combine date and time into proper format
+                  const startDateTime = new Date(`${eventData.startDate}T${eventData.startTime}`);
+                  const eventPayload = {
+                    ...eventData,
+                    startDate: startDateTime.toISOString(),
+                    endDate: new Date(startDateTime.getTime() + 2 * 60 * 60 * 1000).toISOString(), // Default 2 hours
+                  };
+                  
+                  if (editingEventId) {
+                    updateEventMutation.mutate({ eventId: editingEventId, eventData: eventPayload });
+                  } else {
+                    createEventMutation.mutate(eventPayload);
+                  }
+                }}
+                disabled={createEventMutation.isPending || updateEventMutation.isPending || !eventData.title || !eventData.startDate}
               >
-                {createEventMutation.isPending ? 'Creating...' : 'Create Event'}
+                {(createEventMutation.isPending || updateEventMutation.isPending) ? 
+                  (editingEventId ? 'Updating...' : 'Creating...') : 
+                  (editingEventId ? 'Update Event' : 'Create Event')
+                }
               </Button>
             </DialogFooter>
           </DialogContent>

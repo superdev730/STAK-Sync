@@ -1428,11 +1428,21 @@ END:VCALENDAR`;
 
   app.delete('/api/admin/events/:id', isAuthenticated, isAdmin, async (req, res) => {
     try {
-      // TODO: Implement deleteEvent in storage
+      await storage.deleteEvent(req.params.id);
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting event:', error);
       res.status(500).json({ message: 'Failed to delete event' });
+    }
+  });
+
+  app.get('/api/admin/events', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const events = await storage.getAllEventsForAdmin();
+      res.json(events);
+    } catch (error) {
+      console.error('Error fetching admin events:', error);
+      res.status(500).json({ message: 'Failed to fetch events' });
     }
   });
 
