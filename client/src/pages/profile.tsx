@@ -119,7 +119,7 @@ export default function Profile() {
       const response = await apiRequest("POST", "/api/user/objects/upload");
       return {
         method: "PUT" as const,
-        url: response.uploadURL,
+        url: response.uploadURL || response.url,
       };
     } catch (error) {
       console.error("Error getting upload parameters:", error);

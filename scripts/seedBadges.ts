@@ -189,11 +189,7 @@ async function seedBadges() {
         .limit(1);
       
       if (existing.length === 0) {
-        await db.insert(badges).values({
-          ...badge,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+        await db.insert(badges).values(badge);
         console.log(`✓ Created badge: ${badge.name}`);
       } else {
         console.log(`- Badge already exists: ${badge.name}`);
