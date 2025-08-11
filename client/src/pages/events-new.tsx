@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getUserFriendlyErrorMessage, getErrorTitle } from "@/lib/errorUtils";
 import { useAuth } from "@/hooks/useAuth";
 
 // Create a custom useAuth hook since it might not exist
@@ -224,8 +225,8 @@ export default function EventsNew() {
     },
     onError: (error: any) => {
       toast({
-        title: "Registration Failed",
-        description: error.message || "Something went wrong",
+        title: getErrorTitle(error),
+        description: getUserFriendlyErrorMessage(error),
         variant: "destructive",
       });
     },

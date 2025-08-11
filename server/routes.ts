@@ -2849,24 +2849,24 @@ END:VCALENDAR`;
       const userId = req.user?.claims?.sub;
 
       if (!userId) {
-        return res.status(401).json({ message: 'User not authenticated' });
+        return res.status(401).json({ message: 'Please sign in to register for events' });
       }
 
       // Check if user is already registered using storage method
       const existingRegistration = await storage.getUserEventRegistration(eventId, userId);
       if (existingRegistration) {
-        return res.status(400).json({ message: 'Already registered for this event' });
+        return res.status(400).json({ message: 'You are already registered for this event' });
       }
 
       // Check if event exists and has capacity using storage method
       const event = await storage.getEvent(eventId);
       if (!event) {
-        return res.status(404).json({ message: 'Event not found' });
+        return res.status(404).json({ message: 'This event could not be found' });
       }
 
       const registrationCount = await storage.getEventRegistrationCount(eventId);
       if (registrationCount >= event.capacity) {
-        return res.status(400).json({ message: 'Event is at capacity' });
+        return res.status(400).json({ message: 'This event is full. No more spots available.' });
       }
 
       // Calculate total amount based on event pricing
@@ -2906,7 +2906,7 @@ END:VCALENDAR`;
       res.json({ success: true, registration });
     } catch (error) {
       console.error('Error registering for event:', error);
-      res.status(500).json({ message: 'Failed to register for event' });
+      res.status(500).json({ message: 'Unable to complete registration. Please try again.' });
     }
   });
 

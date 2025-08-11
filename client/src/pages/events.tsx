@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Search, Calendar, MapPin, Users, Clock, ExternalLink, Star, Sparkles, Plus, DollarSign, Building, Shield, Award, Zap, Info, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getUserFriendlyErrorMessage, getErrorTitle } from "@/lib/errorUtils";
 import { EventGoalsManager } from "@/components/EventGoalsManager";
 import { EventMatchmakingDashboard } from "@/components/EventMatchmakingDashboard";
 
@@ -54,8 +55,8 @@ export default function Events() {
     },
     onError: (error: any) => {
       toast({
-        title: "Registration Failed",
-        description: error.message || "Something went wrong",
+        title: getErrorTitle(error),
+        description: getUserFriendlyErrorMessage(error),
         variant: "destructive",
       });
     },
