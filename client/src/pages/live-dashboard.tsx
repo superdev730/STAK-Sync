@@ -38,6 +38,7 @@ interface Event {
   location: string;
   isVirtual: boolean;
   status: string;
+  imageUrl?: string;
 }
 
 interface EventPresence {
@@ -223,15 +224,27 @@ export default function LiveDashboard() {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <Activity className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold text-foreground">Live Dashboard</h1>
-              <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+          <div className="flex items-center gap-4">
+            {/* Event Cover Image */}
+            {event?.imageUrl && (
+              <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-300 shadow-md">
+                <img
+                  src={event.imageUrl}
+                  alt={event.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Activity className="h-8 w-8 text-primary" />
+                <h1 className="text-3xl font-bold text-foreground">Live Dashboard</h1>
+                <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+              </div>
+              <p className="text-muted-foreground">
+                {event?.title} • {onlineAttendees.length} of {totalAttendees} attendees online
+              </p>
             </div>
-            <p className="text-muted-foreground">
-              {event?.title} • {onlineAttendees.length} of {totalAttendees} attendees online
-            </p>
           </div>
           
           <div className="flex gap-2">

@@ -12,6 +12,7 @@ interface LiveEvent {
   isVirtual: boolean;
   eventType: string;
   attendeeCount?: number;
+  imageUrl?: string;
 }
 
 interface TimeRemaining {
@@ -86,6 +87,16 @@ export function LiveEventBanner() {
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            {/* Event Cover Image */}
+            {liveEvent.imageUrl && (
+              <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-700">
+                <img
+                  src={liveEvent.imageUrl}
+                  alt={liveEvent.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-[#CD853F]" />
               <span className="text-white font-semibold text-lg">{liveEvent.title}</span>

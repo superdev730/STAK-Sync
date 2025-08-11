@@ -200,7 +200,9 @@ export default function Home() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-stak-copper/20 rounded-full flex items-center justify-center">
+                {/* Display actual live event with cover image when available */}
+                <div className="w-12 h-12 bg-stak-copper/20 rounded-full flex items-center justify-center overflow-hidden">
+                  {/* This should be replaced with actual live event data when available */}
                   <Calendar className="w-6 h-6 text-stak-copper" />
                 </div>
                 <div>

@@ -82,8 +82,20 @@ export default function LiveEvent() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-black to-gray-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="bg-gradient-to-r from-black to-gray-900 text-white relative">
+        {/* Event Cover Image Background */}
+        {event.coverImageUrl && (
+          <div className="absolute inset-0">
+            <img
+              src={event.coverImageUrl}
+              alt={event.title}
+              className="w-full h-full object-cover opacity-30"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-gray-900/80" />
+          </div>
+        )}
+        
+        <div className="max-w-7xl mx-auto px-4 py-12 relative z-10">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <Badge className={`${status.color} text-white`}>

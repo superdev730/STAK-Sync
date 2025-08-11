@@ -72,8 +72,11 @@ export default function AdminEvents() {
       return apiRequest('POST', '/api/admin/events', eventData);
     },
     onSuccess: () => {
+      // Invalidate all event-related queries to ensure immediate refresh everywhere
       queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events/live-today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
       setCreateDialog(false);
       toast({
         title: "Success",
@@ -94,8 +97,11 @@ export default function AdminEvents() {
       return apiRequest('PUT', `/api/admin/events/${id}`, eventData);
     },
     onSuccess: () => {
+      // Invalidate all event-related queries to ensure immediate refresh everywhere
       queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events/live-today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
       setSelectedEvent(null);
       toast({
         title: "Success",
@@ -109,8 +115,11 @@ export default function AdminEvents() {
       return apiRequest('DELETE', `/api/admin/events/${eventId}`);
     },
     onSuccess: () => {
+      // Invalidate all event-related queries to ensure immediate refresh everywhere
       queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events/live-today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
       toast({
         title: "Success",
         description: "Event deleted successfully",
