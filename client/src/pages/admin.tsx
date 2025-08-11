@@ -31,6 +31,7 @@ import {
   CreditCard
 } from "lucide-react";
 import { STAKReceptionImport } from "@/components/STAKReceptionImport";
+import { ObjectUploader } from "@/components/ObjectUploader";
 
 interface User {
   id: string;
@@ -1451,17 +1452,91 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="coverImageUrl" className="text-gray-700 font-medium">Cover Image URL</Label>
-                  <Input
-                    id="coverImageUrl"
-                    placeholder="https://example.com/image.jpg"
-                    value={eventData.coverImageUrl}
-                    onChange={(e) => setEventData({...eventData, coverImageUrl: e.target.value})}
-                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
-                  />
+                  <Label className="text-gray-700 font-medium">Cover Image</Label>
+                  <div className="mt-2 space-y-3">
+                    {/* Photo Upload Button */}
+                    <ObjectUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={10485760} // 10MB
+                      onGetUploadParameters={async () => {
+                        const response = await apiRequest("POST", "/api/events/upload-image", {});
+                        const data = await response.json();
+                        return {
+                          method: "PUT" as const,
+                          url: data.uploadURL
+                        };
+                      }}
+                      onComplete={async (result) => {
+                        if (result.successful && result.successful.length > 0) {
+                          const uploadedFile = result.successful[0];
+                          // Convert upload URL to our public object serving path
+                          const uploadURL = uploadedFile.uploadURL;
+                          
+                          // Extract the file path from the Google Cloud Storage URL
+                          try {
+                            const url = new URL(uploadURL);
+                            const pathParts = url.pathname.split('/');
+                            if (pathParts.length >= 4 && pathParts[2] === 'public' && pathParts[3] === 'events') {
+                              // Convert to our public object serving path
+                              const filename = pathParts[4];
+                              const publicPath = `/public-objects/events/${filename}`;
+                              setEventData({...eventData, coverImageUrl: publicPath});
+                            } else {
+                              // Fallback to original URL
+                              setEventData({...eventData, coverImageUrl: uploadURL});
+                            }
+                          } catch (error) {
+                            console.error("Error parsing upload URL:", error);
+                            setEventData({...eventData, coverImageUrl: uploadURL});
+                          }
+                          
+                          toast({
+                            title: "Image Uploaded",
+                            description: "Event cover image has been uploaded successfully",
+                          });
+                        }
+                      }}
+                      buttonClassName="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                    >
+                      📷 Upload Cover Image
+                    </ObjectUploader>
+                    
+                    {/* Current Image Display */}
+                    {eventData.coverImageUrl && (
+                      <div className="relative">
+                        <img 
+                          src={eventData.coverImageUrl} 
+                          alt="Event cover" 
+                          className="w-full h-32 object-cover rounded-md border border-gray-300"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => setEventData({...eventData, coverImageUrl: ''})}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* Manual URL Input as Fallback */}
+                    <div>
+                      <Label htmlFor="coverImageUrl" className="text-sm text-gray-600">Or enter image URL manually</Label>
+                      <Input
+                        id="coverImageUrl"
+                        placeholder="https://example.com/image.jpg"
+                        value={eventData.coverImageUrl}
+                        onChange={(e) => setEventData({...eventData, coverImageUrl: e.target.value})}
+                        className="bg-white border-gray-300 text-gray-900 focus:border-navy text-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
+                
                 <div>
                   <Label htmlFor="videoUrl" className="text-gray-700 font-medium">YouTube Video URL</Label>
                   <Input

@@ -33,6 +33,7 @@ import { db } from "./db";
 import { eq, and, or, sum, count, gte, sql, ilike, inArray } from "drizzle-orm";
 import { generateQuickResponses } from "./aiResponses";
 import { tokenUsageService } from "./tokenUsageService";
+import { ObjectStorageService } from "./objectStorage";
 
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -87,6 +88,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error seeding users:", error);
       res.status(500).json({ message: "Failed to seed users" });
+    }
+  });
+
+  // Object Storage routes for public file serving
+  app.get("/public-objects/:filePath(*)", async (req, res) => {
+    const filePath = req.params.filePath;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const file = await objectStorageService.searchPublicObject(filePath);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      objectStorageService.downloadObject(file, res);
+    } catch (error) {
+      console.error("Error searching for public object:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Event image upload route
+  app.post("/api/events/upload-image", isAuthenticated, async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getEventImageUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
     }
   });
 
