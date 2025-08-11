@@ -113,6 +113,29 @@ export interface IStorage {
   // Additional admin methods (simplified for basic functionality)
   logAdminAction(log: any): Promise<any>;
   updateUserAccountStatus(userId: string, status: any): Promise<any>;
+
+  // Proximity networking operations
+  updateUserProximitySettings(userId: string, settings: {
+    proximityEnabled?: boolean;
+    proximityMinMatchScore?: number;
+    proximityAlertRadius?: number;
+    proximityNotifications?: boolean;
+    proximityMutualOnly?: boolean;
+    bluetoothDeviceId?: string;
+  }): Promise<User>;
+  getNearbyMatches(userId: string, options: {
+    minMatchScore: number;
+    maxDistance: number;
+    mutualOnly: boolean;
+  }): Promise<any[]>;
+  createProximityDetection(detection: {
+    userId: string;
+    detectedUserId: string;
+    bluetoothDeviceId: string;
+    signalStrength: number;
+    estimatedDistance: number;
+  }): Promise<any>;
+  checkForMutualProximityDetection(userId: string, detectedUserId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -827,6 +850,75 @@ export class DatabaseStorage implements IStorage {
       .from(invites)
       .where(eq(invites.createdByUserId, userId))
       .orderBy(desc(invites.createdAt));
+  }
+
+  // Proximity networking methods
+  async updateUserProximitySettings(userId: string, settings: {
+    proximityEnabled?: boolean;
+    proximityMinMatchScore?: number;
+    proximityAlertRadius?: number;
+    proximityNotifications?: boolean;
+    proximityMutualOnly?: boolean;
+    bluetoothDeviceId?: string;
+  }): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        proximityEnabled: settings.proximityEnabled,
+        proximityMinMatchScore: settings.proximityMinMatchScore,
+        proximityAlertRadius: settings.proximityAlertRadius,
+        proximityNotifications: settings.proximityNotifications,
+        proximityMutualOnly: settings.proximityMutualOnly,
+        bluetoothDeviceId: settings.bluetoothDeviceId,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async getNearbyMatches(userId: string, options: {
+    minMatchScore: number;
+    maxDistance: number;
+    mutualOnly: boolean;
+  }): Promise<any[]> {
+    // For demo purposes, return empty array
+    // In a real implementation, this would query proximity detections
+    return [];
+  }
+
+  async createProximityDetection(detection: {
+    userId: string;
+    detectedUserId: string;
+    bluetoothDeviceId: string;
+    signalStrength: number;
+    estimatedDistance: number;
+  }): Promise<any> {
+    // For demo purposes, return mock detection
+    // In a real implementation, this would insert into proximity_detections table
+    return {
+      id: 'demo-detection',
+      ...detection,
+      detectedAt: new Date().toISOString(),
+    };
+  }
+
+  async checkForMutualProximityDetection(userId: string, detectedUserId: string): Promise<boolean> {
+    // For demo purposes, return false
+    // In a real implementation, this would check for mutual detections
+    return false;
+  }
+
+  async logAdminAction(log: any): Promise<any> {
+    console.log('Admin action logged:', log);
+    // In a real implementation, you would log admin actions to the database
+    return { success: true };
+  }
+
+  async updateUserAccountStatus(userId: string, status: any): Promise<any> {
+    // For now, just return success
+    // In a real implementation, you would update user account status
+    return { success: true };
   }
 }
 

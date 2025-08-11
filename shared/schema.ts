@@ -82,6 +82,14 @@ export const users = pgTable("users", {
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   billingStatus: billingStatusEnum("billing_status").default("active"),
   
+  // Proximity networking settings
+  bluetoothDeviceId: varchar("bluetooth_device_id"),
+  proximityEnabled: boolean("proximity_enabled").default(false),
+  proximityMinMatchScore: integer("proximity_min_match_score").default(85),
+  proximityAlertRadius: integer("proximity_alert_radius").default(50),
+  proximityNotifications: boolean("proximity_notifications").default(true),
+  proximityMutualOnly: boolean("proximity_mutual_only").default(false),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -100,6 +108,20 @@ export const invites = pgTable("invites", {
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
   usedAt: timestamp("used_at"),
+});
+
+// Proximity detection logs for Bluetooth-based networking
+export const proximityDetections = pgTable("proximity_detections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  detectedUserId: varchar("detected_user_id").notNull().references(() => users.id),
+  bluetoothDeviceId: varchar("bluetooth_device_id"),
+  signalStrength: integer("signal_strength"), // RSSI value
+  estimatedDistance: integer("estimated_distance"), // in meters
+  matchScore: integer("match_score"),
+  notificationSent: boolean("notification_sent").default(false),
+  detectedAt: timestamp("detected_at").defaultNow(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow(),
 });
 
 // Matches between users

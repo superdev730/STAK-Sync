@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
   MapPin, 
   Briefcase, 
@@ -19,7 +22,9 @@ import {
   MessageSquare,
   Calendar,
   Star,
-  Zap
+  Zap,
+  Camera,
+  Upload
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoute } from "wouter";
@@ -61,6 +66,8 @@ export default function Profile() {
   const [, params] = useRoute("/profile/:userId?");
   const userId = params?.userId;
   const isOwnProfile = !userId || userId === currentUser?.id;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   // Fetch profile data - either current user's or the specified user's
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
@@ -105,6 +112,50 @@ export default function Profile() {
 
   const syncLevel = getSyncLevel(stats?.signalScore || 0);
 
+  // Handle profile image upload
+  const handleGetUploadParameters = async () => {
+    try {
+      const response = await apiRequest("POST", "/api/user/objects/upload");
+      return {
+        method: "PUT" as const,
+        url: response.uploadURL,
+      };
+    } catch (error) {
+      console.error("Error getting upload parameters:", error);
+      throw error;
+    }
+  };
+
+  const handleImageUploadComplete = async (result: any) => {
+    try {
+      if (result.successful && result.successful.length > 0) {
+        const uploadedFile = result.successful[0];
+        const imageUrl = uploadedFile.uploadURL;
+
+        // Update user profile with new image URL
+        await apiRequest("PUT", "/api/user/profile-image", {
+          profileImageUrl: imageUrl,
+        });
+
+        // Refresh profile data
+        queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+
+        toast({
+          title: "Profile Image Updated",
+          description: "Your profile image has been successfully updated.",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating profile image:", error);
+      toast({
+        title: "Upload Failed",
+        description: "Failed to update your profile image. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-4xl mx-auto px-6 py-8">
@@ -113,12 +164,31 @@ export default function Profile() {
           <div className="h-32 bg-gradient-to-r from-stak-black via-gray-700 to-stak-copper"></div>
           <CardContent className="relative -mt-16 pb-8 bg-white">
             <div className="flex flex-col sm:flex-row items-start sm:items-end space-y-4 sm:space-y-0 sm:space-x-6">
-              <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
-                <AvatarImage src={profile.profileImageUrl || ""} alt={profile.firstName || ""} />
-                <AvatarFallback className="bg-gray-200 text-stak-black text-3xl font-semibold">
-                  {profile.firstName?.[0]}{profile.lastName?.[0]}
-                </AvatarFallback>
-              </Avatar>
+              {/* Profile Image with Upload Functionality */}
+              <div className="relative group">
+                <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
+                  <AvatarImage src={profile.profileImageUrl || ""} alt={profile.firstName || ""} />
+                  <AvatarFallback className="bg-gray-200 text-stak-black text-3xl font-semibold">
+                    {profile.firstName?.[0]}{profile.lastName?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+                
+                {/* Upload Overlay - Only show for own profile */}
+                {isOwnProfile && (
+                  <ObjectUploader
+                    maxNumberOfFiles={1}
+                    maxFileSize={5242880} // 5MB limit for profile images
+                    onGetUploadParameters={handleGetUploadParameters}
+                    onComplete={handleImageUploadComplete}
+                    buttonClassName="absolute inset-0 w-32 h-32 rounded-full bg-black bg-opacity-0 hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center group-hover:bg-opacity-50 border-0 p-0"
+                  >
+                    <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center">
+                      <Camera className="h-6 w-6 mb-1" />
+                      <span className="text-xs font-medium">Change Photo</span>
+                    </div>
+                  </ObjectUploader>
+                )}
+              </div>
               
               <div className="flex-1 pt-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">

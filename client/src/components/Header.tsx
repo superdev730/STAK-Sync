@@ -54,6 +54,7 @@ export default function Header() {
       count: unreadMessages > 0 ? unreadMessages : undefined
     },
     { name: "Events", href: "/events" },
+    { name: "Proximity", href: "/proximity" },
   ];
 
   // Add admin link for admin users

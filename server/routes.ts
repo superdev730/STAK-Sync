@@ -503,6 +503,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User object upload endpoint for profile images
+  app.post("/api/user/objects/upload", isAuthenticated, async (req, res) => {
+    try {
+      const { ObjectStorageService } = await import('./objectStorage');
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  // Profile image update endpoint
+  app.put('/api/user/profile-image', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { profileImageUrl } = req.body;
+
+      if (!profileImageUrl) {
+        return res.status(400).json({ error: "Profile image URL is required" });
+      }
+
+      // Update user profile with new image URL
+      const updatedUser = await storage.updateUser(userId, {
+        profileImageUrl: profileImageUrl
+      });
+
+      res.json({
+        success: true,
+        user: updatedUser,
+        message: "Profile image updated successfully"
+      });
+    } catch (error) {
+      console.error("Error updating profile image:", error);
+      res.status(500).json({ error: "Failed to update profile image" });
+    }
+  });
+
   // Drill-down API endpoints for match statistics
   app.get('/api/user/matches-detailed', isAuthenticated, async (req: any, res) => {
     try {
@@ -4261,6 +4300,141 @@ Keep responses conversational and helpful.`;
       });
     }
   });
+
+  // === PROXIMITY NETWORKING ROUTES ===
+
+  // Get user's proximity settings
+  app.get("/api/user/proximity-settings", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const settings = {
+        enabled: user.proximityEnabled || false,
+        minMatchScore: user.proximityMinMatchScore || 85,
+        alertRadius: user.proximityAlertRadius || 50,
+        allowNotifications: user.proximityNotifications || true,
+        showOnlyMutualConnections: user.proximityMutualOnly || false,
+        bluetoothDeviceId: user.bluetoothDeviceId
+      };
+
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching proximity settings:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update user's proximity settings
+  app.put("/api/user/proximity-settings", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { enabled, minMatchScore, alertRadius, allowNotifications, showOnlyMutualConnections, bluetoothDeviceId } = req.body;
+
+      const updatedUser = await storage.updateUserProximitySettings(userId, {
+        proximityEnabled: enabled,
+        proximityMinMatchScore: minMatchScore,
+        proximityAlertRadius: alertRadius,
+        proximityNotifications: allowNotifications,
+        proximityMutualOnly: showOnlyMutualConnections,
+        bluetoothDeviceId: bluetoothDeviceId
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating proximity settings:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get nearby matches based on recent proximity detections
+  app.get("/api/proximity/nearby-matches", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.proximityEnabled) {
+        return res.json([]);
+      }
+
+      // For demo purposes, return sample high-quality matches when proximity is enabled
+      const sampleNearbyMatches = [
+        {
+          userId: "sample-1",
+          username: "alex_thompson",
+          firstName: "Alex",
+          lastName: "Thompson",
+          company: "Thompson Ventures",
+          title: "Managing Partner",
+          matchScore: 92,
+          distance: 15,
+          lastSeen: new Date().toISOString(),
+          isConnected: false
+        },
+        {
+          userId: "sample-2", 
+          username: "sarah_chen",
+          firstName: "Sarah",
+          lastName: "Chen",
+          company: "TechFlow AI",
+          title: "CEO & Founder",
+          matchScore: 88,
+          distance: 32,
+          lastSeen: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+          isConnected: false
+        }
+      ].filter(match => match.matchScore >= (user.proximityMinMatchScore || 85));
+
+      res.json(sampleNearbyMatches);
+    } catch (error) {
+      console.error("Error fetching nearby matches:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Report proximity detection (called by client when Bluetooth devices are detected)
+  app.post("/api/proximity/detection", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { deviceId, signalStrength, detectedUserId } = req.body;
+
+      if (!deviceId || !signalStrength) {
+        return res.status(400).json({ error: "Device ID and signal strength are required" });
+      }
+
+      // Calculate estimated distance from RSSI
+      const estimatedDistance = calculateDistanceFromRSSI(signalStrength);
+
+      // In a real implementation, you would create proximity detection records
+      // For now, just acknowledge the detection
+      res.json({ success: true, estimatedDistance });
+    } catch (error) {
+      console.error("Error recording proximity detection:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Helper function to calculate distance from RSSI
+  function calculateDistanceFromRSSI(rssi: number): number {
+    // Simple RSSI to distance conversion (very approximate)
+    const txPower = -59; // Measured power at 1 meter
+    const ratio = rssi * 1.0 / txPower;
+    
+    if (ratio < 1.0) {
+      return Math.pow(ratio, 10);
+    } else {
+      const accuracy = (0.89976) * Math.pow(ratio, 7.7095) + 0.111;
+      return Math.round(accuracy);
+    }
+  }
 
   return httpServer;
 }
