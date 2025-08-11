@@ -257,14 +257,18 @@ function AdminDashboard() {
       queryClient.invalidateQueries({ 
         queryKey: ['/api/admin/analytics/30d'] 
       });
-      // Force immediate refetch of current page
+      // Force immediate refetch of current page to update the UI
       queryClient.refetchQueries({ 
         queryKey: ['/api/admin/users', { page: currentPage, limit: 50, search: userSearchQuery }],
         exact: true 
       });
+      // Also refetch the analytics to update user counts
       queryClient.refetchQueries({ 
         queryKey: ['/api/admin/analytics/30d'] 
       });
+      // Force a complete cache refresh to ensure immediate UI update
+      queryClient.invalidateQueries();
+      queryClient.refetchQueries();
     },
     onError: (error: any) => {
       toast({
@@ -729,8 +733,13 @@ function AdminDashboard() {
                                     size="sm" 
                                     variant="ghost" 
                                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={() => deleteUserMutation.mutate(user.id)}
+                                    onClick={() => {
+                                      if (confirm(`Are you sure you want to delete ${user.firstName} ${user.lastName}? This action cannot be undone.`)) {
+                                        deleteUserMutation.mutate(user.id);
+                                      }
+                                    }}
                                     title="Delete User"
+                                    disabled={deleteUserMutation.isPending}
                                   >
                                     <UserX className="h-4 w-4" />
                                   </Button>
