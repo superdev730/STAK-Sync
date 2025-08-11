@@ -179,7 +179,9 @@ export default function EventsNew() {
   // Mutations
   const createEventMutation = useMutation({
     mutationFn: async (eventData: any) => {
-      return await apiRequest("POST", "/api/events/create", eventData);
+      console.log('Making API request to create event:', eventData);
+      const response = await apiRequest("/api/events/create", "POST", eventData);
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -207,10 +209,11 @@ export default function EventsNew() {
       ticketTypeId?: string; 
       lineItemIds?: string[];
     }) => {
-      return await apiRequest("POST", `/api/events/${eventId}/register`, {
+      const response = await apiRequest(`/api/events/${eventId}/register`, "POST", {
         ticketTypeId,
         lineItemIds,
       });
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -960,7 +963,7 @@ export default function EventsNew() {
                       checked={eventForm.isPaid}
                       onCheckedChange={(checked) => setEventForm(prev => ({ ...prev, isPaid: checked }))}
                     />
-                    <Label htmlFor="isPaid" className="text-gray-700">Paid Event</Label>
+                    <Label htmlFor="isPaid" className="text-gray-900 font-medium">Paid Event</Label>
                   </div>
                 </div>
 
@@ -1127,7 +1130,7 @@ export default function EventsNew() {
                       checked={eventForm.requiresApproval}
                       onCheckedChange={(checked) => setEventForm(prev => ({ ...prev, requiresApproval: checked }))}
                     />
-                    <Label htmlFor="requiresApproval" className="text-gray-700">Require approval for registration</Label>
+                    <Label htmlFor="requiresApproval" className="text-gray-900 font-medium">Require approval for registration</Label>
                   </div>
                 </div>
 
