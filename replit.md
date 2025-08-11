@@ -8,6 +8,13 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
+## Sales Tax System Implementation (August 11, 2025)
+- **Oakland Sales Tax Integration**: Complete sales tax system for Oakland, Alameda County, California with 10.00% total rate (7.25% state + 1.50% county + 1.00% city + 0.25% district)
+- **Tax Service Module**: Comprehensive tax calculation service using Decimal.js for financial precision with support for subscription, event ticket, and service tax categories
+- **Automated Invoice Tax Calculation**: All invoice generation now includes automatic sales tax calculations with detailed breakdowns by jurisdiction
+- **Admin Tax Management**: New admin tax tab with current rates display, tax calculator, and compliance information
+- **API Tax Endpoints**: Tax calculation and rate retrieval endpoints for real-time tax computation
+
 ## STAK Reception App Integration & Live Events (August 11, 2025)
 - **Live Event Banner System**: Complete countdown banner functionality that automatically appears on event days with real-time timer, attendee count, and "Live Now" status display
 - **Live Event Page**: Full-featured live event interface with ticket validation, early entry access, and matchmaking controls based on ticket ownership

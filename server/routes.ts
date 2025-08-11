@@ -34,6 +34,7 @@ import { eq, and, or, sum, count, gte, sql, ilike, inArray } from "drizzle-orm";
 import { generateQuickResponses } from "./aiResponses";
 import { tokenUsageService } from "./tokenUsageService";
 import { ObjectStorageService } from "./objectStorage";
+import { TaxService, TaxableItem } from "./taxService";
 
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -1965,7 +1966,69 @@ END:VCALENDAR`;
     }
   });
 
-  // Generate invoice for user
+  // Calculate sales tax for items
+  app.post('/api/billing/calculate-tax', isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ message: 'Items must be an array' });
+      }
+
+      // Convert items to taxable format
+      const taxableItems: TaxableItem[] = items.map((item: any) => ({
+        description: item.description || 'Service',
+        amount: item.amount || 0,
+        quantity: item.quantity || 1,
+        taxCategory: item.taxCategory || 'service',
+        isTaxable: item.isTaxable !== false // Default to taxable unless explicitly false
+      }));
+
+      const taxCalculation = TaxService.calculateSalesTax(taxableItems);
+
+      res.json({
+        subtotal: TaxService.formatTaxAmount(taxCalculation.subtotal),
+        taxAmount: TaxService.formatTaxAmount(taxCalculation.taxAmount),
+        totalAmount: TaxService.formatTaxAmount(taxCalculation.totalAmount),
+        taxRate: TaxService.formatTaxAmount(taxCalculation.taxRate),
+        breakdown: {
+          state: TaxService.formatTaxAmount(taxCalculation.breakdown.state),
+          county: TaxService.formatTaxAmount(taxCalculation.breakdown.county),
+          city: TaxService.formatTaxAmount(taxCalculation.breakdown.city),
+          district: TaxService.formatTaxAmount(taxCalculation.breakdown.district)
+        },
+        jurisdiction: {
+          state: "California",
+          county: "Alameda County",
+          city: "Oakland"
+        }
+      });
+    } catch (error) {
+      console.error('Error calculating tax:', error);
+      res.status(500).json({ message: 'Failed to calculate tax' });
+    }
+  });
+
+  // Get current tax rates
+  app.get('/api/billing/tax-rates', async (req, res) => {
+    try {
+      const taxRates = TaxService.getTaxRate();
+      res.json({
+        ...taxRates,
+        jurisdiction: {
+          state: "California",
+          county: "Alameda County", 
+          city: "Oakland"
+        },
+        lastUpdated: "2024-01-01"
+      });
+    } catch (error) {
+      console.error('Error fetching tax rates:', error);
+      res.status(500).json({ message: 'Failed to fetch tax rates' });
+    }
+  });
+
+  // Generate invoice for user (updated with sales tax)
   app.post('/api/admin/billing/users/:userId/generate-invoice', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
@@ -1999,12 +2062,38 @@ END:VCALENDAR`;
 
       const subscriptionAmount = user.billingPlan === 'paid_monthly' ? 20 : 0;
       const tokenUsageAmount = overageCharges.overageCharges;
-      const totalAmount = subscriptionAmount + tokenUsageAmount;
+      
+      // Calculate sales tax for all taxable items
+      const taxableItems: TaxableItem[] = [];
+      
+      if (subscriptionAmount > 0) {
+        taxableItems.push({
+          description: 'STAK Sync Monthly Subscription',
+          amount: subscriptionAmount,
+          quantity: 1,
+          taxCategory: 'subscription'
+        });
+      }
+      
+      if (tokenUsageAmount > 0) {
+        taxableItems.push({
+          description: 'AI Token Usage Overage',
+          amount: tokenUsageAmount,
+          quantity: 1,
+          taxCategory: 'service'
+        });
+      }
+
+      // Calculate tax for all items
+      const taxCalculation = TaxService.calculateSalesTax(taxableItems);
+      const subtotalAmount = parseFloat(TaxService.formatTaxAmount(taxCalculation.subtotal));
+      const taxAmount = parseFloat(TaxService.formatTaxAmount(taxCalculation.taxAmount));
+      const totalAmount = parseFloat(TaxService.formatTaxAmount(taxCalculation.totalAmount));
 
       // Generate invoice number
       const invoiceNumber = `INV-${Date.now()}-${userId.slice(-4)}`;
 
-      // Create invoice
+      // Create invoice with tax information
       const [invoice] = await db
         .insert(invoices)
         .values({
@@ -2015,6 +2104,7 @@ END:VCALENDAR`;
           billingPeriodEnd: endOfMonth.toISOString().split('T')[0],
           subscriptionAmount: subscriptionAmount.toString(),
           tokenUsageAmount: tokenUsageAmount.toString(),
+          taxAmount: taxAmount.toString(),
           totalAmount: totalAmount.toString(),
           status: 'pending',
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
@@ -2046,11 +2136,45 @@ END:VCALENDAR`;
         });
       }
 
+      // Add tax line item if there's tax
+      if (taxAmount > 0) {
+        lineItems.push({
+          invoiceId: invoice.id,
+          description: `Sales Tax (Oakland, CA - ${TaxService.formatTaxAmount(taxCalculation.taxRate * 100)}%)`,
+          quantity: 1,
+          unitPrice: taxAmount.toString(),
+          totalPrice: taxAmount.toString(),
+          metadata: { 
+            type: 'sales_tax',
+            jurisdiction: 'Oakland, Alameda County, California',
+            taxRate: TaxService.formatTaxAmount(taxCalculation.taxRate),
+            breakdown: {
+              state: TaxService.formatTaxAmount(taxCalculation.breakdown.state),
+              county: TaxService.formatTaxAmount(taxCalculation.breakdown.county),
+              city: TaxService.formatTaxAmount(taxCalculation.breakdown.city),
+              district: TaxService.formatTaxAmount(taxCalculation.breakdown.district)
+            }
+          },
+        });
+      }
+
       if (lineItems.length > 0) {
         await db.insert(invoiceLineItems).values(lineItems);
       }
 
-      res.json({ success: true, invoice });
+      res.json({ 
+        success: true, 
+        invoice: {
+          ...invoice,
+          taxBreakdown: {
+            subtotal: TaxService.formatTaxAmount(taxCalculation.subtotal),
+            taxAmount: TaxService.formatTaxAmount(taxCalculation.taxAmount),
+            totalAmount: TaxService.formatTaxAmount(taxCalculation.totalAmount),
+            jurisdiction: "Oakland, Alameda County, California",
+            taxRate: `${TaxService.formatTaxAmount(taxCalculation.taxRate * 100)}%`
+          }
+        }
+      });
     } catch (error) {
       console.error('Error generating invoice:', error);
       res.status(500).json({ message: 'Failed to generate invoice' });

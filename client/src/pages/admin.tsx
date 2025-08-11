@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { STAKReceptionImport } from "@/components/STAKReceptionImport";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { Calculator } from "lucide-react";
 
 interface User {
   id: string;
@@ -61,6 +62,7 @@ function AdminDashboard() {
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
   const [showCreateEventDialog, setShowCreateEventDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("analytics");
+  const [taxRates, setTaxRates] = useState<any>(null);
   const [eventData, setEventData] = useState({
     title: '',
     description: '',
@@ -456,6 +458,10 @@ function AdminDashboard() {
             <TabsTrigger value="billing" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600" onClick={() => window.location.href = '/admin/billing'}>
               <CreditCard className="h-4 w-4 mr-2" />
               Billing
+            </TabsTrigger>
+            <TabsTrigger value="tax" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
+              <Calculator className="h-4 w-4 mr-2" />
+              Tax
             </TabsTrigger>
             <TabsTrigger value="sponsors" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600" onClick={() => window.location.href = '/admin/sponsors'}>
               <Settings className="h-4 w-4 mr-2" />
@@ -1044,6 +1050,159 @@ function AdminDashboard() {
           <TabsContent value="import">
             <STAKReceptionImport />
           </TabsContent>
+
+          <TabsContent value="tax">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-semibold text-navy mb-2">Sales Tax Administration</h3>
+                <p className="text-gray-600">Oakland, Alameda County, California tax settings and calculator</p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Tax Rate Information */}
+                <Card className="bg-white border border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-navy flex items-center">
+                      <Calculator className="h-5 w-5 mr-2" />
+                      Current Tax Rates
+                    </CardTitle>
+                    <CardDescription>Oakland, Alameda County, California</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-sm text-gray-600">California State</div>
+                        <div className="text-lg font-semibold text-navy">7.25%</div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-sm text-gray-600">Alameda County</div>
+                        <div className="text-lg font-semibold text-navy">1.50%</div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-sm text-gray-600">Oakland City</div>
+                        <div className="text-lg font-semibold text-navy">1.00%</div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-sm text-gray-600">Special District</div>
+                        <div className="text-lg font-semibold text-navy">0.25%</div>
+                      </div>
+                    </div>
+                    <div className="border-t pt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-base font-semibold text-gray-900">Total Tax Rate</span>
+                        <span className="text-xl font-bold text-[#CD853F]">10.00%</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Tax Calculator */}
+                <Card className="bg-white border border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-navy">Tax Calculator</CardTitle>
+                    <CardDescription>Calculate sales tax for any amount</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="taxAmount">Amount (before tax)</Label>
+                      <Input
+                        id="taxAmount"
+                        type="number"
+                        step="0.01"
+                        placeholder="Enter amount..."
+                        className="mt-1"
+                        onChange={(e) => {
+                          const amount = parseFloat(e.target.value) || 0;
+                          const taxAmount = amount * 0.10;
+                          const total = amount + taxAmount;
+                          
+                          // Update display elements
+                          const taxDisplay = document.getElementById('calculatedTax');
+                          const totalDisplay = document.getElementById('calculatedTotal');
+                          if (taxDisplay) taxDisplay.textContent = `$${taxAmount.toFixed(2)}`;
+                          if (totalDisplay) totalDisplay.textContent = `$${total.toFixed(2)}`;
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Sales Tax (10.00%)</span>
+                        <span id="calculatedTax" className="font-semibold">$0.00</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="font-semibold text-gray-900">Total Amount</span>
+                        <span id="calculatedTotal" className="font-bold text-[#CD853F]">$0.00</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Tax Categories */}
+                <Card className="bg-white border border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-navy">Taxable Services</CardTitle>
+                    <CardDescription>What services are subject to sales tax</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <div>
+                          <div className="font-medium text-gray-900">SaaS Subscriptions</div>
+                          <div className="text-sm text-gray-600">Monthly platform subscriptions</div>
+                        </div>
+                        <Badge variant="default" className="bg-green-100 text-green-800">Taxable</Badge>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <div>
+                          <div className="font-medium text-gray-900">Event Tickets</div>
+                          <div className="text-sm text-gray-600">All event and conference tickets</div>
+                        </div>
+                        <Badge variant="default" className="bg-green-100 text-green-800">Taxable</Badge>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <div>
+                          <div className="font-medium text-gray-900">Digital Services</div>
+                          <div className="text-sm text-gray-600">AI token usage and premium features</div>
+                        </div>
+                        <Badge variant="default" className="bg-green-100 text-green-800">Taxable</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Compliance Information */}
+                <Card className="bg-white border border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-navy">Compliance Information</CardTitle>
+                    <CardDescription>Tax reporting and compliance details</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Location</span>
+                      <span className="text-sm font-medium">Oakland, CA</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Last Rate Update</span>
+                      <span className="text-sm font-medium">January 1, 2024</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Filing Frequency</span>
+                      <span className="text-sm font-medium">Monthly</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Tax Authority</span>
+                      <span className="text-sm font-medium">CA CDTFA</span>
+                    </div>
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <div className="text-sm text-blue-800">
+                        <strong>Note:</strong> All invoices automatically include appropriate sales tax calculations based on current Oakland, Alameda County rates.
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
 
         {/* Add User Dialog */}
@@ -1603,6 +1762,88 @@ function AdminDashboard() {
                   (editingEventId ? 'Updating...' : 'Creating...') : 
                   (editingEventId ? 'Update Event' : 'Create Event')
                 }
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add User Dialog */}
+        <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+          <DialogContent className="bg-white border border-gray-200 text-gray-900">
+            <DialogHeader>
+              <DialogTitle className="text-navy">Add New User</DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Create a new user account with basic information
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName" className="text-gray-700 font-medium">First Name</Label>
+                  <Input
+                    id="firstName"
+                    value={newUserData.firstName}
+                    onChange={(e) => setNewUserData({...newUserData, firstName: e.target.value})}
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lastName" className="text-gray-700 font-medium">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    value={newUserData.lastName}
+                    onChange={(e) => setNewUserData({...newUserData, lastName: e.target.value})}
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newUserData.email}
+                  onChange={(e) => setNewUserData({...newUserData, email: e.target.value})}
+                  className="bg-white border-gray-300 text-gray-900 focus:border-navy"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="company" className="text-gray-700 font-medium">Company</Label>
+                  <Input
+                    id="company"
+                    value={newUserData.company}
+                    onChange={(e) => setNewUserData({...newUserData, company: e.target.value})}
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="title" className="text-gray-700 font-medium">Title</Label>
+                  <Input
+                    id="title"
+                    value={newUserData.title}
+                    onChange={(e) => setNewUserData({...newUserData, title: e.target.value})}
+                    className="bg-white border-gray-300 text-gray-900 focus:border-navy"
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAddUserDialog(false)}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="bg-navy text-white hover:bg-navy/80"
+                onClick={() => {
+                  addUserMutation.mutate(newUserData);
+                }}
+                disabled={addUserMutation.isPending || !newUserData.firstName || !newUserData.lastName || !newUserData.email}
+              >
+                {addUserMutation.isPending ? 'Adding...' : 'Add User'}
               </Button>
             </DialogFooter>
           </DialogContent>
