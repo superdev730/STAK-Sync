@@ -28,11 +28,13 @@
   
   /* Custom colors for STAK Sync theme - Light Theme */
   --stak-black: hsl(0, 0%, 8%);
-  --stak-copper: hsl(25, 65%, 50%);
-  --stak-dark-copper: hsl(25, 45%, 35%);
+  --stak-copper: hsl(30, 45%, 56%); /* #CD853F */
+  --stak-dark-copper: hsl(30, 35%, 40%);
   --stak-white: hsl(0, 0%, 100%);
-  --stak-gray: hsl(0, 0%, 45%);
-  --stak-light-gray: hsl(0, 0%, 95%);
+  --stak-gray: hsl(0, 0%, 50%);
+  --stak-light-gray: hsl(0, 0%, 40%); /* Darker gray for better contrast */
+  --stak-text-primary: hsl(0, 0%, 8%); /* Black text for white backgrounds */
+  --stak-text-secondary: hsl(0, 0%, 30%); /* Dark gray for descriptions */
 }
 
 .dark {
