@@ -4035,5 +4035,79 @@ Keep responses conversational and helpful.`;
     }
   });
 
+  // STAK Reception App database import routes
+  app.post('/api/admin/import/stak-reception', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { connectionString } = req.body;
+      
+      if (!connectionString) {
+        return res.status(400).json({ 
+          message: 'Database connection string is required' 
+        });
+      }
+
+      console.log('Starting STAK Reception App import...');
+      
+      // Import the service dynamically to avoid startup dependencies
+      const { createSTAKReceptionImporter } = await import('./stakReceptionImport');
+      
+      // Create importer and test connection
+      const importer = await createSTAKReceptionImporter(connectionString);
+      
+      // Get user count for progress tracking
+      const totalUsers = await importer.getUserCount();
+      console.log(`Found ${totalUsers} users to import`);
+      
+      // Perform the import
+      const results = await importer.importAllUsers();
+      
+      // Clean up connection
+      await importer.close();
+      
+      res.json({
+        success: true,
+        message: 'STAK Reception App import completed',
+        results,
+        totalUsers
+      });
+    } catch (error) {
+      console.error('STAK Reception import error:', error);
+      res.status(500).json({ 
+        message: 'Failed to import from STAK Reception App',
+        error: error.message 
+      });
+    }
+  });
+
+  // Test STAK Reception App database connection
+  app.post('/api/admin/import/stak-reception/test', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { connectionString } = req.body;
+      
+      if (!connectionString) {
+        return res.status(400).json({ 
+          message: 'Database connection string is required' 
+        });
+      }
+
+      const { createSTAKReceptionImporter } = await import('./stakReceptionImport');
+      const importer = await createSTAKReceptionImporter(connectionString);
+      const userCount = await importer.getUserCount();
+      await importer.close();
+      
+      res.json({
+        success: true,
+        message: 'Connection successful',
+        userCount
+      });
+    } catch (error) {
+      console.error('STAK Reception connection test error:', error);
+      res.status(500).json({ 
+        message: 'Failed to connect to STAK Reception App database',
+        error: error.message 
+      });
+    }
+  });
+
   return httpServer;
 }

@@ -30,6 +30,7 @@ import {
   ChevronRight,
   CreditCard
 } from "lucide-react";
+import { STAKReceptionImport } from "@/components/STAKReceptionImport";
 
 interface User {
   id: string;
@@ -458,6 +459,10 @@ function AdminDashboard() {
             <TabsTrigger value="sponsors" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600" onClick={() => window.location.href = '/admin/sponsors'}>
               <Settings className="h-4 w-4 mr-2" />
               Sponsors
+            </TabsTrigger>
+            <TabsTrigger value="import" className="data-[state=active]:bg-white data-[state=active]:text-navy data-[state=active]:border data-[state=active]:border-gray-300 data-[state=active]:shadow-sm text-gray-600">
+              <Users className="h-4 w-4 mr-2" />
+              Import
             </TabsTrigger>
           </TabsList>
 
@@ -1033,6 +1038,10 @@ function AdminDashboard() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="import">
+            <STAKReceptionImport />
           </TabsContent>
         </Tabs>
 
