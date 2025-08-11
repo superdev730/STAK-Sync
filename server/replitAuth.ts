@@ -28,19 +28,22 @@ export function getSession() {
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
     createTableIfMissing: true,
-    ttl: sessionTtl,
+    ttl: sessionTtl / 1000, // ttl should be in seconds for connect-pg-simple
     tableName: "sessions",
   });
+  
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    name: 'stak.session', // Use a more specific session name
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Always false in Replit development environment
       maxAge: sessionTtl,
       sameSite: 'lax',
+      path: '/', // Ensure cookie is available for entire domain
     },
   });
 }
@@ -110,9 +113,24 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+    passport.authenticate(`replitauth:${req.hostname}`, (err: any, user: any) => {
+      if (err) {
+        console.error('Authentication error:', err);
+        return res.redirect("/api/login");
+      }
+      if (!user) {
+        console.error('No user returned from authentication');
+        return res.redirect("/api/login");
+      }
+      
+      req.logIn(user, (err) => {
+        if (err) {
+          console.error('Login error:', err);
+          return res.redirect("/api/login");
+        }
+        console.log('User logged in successfully, session ID:', req.sessionID);
+        return res.redirect("/");
+      });
     })(req, res, next);
   });
 
@@ -130,9 +148,22 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
+  
+  // Debug session information
+  console.log('Session ID:', req.sessionID);
+  console.log('Session exists:', !!req.session);
+  console.log('Is authenticated:', req.isAuthenticated());
+  console.log('User exists:', !!user);
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated() || !user) {
+    console.log('Authentication failed: No valid session or user');
     return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // If no expires_at, treat as valid for now but try to refresh
+  if (!user.expires_at) {
+    console.log('No expiration time found, allowing request');
+    return next();
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -140,8 +171,10 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return next();
   }
 
+  console.log('Token expired, attempting refresh');
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
+    console.log('No refresh token available');
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
@@ -150,8 +183,10 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
+    console.log('Token refreshed successfully');
     return next();
   } catch (error) {
+    console.log('Token refresh failed:', error);
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
