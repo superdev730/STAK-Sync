@@ -192,6 +192,7 @@ export default function EventsNew() {
       resetForm();
     },
     onError: (error: any) => {
+      console.error('Event creation error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to create event",
