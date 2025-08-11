@@ -143,6 +143,7 @@ export default function EventsNew() {
     capacity: 50,
     isPaid: false,
     basePrice: 0,
+    currency: "USD",
     coverImageUrl: "",
     youtubeVideoId: "",
     tags: [] as string[],
@@ -152,6 +153,9 @@ export default function EventsNew() {
     instructions: "",
     refundPolicy: "",
     requiresApproval: false,
+    isPublic: true,
+    status: "published",
+    isFeatured: false,
   });
 
   const [newTag, setNewTag] = useState("");
@@ -175,7 +179,7 @@ export default function EventsNew() {
   // Mutations
   const createEventMutation = useMutation({
     mutationFn: async (eventData: any) => {
-      return await apiRequest("POST", "/api/events", eventData);
+      return await apiRequest("POST", "/api/events/create", eventData);
     },
     onSuccess: () => {
       toast({
@@ -239,6 +243,7 @@ export default function EventsNew() {
       capacity: 50,
       isPaid: false,
       basePrice: 0,
+      currency: "USD",
       coverImageUrl: "",
       youtubeVideoId: "",
       tags: [],
@@ -248,7 +253,12 @@ export default function EventsNew() {
       instructions: "",
       refundPolicy: "",
       requiresApproval: false,
+      isPublic: true,
+      status: "published",
+      isFeatured: false,
     });
+    setNewTag("");
+    setHostSearch("");
   };
 
   const addTag = () => {
@@ -357,7 +367,36 @@ export default function EventsNew() {
       return;
     }
 
-    createEventMutation.mutate(eventForm);
+    // Prepare the event data to match the backend API expectations
+    const eventData = {
+      title: eventForm.title,
+      description: eventForm.description,
+      shortDescription: eventForm.shortDescription,
+      eventType: eventForm.eventType,
+      startDate: eventForm.startDate,
+      startTime: eventForm.startTime,
+      endDate: eventForm.endDate || eventForm.startDate,
+      endTime: eventForm.endTime,
+      location: eventForm.location,
+      isVirtual: eventForm.isVirtual,
+      capacity: eventForm.capacity,
+      isPaid: eventForm.isPaid,
+      basePrice: eventForm.basePrice.toString(),
+      currency: eventForm.currency,
+      coverImageUrl: eventForm.coverImageUrl,
+      youtubeVideoId: eventForm.youtubeVideoId,
+      hostIds: eventForm.hostIds,
+      status: eventForm.status,
+      isFeatured: eventForm.isFeatured,
+      isPublic: eventForm.isPublic,
+      requiresApproval: eventForm.requiresApproval,
+      instructions: eventForm.instructions,
+      refundPolicy: eventForm.refundPolicy,
+      tags: eventForm.tags
+    };
+
+    console.log('Submitting event data:', eventData);
+    createEventMutation.mutate(eventData);
   };
 
   // Filter events

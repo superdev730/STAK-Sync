@@ -2196,6 +2196,9 @@ END:VCALENDAR`;
   app.get('/api/events/my-events', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
       
       const userEvents = await db
         .select()
@@ -2209,7 +2212,7 @@ END:VCALENDAR`;
       res.json(userEvents);
     } catch (error) {
       console.error('Error fetching user events:', error);
-      res.status(500).json({ message: 'Failed to fetch user events' });
+      res.status(500).json({ error: 'Failed to fetch user events' });
     }
   });
 
@@ -2234,7 +2237,7 @@ END:VCALENDAR`;
         isVirtual: req.body.isVirtual || false,
         capacity: req.body.capacity || 50,
         isPaid: req.body.isPaid || false,
-        basePrice: req.body.basePrice || 0,
+        basePrice: req.body.basePrice ? req.body.basePrice.toString() : "0.00",
         currency: req.body.currency || 'USD',
         coverImageUrl: req.body.coverImageUrl || '',
         youtubeVideoId: req.body.youtubeVideoId || '',
