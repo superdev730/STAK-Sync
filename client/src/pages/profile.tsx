@@ -71,21 +71,21 @@ export default function Profile() {
     queryKey: userId ? ["/api/profile/stats", userId] : ["/api/profile/stats"],
   });
 
-  // Calculate Signal Score display
-  const getSignalLevel = (score: number) => {
-    if (score >= 800) return { level: "Signal Master", color: "bg-yellow-500", badge: "🏆" };
-    if (score >= 600) return { level: "Signal Expert", color: "bg-purple-500", badge: "⭐" };
-    if (score >= 400) return { level: "Signal Builder", color: "bg-blue-500", badge: "🚀" };
-    if (score >= 200) return { level: "Signal Starter", color: "bg-green-500", badge: "🌱" };
-    return { level: "New Member", color: "bg-gray-500", badge: "👋" };
+  // Calculate Sync Score display using STAK brand colors
+  const getSyncLevel = (score: number) => {
+    if (score >= 800) return { level: "Sync Master", color: "bg-stak-copper", badge: "🏆" };
+    if (score >= 600) return { level: "Sync Expert", color: "bg-yellow-500", badge: "⭐" };
+    if (score >= 400) return { level: "Sync Builder", color: "bg-gray-500", badge: "🚀" };
+    if (score >= 200) return { level: "Sync Starter", color: "bg-stak-forest", badge: "🌱" };
+    return { level: "New Member", color: "bg-gray-400", badge: "👋" };
   };
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-copper mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-stak-copper mx-auto mb-4"></div>
+          <p className="text-stak-black">Loading profile...</p>
         </div>
       </div>
     );
@@ -93,29 +93,29 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Profile Not Found</h2>
+          <h2 className="text-2xl font-bold text-stak-black mb-2">Profile Not Found</h2>
           <p className="text-gray-600">This profile doesn't exist or you don't have permission to view it.</p>
         </div>
       </div>
     );
   }
 
-  const signalLevel = getSignalLevel(stats?.signalScore || 0);
+  const syncLevel = getSyncLevel(stats?.signalScore || 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Hero Section */}
-        <Card className="mb-8 overflow-hidden">
-          <div className="h-32 bg-gradient-to-r from-blue-600 via-purple-600 to-copper"></div>
-          <CardContent className="relative -mt-16 pb-8">
+        <Card className="mb-8 overflow-hidden border border-gray-200 shadow-lg">
+          <div className="h-32 bg-gradient-to-r from-stak-black via-gray-700 to-stak-copper"></div>
+          <CardContent className="relative -mt-16 pb-8 bg-white">
             <div className="flex flex-col sm:flex-row items-start sm:items-end space-y-4 sm:space-y-0 sm:space-x-6">
               <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
                 <AvatarImage src={profile.profileImageUrl || ""} alt={profile.firstName || ""} />
-                <AvatarFallback className="bg-gray-300 text-gray-600 text-3xl font-semibold">
+                <AvatarFallback className="bg-gray-200 text-stak-black text-3xl font-semibold">
                   {profile.firstName?.[0]}{profile.lastName?.[0]}
                 </AvatarFallback>
               </Avatar>
@@ -123,18 +123,18 @@ export default function Profile() {
               <div className="flex-1 pt-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    <h1 className="text-3xl font-bold text-stak-black mb-2">
                       {profile.firstName} {profile.lastName}
                     </h1>
                     <div className="flex items-center space-x-2 mb-3">
-                      <Briefcase className="h-4 w-4 text-gray-500" />
-                      <span className="text-lg text-gray-700 font-medium">
+                      <Briefcase className="h-4 w-4 text-stak-copper" />
+                      <span className="text-lg text-stak-black font-medium">
                         {profile.position} {profile.company && `at ${profile.company}`}
                       </span>
                     </div>
                     {profile.location && (
                       <div className="flex items-center space-x-2 mb-4">
-                        <MapPin className="h-4 w-4 text-gray-500" />
+                        <MapPin className="h-4 w-4 text-stak-copper" />
                         <span className="text-gray-600">{profile.location}</span>
                       </div>
                     )}
@@ -142,11 +142,11 @@ export default function Profile() {
                   
                   {!isOwnProfile && (
                     <div className="flex space-x-3">
-                      <Button className="bg-blue-600 hover:bg-blue-700">
+                      <Button className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
                         <MessageSquare className="h-4 w-4 mr-2" />
                         Message
                       </Button>
-                      <Button variant="outline">
+                      <Button variant="outline" className="border-gray-300 text-stak-black hover:bg-gray-50">
                         <Calendar className="h-4 w-4 mr-2" />
                         Meet
                       </Button>
@@ -162,9 +162,9 @@ export default function Profile() {
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-8">
             {/* About Section */}
-            <Card>
-              <CardContent className="p-6">
-                <h2 className="text-xl font-semibold mb-4">About</h2>
+            <Card className="border border-gray-200 shadow-sm">
+              <CardContent className="p-6 bg-white">
+                <h2 className="text-xl font-semibold mb-4 text-stak-black">About</h2>
                 <p className="text-gray-700 leading-relaxed">
                   {profile.bio || "No bio available yet."}
                 </p>
@@ -173,10 +173,10 @@ export default function Profile() {
 
             {/* Networking Goals */}
             {profile.networkingGoals && (
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-semibold mb-4 flex items-center">
-                    <Users className="h-5 w-5 mr-2 text-blue-600" />
+              <Card className="border border-gray-200 shadow-sm">
+                <CardContent className="p-6 bg-white">
+                  <h2 className="text-xl font-semibold mb-4 flex items-center text-stak-black">
+                    <Users className="h-5 w-5 mr-2 text-stak-copper" />
                     Networking Goals
                   </h2>
                   <p className="text-gray-700">{profile.networkingGoals}</p>
@@ -185,16 +185,16 @@ export default function Profile() {
             )}
 
             {/* Skills & Industries */}
-            <Card>
-              <CardContent className="p-6">
-                <h2 className="text-xl font-semibold mb-4">Expertise</h2>
+            <Card className="border border-gray-200 shadow-sm">
+              <CardContent className="p-6 bg-white">
+                <h2 className="text-xl font-semibold mb-4 text-stak-black">Expertise</h2>
                 <div className="space-y-4">
                   {profile.skills && profile.skills.length > 0 && (
                     <div>
-                      <h3 className="font-medium text-gray-800 mb-2">Skills</h3>
+                      <h3 className="font-medium text-stak-black mb-2">Skills</h3>
                       <div className="flex flex-wrap gap-2">
                         {profile.skills.map((skill, index) => (
-                          <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
+                          <Badge key={index} variant="secondary" className="bg-gray-100 text-stak-black border border-gray-300">
                             {skill}
                           </Badge>
                         ))}
@@ -203,10 +203,10 @@ export default function Profile() {
                   )}
                   {profile.industries && profile.industries.length > 0 && (
                     <div>
-                      <h3 className="font-medium text-gray-800 mb-2">Industries</h3>
+                      <h3 className="font-medium text-stak-black mb-2">Industries</h3>
                       <div className="flex flex-wrap gap-2">
                         {profile.industries.map((industry, index) => (
-                          <Badge key={index} variant="outline" className="border-purple-200 text-purple-700">
+                          <Badge key={index} variant="outline" className="border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
                             {industry}
                           </Badge>
                         ))}
@@ -220,21 +220,21 @@ export default function Profile() {
 
           {/* Right Column */}
           <div className="space-y-6">
-            {/* Signal Score */}
-            <Card>
-              <CardContent className="p-6 text-center">
+            {/* Sync Score */}
+            <Card className="border border-gray-200 shadow-sm">
+              <CardContent className="p-6 text-center bg-white">
                 <div className="mb-4">
-                  <div className="text-4xl mb-2">{signalLevel.badge}</div>
-                  <h3 className="text-lg font-semibold text-gray-800">{signalLevel.level}</h3>
+                  <div className="text-4xl mb-2">{syncLevel.badge}</div>
+                  <h3 className="text-lg font-semibold text-stak-black">{syncLevel.level}</h3>
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Signal Score</span>
-                    <span className="font-semibold text-copper">{stats?.signalScore || 0}/1000</span>
+                    <span className="text-gray-600">Sync Score</span>
+                    <span className="font-semibold text-stak-copper">{stats?.signalScore || 0}/1000</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
-                      className={`h-2 rounded-full ${signalLevel.color}`}
+                      className={`h-2 rounded-full ${syncLevel.color}`}
                       style={{ width: `${((stats?.signalScore || 0) / 1000) * 100}%` }}
                     ></div>
                   </div>
@@ -243,30 +243,30 @@ export default function Profile() {
             </Card>
 
             {/* Stats */}
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="font-semibold mb-4">Network Stats</h3>
+            <Card className="border border-gray-200 shadow-sm">
+              <CardContent className="p-6 bg-white">
+                <h3 className="font-semibold mb-4 text-stak-black">Network Stats</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <div className="flex items-center">
-                      <Users className="h-4 w-4 text-blue-600 mr-2" />
+                      <Users className="h-4 w-4 text-stak-copper mr-2" />
                       <span className="text-gray-600">Connections</span>
                     </div>
-                    <span className="font-semibold">{stats?.connections || 0}</span>
+                    <span className="font-semibold text-stak-black">{stats?.connections || 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <div className="flex items-center">
-                      <TrendingUp className="h-4 w-4 text-green-600 mr-2" />
+                      <TrendingUp className="h-4 w-4 text-stak-forest mr-2" />
                       <span className="text-gray-600">Profile Views</span>
                     </div>
-                    <span className="font-semibold">{stats?.profileViews || 0}</span>
+                    <span className="font-semibold text-stak-black">{stats?.profileViews || 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <div className="flex items-center">
-                      <Calendar className="h-4 w-4 text-purple-600 mr-2" />
+                      <Calendar className="h-4 w-4 text-gray-500 mr-2" />
                       <span className="text-gray-600">Meetings</span>
                     </div>
-                    <span className="font-semibold">{stats?.meetingRequestsCount || 0}</span>
+                    <span className="font-semibold text-stak-black">{stats?.meetingRequestsCount || 0}</span>
                   </div>
                 </div>
               </CardContent>
@@ -274,16 +274,16 @@ export default function Profile() {
 
             {/* Social Links */}
             {(profile.linkedinUrl || profile.twitterUrl || profile.githubUrl || (profile.websiteUrls && profile.websiteUrls.length > 0)) && (
-              <Card>
-                <CardContent className="p-6">
-                  <h3 className="font-semibold mb-4">Connect</h3>
+              <Card className="border border-gray-200 shadow-sm">
+                <CardContent className="p-6 bg-white">
+                  <h3 className="font-semibold mb-4 text-stak-black">Connect</h3>
                   <div className="space-y-3">
                     {profile.linkedinUrl && (
                       <a 
                         href={profile.linkedinUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="flex items-center text-blue-600 hover:text-blue-700 transition-colors"
+                        className="flex items-center text-stak-copper hover:text-stak-dark-copper transition-colors"
                       >
                         <Linkedin className="h-4 w-4 mr-3" />
                         LinkedIn
@@ -294,7 +294,7 @@ export default function Profile() {
                         href={profile.twitterUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="flex items-center text-blue-400 hover:text-blue-500 transition-colors"
+                        className="flex items-center text-gray-600 hover:text-stak-black transition-colors"
                       >
                         <Twitter className="h-4 w-4 mr-3" />
                         Twitter
@@ -305,7 +305,7 @@ export default function Profile() {
                         href={profile.githubUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="flex items-center text-gray-700 hover:text-gray-800 transition-colors"
+                        className="flex items-center text-stak-black hover:text-stak-copper transition-colors"
                       >
                         <Github className="h-4 w-4 mr-3" />
                         GitHub
@@ -317,7 +317,7 @@ export default function Profile() {
                         href={url} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="flex items-center text-green-600 hover:text-green-700 transition-colors"
+                        className="flex items-center text-stak-forest hover:text-stak-dark-forest transition-colors"
                       >
                         <Globe className="h-4 w-4 mr-3" />
                         Website
@@ -330,23 +330,23 @@ export default function Profile() {
 
             {/* Investment Info (if applicable) */}
             {(profile.investmentStage || profile.fundingRange) && (
-              <Card>
-                <CardContent className="p-6">
-                  <h3 className="font-semibold mb-4 flex items-center">
-                    <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
+              <Card className="border border-gray-200 shadow-sm">
+                <CardContent className="p-6 bg-white">
+                  <h3 className="font-semibold mb-4 flex items-center text-stak-black">
+                    <TrendingUp className="h-4 w-4 mr-2 text-stak-forest" />
                     Investment Info
                   </h3>
                   <div className="space-y-2">
                     {profile.investmentStage && (
                       <div>
                         <span className="text-sm text-gray-600">Stage: </span>
-                        <span className="font-medium">{profile.investmentStage}</span>
+                        <span className="font-medium text-stak-black">{profile.investmentStage}</span>
                       </div>
                     )}
                     {profile.fundingRange && (
                       <div>
                         <span className="text-sm text-gray-600">Range: </span>
-                        <span className="font-medium">{profile.fundingRange}</span>
+                        <span className="font-medium text-stak-black">{profile.fundingRange}</span>
                       </div>
                     )}
                   </div>
@@ -358,7 +358,7 @@ export default function Profile() {
 
         {isOwnProfile && (
           <div className="mt-8 text-center">
-            <Button variant="outline" onClick={() => window.location.href = '/profile'}>
+            <Button variant="outline" className="border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black" onClick={() => window.location.href = '/profile/edit'}>
               <Zap className="h-4 w-4 mr-2" />
               Edit Profile
             </Button>
