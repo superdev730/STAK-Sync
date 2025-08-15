@@ -181,7 +181,52 @@ export default function Profile() {
           <div className="flex flex-col md:flex-row gap-6">
             {/* Profile Image */}
             <div className="flex-shrink-0">
-              <div className="relative group">
+              {isOwnProfile ? (
+                <div className="relative group cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                          const base64 = e.target?.result as string;
+                          updateFieldMutation.mutate({ 
+                            field: 'profileImageUrl', 
+                            value: base64 
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                    id="photo-upload"
+                    data-testid="input-photo-upload"
+                  />
+                  <label
+                    htmlFor="photo-upload"
+                    className="block cursor-pointer relative"
+                    data-testid="button-edit-photo"
+                  >
+                    <Avatar className="w-32 h-32 border-4 border-white shadow-lg hover:opacity-80 transition-opacity">
+                      <AvatarImage 
+                        src={profile.profileImageUrl || undefined} 
+                        alt={`${profile.firstName} ${profile.lastName}`} 
+                      />
+                      <AvatarFallback className="text-2xl bg-stak-copper text-white">
+                        {(profile.firstName?.[0] || 'U')}{(profile.lastName?.[0] || 'N')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                      <div className="text-center text-white">
+                        <Camera className="h-8 w-8 mx-auto mb-1" />
+                        <div className="text-xs font-medium">Change Photo</div>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              ) : (
                 <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
                   <AvatarImage 
                     src={profile.profileImageUrl || undefined} 
@@ -191,39 +236,7 @@ export default function Profile() {
                     {(profile.firstName?.[0] || 'U')}{(profile.lastName?.[0] || 'N')}
                   </AvatarFallback>
                 </Avatar>
-                {isOwnProfile && (
-                  <div className="absolute bottom-0 right-0">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (e) => {
-                            const base64 = e.target?.result as string;
-                            updateFieldMutation.mutate({ 
-                              field: 'profileImageUrl', 
-                              value: base64 
-                            });
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                      className="hidden"
-                      id="photo-upload"
-                      data-testid="input-photo-upload"
-                    />
-                    <label
-                      htmlFor="photo-upload"
-                      className="flex items-center justify-center w-8 h-8 bg-stak-copper hover:bg-stak-copper/80 rounded-full cursor-pointer shadow-md"
-                      data-testid="button-edit-photo"
-                    >
-                      <Camera className="h-4 w-4 text-white" />
-                    </label>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
             {/* Profile Info */}
