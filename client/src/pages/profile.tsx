@@ -1,42 +1,34 @@
 import { useState } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { BadgeManager } from "@/components/BadgeManager";
-import { SimpleProfileAIAssistant } from "@/components/SimpleProfileAIAssistant";
-import { InlineEdit } from "@/components/InlineEdit";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ObjectUploader } from "@/components/ObjectUploader";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { 
-  MapPin, 
-  Briefcase, 
-  Globe, 
-  Mail,
-  Linkedin,
-  Twitter,
-  Github,
-  Link,
-  Award,
-  Users,
-  TrendingUp,
-  MessageSquare,
-  Calendar,
-  Star,
-  Zap,
-  Camera,
-  Upload,
-  Edit,
-  Check,
-  X,
-  Save
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { InlineEdit } from "@/components/InlineEdit";
+import { SimpleProfileAIAssistant } from "@/components/SimpleProfileAIAssistant";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  Users, 
+  MapPin, 
+  Building2, 
+  Globe, 
+  Linkedin, 
+  Twitter, 
+  Github, 
+  Mail,
+  MessageCircle,
+  Calendar,
+  TrendingUp,
+  Eye,
+  Award,
+  Star,
+  Edit2,
+  Camera
+} from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -44,8 +36,8 @@ interface UserProfile {
   firstName: string | null;
   lastName: string | null;
   profileImageUrl: string | null;
-  company: string | null;
   position: string | null;
+  company: string | null;
   location: string | null;
   bio: string | null;
   linkedinUrl: string | null;
@@ -71,6 +63,7 @@ interface ProfileStats {
 }
 
 export default function Profile() {
+  // All hooks declared at the top level in consistent order
   const { user: currentUser } = useAuth();
   const [, params] = useRoute("/profile/:userId?");
   const userId = params?.userId;
@@ -78,22 +71,46 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
-  // Inline editing states
+  // State hooks
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{[key: string]: any}>({});
   
-  // Always call all hooks at the top level
-  
-  // Fetch profile data - either current user's or the specified user's
+  // Query hooks
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: userId ? ["/api/profile", userId] : ["/api/profile"],
+    enabled: !!currentUser,
   });
 
-  const { data: stats, isLoading: statsLoading } = useQuery<ProfileStats>({
+  const { data: stats } = useQuery<ProfileStats>({
     queryKey: userId ? ["/api/profile/stats", userId] : ["/api/profile/stats"],
+    enabled: !!currentUser && !!profile,
   });
 
-  // Calculate Sync Score display using STAK brand colors
+  // Mutation hooks
+  const updateFieldMutation = useMutation({
+    mutationFn: async ({ field, value }: { field: string, value: any }) => {
+      const response = await apiRequest("PUT", "/api/profile", { [field]: value });
+      return response.json();
+    },
+    onSuccess: (data, { field }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      setEditingField(null);
+      setEditValues(prev => ({ ...prev, [field]: undefined }));
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
+      });
+    },
+    onError: (error: any, { field }) => {
+      toast({
+        title: "Update Failed",
+        description: `Failed to update ${field}. Please try again.`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // All helper functions after hooks
   const getSyncLevel = (score: number) => {
     if (score >= 800) return { level: "Sync Master", color: "bg-stak-copper", badge: "🏆" };
     if (score >= 600) return { level: "Sync Expert", color: "bg-yellow-500", badge: "⭐" };
@@ -102,6 +119,34 @@ export default function Profile() {
     return { level: "New Member", color: "bg-gray-400", badge: "👋" };
   };
 
+  const startEditing = (field: string, currentValue: any) => {
+    setEditingField(field);
+    setEditValues(prev => ({ ...prev, [field]: currentValue || '' }));
+  };
+
+  const cancelEditing = () => {
+    setEditingField(null);
+    setEditValues({});
+  };
+
+  const saveField = (field: string) => {
+    const value = editValues[field];
+    if (value !== undefined) {
+      updateFieldMutation.mutate({ field, value });
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent, field: string) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveField(field);
+    }
+    if (e.key === 'Escape') {
+      cancelEditing();
+    }
+  };
+
+  // Early returns after all hooks
   if (profileLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -127,522 +172,367 @@ export default function Profile() {
 
   const syncLevel = getSyncLevel(stats?.signalScore || 0);
 
-  // Handle profile image upload
-  const handleGetUploadParameters = async () => {
-    try {
-      const response = await apiRequest("POST", "/api/user/objects/upload");
-      const data = await response.json();
-      return {
-        method: "PUT" as const,
-        url: data.uploadURL || data.url,
-      };
-    } catch (error) {
-      console.error("Error getting upload parameters:", error);
-      throw error;
-    }
-  };
-
-  // Inline editing mutations - declared once before early returns
-  const updateFieldMutation = useMutation({
-    mutationFn: async ({ field, value }: { field: string, value: any }) => {
-      const response = await apiRequest("PUT", "/api/profile", { [field]: value });
-      return response.json();
-    },
-    onSuccess: (data, { field }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-      setEditingField(null);
-      setEditValues(prev => ({ ...prev, [field]: undefined }));
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been successfully updated.",
-      });
-    },
-    onError: (error: any, { field }) => {
-      toast({
-        title: "Update Failed",
-        description: `Failed to update ${field}. Please try again.`,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const startEditing = (field: string, currentValue: any) => {
-    setEditingField(field);
-    setEditValues(prev => ({ ...prev, [field]: currentValue || '' }));
-  };
-
-  const cancelEditing = () => {
-    setEditingField(null);
-    setEditValues({});
-  };
-
-  const saveField = (field: string) => {
-    const value = editValues[field];
-    if (value !== undefined) {
-      updateFieldMutation.mutate({ field, value });
-    } else {
-      // For direct field updates without editValues
-      updateFieldMutation.mutate({ field, value: editValues[field] || '' });
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent, field: string) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      saveField(field);
-    }
-    if (e.key === 'Escape') {
-      cancelEditing();
-    }
-  };
-
-  const handleImageUploadComplete = async (result: any) => {
-    try {
-      if (result.successful && result.successful.length > 0) {
-        const uploadedFile = result.successful[0];
-        const imageUrl = uploadedFile.uploadURL;
-
-        // Update user profile with new image URL
-        await apiRequest("PUT", "/api/user/profile-image", {
-          profileImageUrl: imageUrl,
-        });
-
-        // Refresh profile data
-        queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-
-        toast({
-          title: "Profile Image Updated",
-          description: "Your profile image has been successfully updated.",
-        });
-      }
-    } catch (error) {
-      console.error("Error updating profile image:", error);
-      toast({
-        title: "Upload Failed",
-        description: "Failed to update your profile image. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Hero Section */}
-        <Card className="mb-8 overflow-hidden border border-gray-200 shadow-lg">
-          <div className="h-32 bg-gradient-to-r from-stak-black via-gray-700 to-stak-copper"></div>
-          <CardContent className="relative -mt-16 pb-8 bg-white">
-            <div className="flex flex-col sm:flex-row items-start sm:items-end space-y-4 sm:space-y-0 sm:space-x-6">
-              {/* Profile Image with Upload Functionality */}
+        {/* Profile Header */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex flex-col md:flex-row gap-6">
+            {/* Profile Image */}
+            <div className="flex-shrink-0">
               <div className="relative group">
                 <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
-                  <AvatarImage src={profile.profileImageUrl || ""} alt={profile.firstName || ""} />
-                  <AvatarFallback className="bg-gray-200 text-stak-black text-3xl font-semibold">
-                    {profile.firstName?.[0]}{profile.lastName?.[0]}
+                  <AvatarImage 
+                    src={profile.profileImageUrl || undefined} 
+                    alt={`${profile.firstName} ${profile.lastName}`} 
+                  />
+                  <AvatarFallback className="text-2xl bg-stak-copper text-white">
+                    {(profile.firstName?.[0] || 'U')}{(profile.lastName?.[0] || 'N')}
                   </AvatarFallback>
                 </Avatar>
-                
-                {/* Upload Overlay - Only show for own profile */}
                 {isOwnProfile && (
-                  <ObjectUploader
-                    maxNumberOfFiles={1}
-                    maxFileSize={5242880} // 5MB limit for profile images
-                    onGetUploadParameters={handleGetUploadParameters}
-                    onComplete={handleImageUploadComplete}
-                    buttonClassName="absolute inset-0 w-32 h-32 rounded-full bg-black bg-opacity-0 hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center group-hover:bg-opacity-50 border-0 p-0"
+                  <Button
+                    size="sm"
+                    className="absolute bottom-0 right-0 rounded-full w-8 h-8 p-0 bg-stak-copper hover:bg-stak-copper/80"
+                    data-testid="button-edit-profile-image"
                   >
-                    <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center">
-                      <Camera className="h-6 w-6 mb-1" />
-                      <span className="text-xs font-medium">Change Photo</span>
-                    </div>
-                  </ObjectUploader>
+                    <Camera className="w-4 h-4" />
+                  </Button>
                 )}
               </div>
-              
-              <div className="flex-1 pt-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="mb-2">
-                      <InlineEdit
-                        value={`${profile.firstName || ''} ${profile.lastName || ''}`.trim()}
-                        onSave={(value) => {
-                          const names = value.trim().split(' ');
-                          const firstName = names[0] || '';
-                          const lastName = names.slice(1).join(' ') || '';
+            </div>
+
+            {/* Profile Info */}
+            <div className="flex-grow">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+                <div>
+                  {/* Name */}
+                  <div className="mb-2">
+                    <InlineEdit
+                      value={`${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User Name'}
+                      onSave={(value) => {
+                        const [firstName, ...lastNameParts] = value.split(' ');
+                        const lastName = lastNameParts.join(' ');
+                        updateFieldMutation.mutate({ 
+                          field: 'firstName', 
+                          value: firstName 
+                        });
+                        if (lastName) {
                           updateFieldMutation.mutate({ 
-                            field: 'names', 
-                            value: { firstName, lastName }
+                            field: 'lastName', 
+                            value: lastName 
                           });
-                        }}
-                        isEditing={editingField === 'name'}
-                        onStartEdit={() => startEditing('name', `${profile.firstName || ''} ${profile.lastName || ''}`.trim())}
-                        onCancel={cancelEditing}
-                        placeholder="Enter your full name"
-                        displayClassName="text-3xl font-bold text-stak-black"
-                        canEdit={isOwnProfile}
-                        isLoading={updateFieldMutation.isPending && editingField === 'name'}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Briefcase className="h-4 w-4 text-stak-copper" />
-                      <InlineEdit
-                        value={profile.position ? `${profile.position}${profile.company ? ` at ${profile.company}` : ''}` : ''}
-                        onSave={(value) => {
-                          const atIndex = value.indexOf(' at ');
-                          const position = atIndex > -1 ? value.substring(0, atIndex) : value;
-                          const company = atIndex > -1 ? value.substring(atIndex + 4) : '';
-                          updateFieldMutation.mutate({ 
-                            field: 'jobInfo', 
-                            value: { position: position.trim(), company: company.trim() }
-                          });
-                        }}
-                        isEditing={editingField === 'job'}
-                        onStartEdit={() => startEditing('job', profile.position ? `${profile.position}${profile.company ? ` at ${profile.company}` : ''}` : '')}
-                        onCancel={cancelEditing}
-                        placeholder="Enter your title and company (e.g. 'CEO at STAK Ventures')"
-                        displayClassName="text-lg text-stak-black font-medium"
-                        canEdit={isOwnProfile}
-                        isLoading={updateFieldMutation.isPending && editingField === 'job'}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 mb-4">
-                      <MapPin className="h-4 w-4 text-stak-copper" />
+                        }
+                      }}
+                      isEditable={isOwnProfile}
+                      className="text-2xl font-bold text-stak-black"
+                      placeholder="Your name"
+                      dataTestId="text-user-name"
+                    />
+                  </div>
+
+                  {/* Position & Company */}
+                  <div className="mb-2">
+                    <InlineEdit
+                      value={profile.position || ''}
+                      onSave={(value) => updateFieldMutation.mutate({ field: 'position', value })}
+                      isEditable={isOwnProfile}
+                      className="text-lg font-medium text-gray-800"
+                      placeholder="Your job title"
+                      dataTestId="text-job-title"
+                    />
+                    {profile.company && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Building2 className="w-4 h-4 text-gray-500" />
+                        <InlineEdit
+                          value={profile.company || ''}
+                          onSave={(value) => updateFieldMutation.mutate({ field: 'company', value })}
+                          isEditable={isOwnProfile}
+                          className="text-gray-600"
+                          placeholder="Company name"
+                          dataTestId="text-company"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Location */}
+                  {profile.location && (
+                    <div className="flex items-center gap-1 text-gray-600">
+                      <MapPin className="w-4 h-4" />
                       <InlineEdit
                         value={profile.location || ''}
-                        onSave={(value) => saveField('location')}
-                        isEditing={editingField === 'location'}
-                        onStartEdit={() => startEditing('location', profile.location)}
-                        onCancel={cancelEditing}
-                        placeholder="Add your location"
-                        displayClassName="text-gray-600"
-                        canEdit={isOwnProfile}
-                        isLoading={updateFieldMutation.isPending && editingField === 'location'}
+                        onSave={(value) => updateFieldMutation.mutate({ field: 'location', value })}
+                        isEditable={isOwnProfile}
+                        placeholder="Your location"
+                        dataTestId="text-location"
                       />
                     </div>
-                  </div>
-                  
-                  {!isOwnProfile && (
-                    <div className="flex space-x-3">
-                      <Button className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Message
-                      </Button>
-                      <Button variant="outline" className="border-gray-300 text-stak-black hover:bg-gray-50">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Meet
-                      </Button>
-                    </div>
                   )}
+                </div>
+
+                {/* Sync Score */}
+                <div className="flex-shrink-0">
+                  <div className="text-center">
+                    <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-white text-sm font-medium ${syncLevel.color}`}>
+                      <span>{syncLevel.badge}</span>
+                      <span>{syncLevel.level}</span>
+                    </div>
+                    <div className="mt-2">
+                      <div className="text-2xl font-bold text-stak-copper" data-testid="text-sync-score">
+                        {stats?.signalScore || 0}
+                      </div>
+                      <div className="text-xs text-gray-500">Sync Score</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Column */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* About Section */}
-            <Card className="border border-gray-200 shadow-sm">
-              <CardContent className="p-6 bg-white">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-stak-black">About</h2>
-                  {isOwnProfile && (
-                    <SimpleProfileAIAssistant 
-                      currentProfile={{
-                        bio: profile.bio || "",
-                        firstName: profile.firstName || "",
-                        lastName: profile.lastName || "",
-                        company: profile.company || "",
-                        title: profile.position || "",
-                        skills: profile.skills || [],
-                        industries: profile.industries || [],
-                        networkingGoal: profile.networkingGoals || "",
-                        linkedinUrl: profile.linkedinUrl || "",
-                        twitterUrl: profile.twitterUrl || "",
-                        githubUrl: profile.githubUrl || "",
-                        websiteUrls: profile.websiteUrls || []
-                      }}
-                      onBioUpdate={async (newBio: string) => {
-                        updateFieldMutation.mutate({ field: 'bio', value: newBio });
-                      }}
-                    />
-                  )}
-                </div>
+              {/* Bio */}
+              <div className="mb-4">
                 <InlineEdit
                   value={profile.bio || ''}
-                  onSave={(value) => {
-                    setEditValues(prev => ({ ...prev, bio: value }));
-                    saveField('bio');
-                  }}
-                  isEditing={editingField === 'bio'}
-                  onStartEdit={() => startEditing('bio', profile.bio)}
-                  onCancel={cancelEditing}
-                  placeholder="Tell the STAK community about your professional background, achievements, and what drives you in your work..."
-                  displayClassName="text-gray-700 leading-relaxed"
-                  multiline={true}
-                  canEdit={isOwnProfile}
-                  isLoading={updateFieldMutation.isPending && editingField === 'bio'}
+                  onSave={(value) => updateFieldMutation.mutate({ field: 'bio', value })}
+                  isEditable={isOwnProfile}
+                  className="text-gray-700 leading-relaxed"
+                  placeholder="Tell others about yourself..."
+                  multiline
+                  dataTestId="text-bio"
                 />
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Networking Goals */}
-            <Card className="border border-gray-200 shadow-sm">
-              <CardContent className="p-6 bg-white">
-                <h2 className="text-xl font-semibold mb-4 flex items-center text-stak-black">
-                  <Users className="h-5 w-5 mr-2 text-stak-copper" />
-                  Networking Goals
-                </h2>
-                <InlineEdit
-                  value={profile.networkingGoals || ''}
-                  onSave={(value) => {
-                    setEditValues(prev => ({ ...prev, networkingGoals: value }));
-                    saveField('networkingGoals');
-                  }}
-                  isEditing={editingField === 'networkingGoals'}
-                  onStartEdit={() => startEditing('networkingGoals', profile.networkingGoals)}
-                  onCancel={cancelEditing}
-                  placeholder="What are you looking to achieve through networking? (e.g., 'Seeking investors for Series A', 'Looking to hire senior engineers', 'Expanding into European markets')"
-                  displayClassName="text-gray-700"
-                  multiline={true}
-                  canEdit={isOwnProfile}
-                  isLoading={updateFieldMutation.isPending && editingField === 'networkingGoals'}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Skills & Industries */}
-            <Card className="border border-gray-200 shadow-sm">
-              <CardContent className="p-6 bg-white">
-                <h2 className="text-xl font-semibold mb-4 text-stak-black">Expertise</h2>
-                <div className="space-y-4">
-                  {/* Skills Section */}
-                  <div>
-                    <h3 className="font-medium text-stak-black mb-2">Skills</h3>
-                    {(isOwnProfile || (profile.skills && profile.skills.length > 0)) && (
-                      <>
-                        {editingField !== 'skills' && profile.skills && profile.skills.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            {profile.skills.map((skill, index) => (
-                              <Badge key={index} variant="secondary" className="bg-gray-100 text-stak-black border border-gray-300">
-                                {skill}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {isOwnProfile && (
-                          <InlineEdit
-                            value={profile.skills?.join(', ') || ''}
-                            onSave={(value) => {
-                              const skills = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
-                              updateFieldMutation.mutate({ field: 'skills', value: skills });
-                            }}
-                            isEditing={editingField === 'skills'}
-                            onStartEdit={() => startEditing('skills', profile.skills?.join(', '))}
-                            onCancel={cancelEditing}
-                            placeholder="Add your skills separated by commas (e.g., 'JavaScript, Product Management, Team Leadership, AI/ML')"
-                            displayClassName=""
-                            canEdit={isOwnProfile}
-                            isLoading={updateFieldMutation.isPending && editingField === 'skills'}
-                          />
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Industries Section */}
-                  <div>
-                    <h3 className="font-medium text-stak-black mb-2">Industries</h3>
-                    {(isOwnProfile || (profile.industries && profile.industries.length > 0)) && (
-                      <>
-                        {editingField !== 'industries' && profile.industries && profile.industries.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            {profile.industries.map((industry, index) => (
-                              <Badge key={index} variant="outline" className="border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
-                                {industry}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {isOwnProfile && (
-                          <InlineEdit
-                            value={profile.industries?.join(', ') || ''}
-                            onSave={(value) => {
-                              const industries = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
-                              updateFieldMutation.mutate({ field: 'industries', value: industries });
-                            }}
-                            isEditing={editingField === 'industries'}
-                            onStartEdit={() => startEditing('industries', profile.industries?.join(', '))}
-                            onCancel={cancelEditing}
-                            placeholder="Add your industries separated by commas (e.g., 'FinTech, Enterprise Software, Healthcare, AI')"
-                            displayClassName=""
-                            canEdit={isOwnProfile}
-                            isLoading={updateFieldMutation.isPending && editingField === 'industries'}
-                          />
-                        )}
-                      </>
-                    )}
-                  </div>
+              {/* Action Buttons */}
+              {!isOwnProfile && (
+                <div className="flex gap-2">
+                  <Button className="bg-stak-copper hover:bg-stak-copper/90" data-testid="button-connect">
+                    <Users className="w-4 h-4 mr-2" />
+                    Connect
+                  </Button>
+                  <Button variant="outline" data-testid="button-message">
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Message
+                  </Button>
+                  <Button variant="outline" data-testid="button-schedule">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Schedule Meeting
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Badges Section */}
-            <BadgeManager userId={profile.id} isAdmin={false} />
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Sync Score */}
-            <Card className="border border-gray-200 shadow-sm">
-              <CardContent className="p-6 text-center bg-white">
-                <div className="mb-4">
-                  <div className="text-4xl mb-2">{syncLevel.badge}</div>
-                  <h3 className="text-lg font-semibold text-stak-black">{syncLevel.level}</h3>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Sync Score</span>
-                    <span className="font-semibold text-stak-copper">{stats?.signalScore || 0}/1000</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${syncLevel.color}`}
-                      style={{ width: `${((stats?.signalScore || 0) / 1000) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Stats */}
-            <Card className="border border-gray-200 shadow-sm">
-              <CardContent className="p-6 bg-white">
-                <h3 className="font-semibold mb-4 text-stak-black">Network Stats</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <div className="flex items-center">
-                      <Users className="h-4 w-4 text-stak-copper mr-2" />
-                      <span className="text-gray-600">Connections</span>
-                    </div>
-                    <span className="font-semibold text-stak-black">{stats?.connections || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <div className="flex items-center">
-                      <TrendingUp className="h-4 w-4 text-stak-forest mr-2" />
-                      <span className="text-gray-600">Profile Views</span>
-                    </div>
-                    <span className="font-semibold text-stak-black">{stats?.profileViews || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 text-gray-500 mr-2" />
-                      <span className="text-gray-600">Meetings</span>
-                    </div>
-                    <span className="font-semibold text-stak-black">{stats?.meetingRequestsCount || 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Social Links */}
-            {(profile.linkedinUrl || profile.twitterUrl || profile.githubUrl || (profile.websiteUrls && profile.websiteUrls.length > 0)) && (
-              <Card className="border border-gray-200 shadow-sm">
-                <CardContent className="p-6 bg-white">
-                  <h3 className="font-semibold mb-4 text-stak-black">Connect</h3>
-                  <div className="space-y-3">
-                    {profile.linkedinUrl && (
-                      <a 
-                        href={profile.linkedinUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center text-stak-copper hover:text-stak-dark-copper transition-colors"
-                      >
-                        <Linkedin className="h-4 w-4 mr-3" />
-                        LinkedIn
-                      </a>
-                    )}
-                    {profile.twitterUrl && (
-                      <a 
-                        href={profile.twitterUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center text-gray-600 hover:text-stak-black transition-colors"
-                      >
-                        <Twitter className="h-4 w-4 mr-3" />
-                        Twitter
-                      </a>
-                    )}
-                    {profile.githubUrl && (
-                      <a 
-                        href={profile.githubUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center text-stak-black hover:text-stak-copper transition-colors"
-                      >
-                        <Github className="h-4 w-4 mr-3" />
-                        GitHub
-                      </a>
-                    )}
-                    {profile.websiteUrls && profile.websiteUrls.map((url, index) => (
-                      <a 
-                        key={index}
-                        href={url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center text-stak-forest hover:text-stak-dark-forest transition-colors"
-                      >
-                        <Globe className="h-4 w-4 mr-3" />
-                        Website
-                      </a>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Investment Info (if applicable) */}
-            {(profile.investmentStage || profile.fundingRange) && (
-              <Card className="border border-gray-200 shadow-sm">
-                <CardContent className="p-6 bg-white">
-                  <h3 className="font-semibold mb-4 flex items-center text-stak-black">
-                    <TrendingUp className="h-4 w-4 mr-2 text-stak-forest" />
-                    Investment Info
-                  </h3>
-                  <div className="space-y-2">
-                    {profile.investmentStage && (
-                      <div>
-                        <span className="text-sm text-gray-600">Stage: </span>
-                        <span className="font-medium text-stak-black">{profile.investmentStage}</span>
-                      </div>
-                    )}
-                    {profile.fundingRange && (
-                      <div>
-                        <span className="text-sm text-gray-600">Range: </span>
-                        <span className="font-medium text-stak-black">{profile.fundingRange}</span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
-        {isOwnProfile && (
-          <div className="mt-8 text-center">
-            <Button variant="outline" className="border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black" onClick={() => window.location.href = '/profile/edit'}>
-              <Zap className="h-4 w-4 mr-2" />
-              Edit Profile
-            </Button>
-          </div>
-        )}
+        {/* Profile Tabs */}
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="experience">Experience</TabsTrigger>
+            <TabsTrigger value="connections">Network</TabsTrigger>
+            {isOwnProfile && <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>}
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Skills & Industries */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="w-5 h-5" />
+                    Skills & Expertise
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium text-gray-800 mb-2">Skills</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {profile.skills?.length ? (
+                          profile.skills.map((skill, index) => (
+                            <Badge key={index} variant="secondary" data-testid={`badge-skill-${index}`}>
+                              {skill}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-gray-500 text-sm">
+                            {isOwnProfile ? "Add your skills to showcase your expertise" : "No skills listed"}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium text-gray-800 mb-2">Industries</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {profile.industries?.length ? (
+                          profile.industries.map((industry, index) => (
+                            <Badge key={index} variant="outline" data-testid={`badge-industry-${index}`}>
+                              {industry}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-gray-500 text-sm">
+                            {isOwnProfile ? "Add industries you work in" : "No industries listed"}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Profile Stats */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Profile Analytics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-2xl font-bold text-stak-copper" data-testid="text-profile-views">
+                        {stats?.profileViews || 0}
+                      </div>
+                      <div className="text-sm text-gray-600">Profile Views</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-2xl font-bold text-stak-forest" data-testid="text-connections">
+                        {stats?.connections || 0}
+                      </div>
+                      <div className="text-sm text-gray-600">Connections</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-2xl font-bold text-gray-800" data-testid="text-meeting-requests">
+                        {stats?.meetingRequestsCount || 0}
+                      </div>
+                      <div className="text-sm text-gray-600">Meeting Requests</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-2xl font-bold text-yellow-600" data-testid="text-completion">
+                        {stats?.completionPercentage || 0}%
+                      </div>
+                      <div className="text-sm text-gray-600">Profile Complete</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Networking Goals */}
+            {profile.networkingGoals && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Star className="w-5 h-5" />
+                    Networking Goals
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <InlineEdit
+                    value={profile.networkingGoals || ''}
+                    onSave={(value) => updateFieldMutation.mutate({ field: 'networkingGoals', value })}
+                    isEditable={isOwnProfile}
+                    className="text-gray-700"
+                    placeholder="What are your networking goals?"
+                    dataTestId="text-networking-goals"
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Social Links */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="w-5 h-5" />
+                  Social & Web Presence
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {profile.linkedinUrl && (
+                    <a 
+                      href={profile.linkedinUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                      data-testid="link-linkedin"
+                    >
+                      <Linkedin className="w-5 h-5 text-blue-600" />
+                      <span className="text-gray-700">LinkedIn Profile</span>
+                    </a>
+                  )}
+                  {profile.twitterUrl && (
+                    <a 
+                      href={profile.twitterUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                      data-testid="link-twitter"
+                    >
+                      <Twitter className="w-5 h-5 text-sky-500" />
+                      <span className="text-gray-700">Twitter/X Profile</span>
+                    </a>
+                  )}
+                  {profile.githubUrl && (
+                    <a 
+                      href={profile.githubUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                      data-testid="link-github"
+                    >
+                      <Github className="w-5 h-5 text-gray-800" />
+                      <span className="text-gray-700">GitHub Profile</span>
+                    </a>
+                  )}
+                  {profile.websiteUrls?.map((url, index) => (
+                    <a 
+                      key={index}
+                      href={url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                      data-testid={`link-website-${index}`}
+                    >
+                      <Globe className="w-5 h-5 text-gray-600" />
+                      <span className="text-gray-700">Personal Website</span>
+                    </a>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="experience">
+            <Card>
+              <CardHeader>
+                <CardTitle>Professional Experience</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-500">Experience section coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="connections">
+            <Card>
+              <CardHeader>
+                <CardTitle>Professional Network</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-500">Network view coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {isOwnProfile && (
+            <TabsContent value="ai-assistant">
+              <SimpleProfileAIAssistant />
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
     </div>
   );
