@@ -208,27 +208,34 @@ export default function Profile() {
                 <div>
                   {/* Name */}
                   <div className="mb-2">
-                    <InlineEdit
-                      value={`${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User Name'}
-                      onSave={(value) => {
-                        const [firstName, ...lastNameParts] = value.split(' ');
-                        const lastName = lastNameParts.join(' ');
-                        updateFieldMutation.mutate({ 
-                          field: 'firstName', 
-                          value: firstName 
-                        });
-                        if (lastName) {
-                          updateFieldMutation.mutate({ 
-                            field: 'lastName', 
-                            value: lastName 
-                          });
-                        }
-                      }}
-                      isEditable={isOwnProfile}
-                      className="text-2xl font-bold text-stak-black"
-                      placeholder="Your name"
-                      dataTestId="text-user-name"
-                    />
+                    <div className="text-2xl font-bold text-stak-black" data-testid="text-user-name">
+                      {isOwnProfile ? (
+                        <InlineEdit
+                          value={`${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User Name'}
+                          onSave={(value) => {
+                            const [firstName, ...lastNameParts] = value.split(' ');
+                            const lastName = lastNameParts.join(' ');
+                            updateFieldMutation.mutate({ 
+                              field: 'firstName', 
+                              value: firstName 
+                            });
+                            if (lastName) {
+                              updateFieldMutation.mutate({ 
+                                field: 'lastName', 
+                                value: lastName 
+                              });
+                            }
+                          }}
+                          isEditing={editingField === 'name'}
+                          onStartEdit={() => startEditing('name', `${profile.firstName || ''} ${profile.lastName || ''}`.trim())}
+                          onCancel={cancelEditing}
+                          placeholder="Your name"
+                          className="text-2xl font-bold text-stak-black"
+                        />
+                      ) : (
+                        `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User Name'
+                      )}
+                    </div>
                   </div>
 
                   {/* Position & Company */}
@@ -457,13 +464,13 @@ export default function Profile() {
                     {profile.linkedinUrl ? (
                       <div className="flex-grow">
                         {isOwnProfile ? (
-                          <InlineEdit
+                          <input
+                            type="text"
                             value={profile.linkedinUrl}
-                            onSave={(value) => updateFieldMutation.mutate({ field: 'linkedinUrl', value })}
-                            isEditable={isOwnProfile}
-                            className="text-gray-700 flex-grow"
+                            onChange={(e) => updateFieldMutation.mutate({ field: 'linkedinUrl', value: e.target.value })}
+                            className="flex-grow text-gray-700 bg-transparent border-none focus:outline-none"
                             placeholder="Your LinkedIn URL"
-                            dataTestId="input-linkedin-url"
+                            data-testid="input-linkedin-url"
                           />
                         ) : (
                           <a 
@@ -480,13 +487,13 @@ export default function Profile() {
                     ) : (
                       <div className="flex-grow">
                         {isOwnProfile ? (
-                          <InlineEdit
+                          <input
+                            type="text"
                             value=""
-                            onSave={(value) => updateFieldMutation.mutate({ field: 'linkedinUrl', value })}
-                            isEditable={isOwnProfile}
-                            className="text-gray-500"
+                            onChange={(e) => updateFieldMutation.mutate({ field: 'linkedinUrl', value: e.target.value })}
+                            className="flex-grow text-gray-500 bg-transparent border-none focus:outline-none"
                             placeholder="Add your LinkedIn URL"
-                            dataTestId="input-linkedin-url"
+                            data-testid="input-linkedin-url"
                           />
                         ) : (
                           <span className="text-gray-500">LinkedIn not provided</span>
@@ -622,8 +629,19 @@ export default function Profile() {
                       variant="outline"
                       onClick={async () => {
                         try {
-                          const newUrls = [...(profile.websiteUrls || []), ''];
-                          await updateFieldMutation.mutateAsync({ field: 'websiteUrls', value: newUrls });
+                          const currentUrls = profile.websiteUrls || [];
+                          const newUrls = [...currentUrls, ''];
+                          console.log('Adding website field:', { currentUrls, newUrls });
+                          
+                          await updateFieldMutation.mutateAsync({ 
+                            field: 'websiteUrls', 
+                            value: newUrls 
+                          });
+                          
+                          toast({
+                            title: "Website Field Added",
+                            description: "You can now enter your website URL above.",
+                          });
                         } catch (error) {
                           console.error('Error adding website:', error);
                           toast({
@@ -638,6 +656,40 @@ export default function Profile() {
                       disabled={updateFieldMutation.isPending}
                     >
                       {updateFieldMutation.isPending ? 'Adding...' : '+ Add Website'}
+                    </Button>
+                  )}
+                  
+                  {/* Website AI Analysis Button */}
+                  {isOwnProfile && profile.websiteUrls?.some(url => url.trim()) && (
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        try {
+                          const websiteUrl = profile.websiteUrls?.find(url => url.trim());
+                          if (websiteUrl) {
+                            const response = await apiRequest('POST', '/api/profile/analyze-website', {
+                              websiteUrl
+                            });
+                            const data = await response.json();
+                            
+                            toast({
+                              title: "Website Analyzed!",
+                              description: `Found ${data.enhancements.improvements.length} improvements for your profile.`,
+                            });
+                          }
+                        } catch (error) {
+                          console.error('Error analyzing website:', error);
+                          toast({
+                            title: "Analysis Failed",
+                            description: "Failed to analyze website. Please try again.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      className="w-full"
+                      data-testid="button-analyze-website"
+                    >
+                      🤖 Analyze Website for Profile Enhancement
                     </Button>
                   )}
                 </div>
@@ -669,7 +721,25 @@ export default function Profile() {
 
           {isOwnProfile && (
             <TabsContent value="ai-assistant">
-              <SimpleProfileAIAssistant />
+              <SimpleProfileAIAssistant 
+                currentProfile={{
+                  bio: profile.bio || '',
+                  firstName: profile.firstName || '',
+                  lastName: profile.lastName || '',
+                  company: profile.company || '',
+                  title: profile.position || '',
+                  skills: profile.skills || [],
+                  industries: profile.industries || [],
+                  networkingGoal: profile.networkingGoals || '',
+                  linkedinUrl: profile.linkedinUrl || '',
+                  twitterUrl: profile.twitterUrl || '',
+                  githubUrl: profile.githubUrl || '',
+                  websiteUrls: profile.websiteUrls || []
+                }}
+                onBioUpdate={(newBio) => {
+                  updateFieldMutation.mutate({ field: 'bio', value: newBio });
+                }}
+              />
             </TabsContent>
           )}
         </Tabs>

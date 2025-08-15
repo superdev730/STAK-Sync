@@ -537,6 +537,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const profileData = req.body;
       
+      console.log('Profile update request:', { userId, field: Object.keys(profileData), data: profileData });
+      
       // Handle special cases for composite fields
       if (profileData.names) {
         const { firstName, lastName } = profileData.names;
@@ -562,8 +564,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
+      console.log('Cleaned profile data:', cleanedData);
+
       // Update the user profile
       const updatedUser = await storage.updateUser(userId, cleanedData);
+      
+      console.log('Profile updated successfully for user:', userId);
       
       res.json({ 
         success: true, 
@@ -572,7 +578,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error updating profile:", error);
-      res.status(500).json({ message: "Failed to update profile" });
+      res.status(500).json({ 
+        message: "Failed to update profile",
+        error: error.message 
+      });
+    }
+  });
+
+  // Website analysis endpoint
+  app.post('/api/profile/analyze-website', isAuthenticated, async (req: any, res) => {
+    try {
+      const { websiteUrl } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!websiteUrl) {
+        return res.status(400).json({ message: "Website URL is required" });
+      }
+
+      console.log('Analyzing website:', websiteUrl);
+      
+      // Import the website crawler
+      const { websiteCrawler } = await import('./websiteCrawler');
+      
+      // Crawl the website
+      const websiteData = await websiteCrawler.crawlWebsite(websiteUrl);
+      
+      // Enhance profile with website data
+      const enhancements = await websiteCrawler.enhanceProfileWithWebsiteData(websiteData);
+      
+      res.json({
+        success: true,
+        websiteData,
+        enhancements,
+        message: `Successfully analyzed ${websiteUrl}`
+      });
+      
+    } catch (error) {
+      console.error('Error analyzing website:', error);
+      res.status(500).json({ 
+        message: 'Failed to analyze website',
+        error: error.message 
+      });
     }
   });
 
