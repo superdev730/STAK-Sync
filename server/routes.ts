@@ -585,31 +585,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Website analysis endpoint
-  app.post('/api/profile/analyze-website', isAuthenticated, async (req: any, res) => {
+  // Social media analysis endpoints
+  app.post('/api/social/analyze', isAuthenticated, async (req: any, res) => {
     try {
-      const { websiteUrl } = req.body;
+      const { url, type } = req.body;
       const userId = req.user.claims.sub;
       
-      if (!websiteUrl) {
-        return res.status(400).json({ message: "Website URL is required" });
+      if (!url) {
+        return res.status(400).json({ message: "URL is required" });
       }
 
-      console.log('Analyzing website:', websiteUrl);
+      console.log(`Analyzing ${type} URL:`, url);
       
-      // Import the website crawler
-      const { websiteCrawler } = await import('./websiteCrawler');
+      // Import the social media crawler
+      const { socialMediaCrawler } = await import('./socialMediaCrawler');
       
-      // Crawl the website
-      const websiteData = await websiteCrawler.crawlWebsite(websiteUrl);
-      
-      // Enhance profile with website data
-      const enhancements = await websiteCrawler.enhanceProfileWithWebsiteData(websiteData);
+      // Analyze the social profile
+      const profile = await socialMediaCrawler.analyzeSocialProfile(url);
       
       res.json({
         success: true,
-        websiteData,
+        profile,
+        message: `Successfully analyzed ${profile.platform} profile`
+      });
+      
+    } catch (error) {
+      console.error('Error analyzing social profile:', error);
+      res.status(500).json({ 
+        message: 'Failed to analyze profile',
+        error: error.message 
+      });
+    }
+  });
+
+  app.post('/api/social/comprehensive-analysis', isAuthenticated, async (req: any, res) => {
+    try {
+      const { urls, currentProfile } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!urls || urls.length === 0) {
+        return res.status(400).json({ message: "At least one URL is required" });
+      }
+
+      console.log('Starting comprehensive social media analysis for user:', userId);
+      console.log('URLs to analyze:', urls);
+      
+      // Import the social media crawler
+      const { socialMediaCrawler } = await import('./socialMediaCrawler');
+      
+      // Analyze all social profiles
+      const profiles = [];
+      for (const url of urls) {
+        try {
+          const profile = await socialMediaCrawler.analyzeSocialProfile(url);
+          profiles.push(profile);
+          console.log(`Successfully analyzed ${profile.platform} profile`);
+        } catch (error) {
+          console.error(`Failed to analyze ${url}:`, error.message);
+          // Continue with other URLs even if one fails
+        }
+      }
+      
+      if (profiles.length === 0) {
+        return res.status(400).json({ 
+          message: 'No profiles could be analyzed successfully' 
+        });
+      }
+      
+      // Generate comprehensive enhancements
+      const enhancements = await socialMediaCrawler.enhanceProfileFromSocialData(profiles);
+      
+      // Store analysis results for future reference
+      console.log(`Generated enhancements for user ${userId}:`, {
+        profilesAnalyzed: profiles.length,
+        skillsExtracted: enhancements.extractedSkills.length,
+        improvementsGenerated: enhancements.improvements.length
+      });
+      
+      res.json({
+        success: true,
+        profiles,
         enhancements,
+        message: `Successfully analyzed ${profiles.length} social profiles`
+      });
+      
+    } catch (error) {
+      console.error('Error in comprehensive social analysis:', error);
+      res.status(500).json({ 
+        message: 'Failed to complete comprehensive analysis',
+        error: error.message 
+      });
+    }
+  });
+
+  // Website analysis endpoint (legacy compatibility)
+  app.post('/api/profile/analyze-website', isAuthenticated, async (req: any, res) => {
+    try {
+      const { websiteUrl } = req.body;
+      
+      // Use the new social media crawler for consistency
+      const { socialMediaCrawler } = await import('./socialMediaCrawler');
+      const profile = await socialMediaCrawler.analyzeSocialProfile(websiteUrl);
+      
+      res.json({
+        success: true,
+        websiteData: profile.extractedData,
+        enhancements: {
+          improvements: [`Analyzed website: ${profile.platform}`],
+          enhancedBio: profile.bio || '',
+          extractedSkills: profile.skills || [],
+          suggestedIndustries: []
+        },
         message: `Successfully analyzed ${websiteUrl}`
       });
       
