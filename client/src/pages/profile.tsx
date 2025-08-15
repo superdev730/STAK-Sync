@@ -192,13 +192,36 @@ export default function Profile() {
                   </AvatarFallback>
                 </Avatar>
                 {isOwnProfile && (
-                  <Button
-                    size="sm"
-                    className="absolute bottom-0 right-0 rounded-full w-8 h-8 p-0 bg-stak-copper hover:bg-stak-copper/80"
-                    data-testid="button-edit-profile-image"
-                  >
-                    <Camera className="w-4 h-4" />
-                  </Button>
+                  <div className="absolute bottom-0 right-0">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (e) => {
+                            const base64 = e.target?.result as string;
+                            updateFieldMutation.mutate({ 
+                              field: 'profileImageUrl', 
+                              value: base64 
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                      id="photo-upload"
+                      data-testid="input-photo-upload"
+                    />
+                    <label
+                      htmlFor="photo-upload"
+                      className="flex items-center justify-center w-8 h-8 bg-stak-copper hover:bg-stak-copper/80 rounded-full cursor-pointer shadow-md"
+                      data-testid="button-edit-photo"
+                    >
+                      <Camera className="h-4 w-4 text-white" />
+                    </label>
+                  </div>
                 )}
               </div>
             </div>

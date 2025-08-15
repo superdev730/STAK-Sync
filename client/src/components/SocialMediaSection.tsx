@@ -60,16 +60,21 @@ export function SocialMediaSection({ profile, isOwnProfile, updateProfile, isUpd
       [field]: value
     }));
 
-    // Update profile
+    // Update profile immediately
     updateProfile({ field, value });
 
     // Auto-analyze if URL looks complete
     if (value && isValidUrl(value)) {
-      await analyzeUrl(value, field);
+      // Small delay to allow user to finish typing
+      setTimeout(() => {
+        if (value === socialFields[field as keyof typeof socialFields]) {
+          analyzeUrl(value, field);
+        }
+      }, 1000);
     }
   };
 
-  // Handle website URLs array updates
+  // Handle website URLs array updates  
   const handleWebsiteUrlUpdate = (index: number, value: string) => {
     const newUrls = [...socialFields.websiteUrls];
     newUrls[index] = value;
@@ -83,7 +88,11 @@ export function SocialMediaSection({ profile, isOwnProfile, updateProfile, isUpd
 
     // Auto-analyze if URL looks complete
     if (value && isValidUrl(value)) {
-      analyzeUrl(value, 'website');
+      setTimeout(() => {
+        if (newUrls[index] === value) {
+          analyzeUrl(value, 'website');
+        }
+      }, 1000);
     }
   };
 
@@ -253,11 +262,16 @@ export function SocialMediaSection({ profile, isOwnProfile, updateProfile, isUpd
     });
   };
 
-  // Get status icon for social profile
-  const getStatusIcon = (status: string) => {
+  // Get status icon for a URL
+  const getStatusIcon = (url: string) => {
+    if (!url || !isValidUrl(url)) return null;
+    
+    const profile = socialProfiles.find(p => p.url === url);
+    const status = profile?.status || 'idle';
+    
     switch (status) {
       case 'analyzing':
-        return <Loader2 className="w-4 h-4 animate-spin text-blue-500" />;
+        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
       case 'success':
         return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case 'error':
@@ -314,9 +328,7 @@ export function SocialMediaSection({ profile, isOwnProfile, updateProfile, isUpd
                   className="border-none shadow-none focus-visible:ring-0"
                   data-testid="input-linkedin-url"
                 />
-                {socialProfiles.find(p => p.url === socialFields.linkedinUrl) && 
-                  getStatusIcon(socialProfiles.find(p => p.url === socialFields.linkedinUrl)?.status || 'idle')
-                }
+                {getStatusIcon(socialFields.linkedinUrl)}
               </div>
             ) : (
               socialFields.linkedinUrl ? (
@@ -349,9 +361,7 @@ export function SocialMediaSection({ profile, isOwnProfile, updateProfile, isUpd
                   className="border-none shadow-none focus-visible:ring-0"
                   data-testid="input-twitter-url"
                 />
-                {socialProfiles.find(p => p.url === socialFields.twitterUrl) && 
-                  getStatusIcon(socialProfiles.find(p => p.url === socialFields.twitterUrl)?.status || 'idle')
-                }
+                {getStatusIcon(socialFields.twitterUrl)}
               </div>
             ) : (
               socialFields.twitterUrl ? (
@@ -384,9 +394,7 @@ export function SocialMediaSection({ profile, isOwnProfile, updateProfile, isUpd
                   className="border-none shadow-none focus-visible:ring-0"
                   data-testid="input-github-url"
                 />
-                {socialProfiles.find(p => p.url === socialFields.githubUrl) && 
-                  getStatusIcon(socialProfiles.find(p => p.url === socialFields.githubUrl)?.status || 'idle')
-                }
+                {getStatusIcon(socialFields.githubUrl)}
               </div>
             ) : (
               socialFields.githubUrl ? (
@@ -420,9 +428,7 @@ export function SocialMediaSection({ profile, isOwnProfile, updateProfile, isUpd
                     className="border-none shadow-none focus-visible:ring-0"
                     data-testid={`input-website-url-${index}`}
                   />
-                  {socialProfiles.find(p => p.url === url) && 
-                    getStatusIcon(socialProfiles.find(p => p.url === url)?.status || 'idle')
-                  }
+                  {getStatusIcon(url)}
                   <Button
                     size="sm"
                     variant="ghost"
