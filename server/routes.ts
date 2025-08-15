@@ -708,6 +708,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Brand storytelling generator endpoint
+  app.post('/api/profile/generate-brand-story', isAuthenticated, async (req: any, res) => {
+    try {
+      const { profileData } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!profileData) {
+        return res.status(400).json({ message: "Profile data is required" });
+      }
+
+      console.log('Generating brand story for user:', userId);
+      
+      const { brandStoryGenerator } = await import('./brandStoryGenerator');
+      
+      // Generate comprehensive brand stories
+      const stories = await brandStoryGenerator.generateBrandStories(profileData);
+      
+      console.log(`Generated brand stories for user ${userId}:`, {
+        variationsGenerated: Object.keys(stories).length,
+        elementsPerVariation: Object.keys(stories.concise || {}).length
+      });
+      
+      res.json({
+        success: true,
+        stories,
+        message: "Successfully generated professional brand stories"
+      });
+      
+    } catch (error) {
+      console.error('Error generating brand story:', error);
+      res.status(500).json({ 
+        message: 'Failed to generate brand story',
+        error: error.message 
+      });
+    }
+  });
+
   // AI Profile Enhancement endpoints
   app.post("/api/profile/ai/generate-bio", isAuthenticated, async (req, res) => {
     if (!req.user?.claims?.sub) {

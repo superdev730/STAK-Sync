@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { SocialMediaSection } from "@/components/SocialMediaSection";
 import { SimpleProfileAIAssistant } from "@/components/SimpleProfileAIAssistant";
+import { BrandStorytellingGenerator } from "@/components/BrandStorytellingGenerator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -473,6 +474,14 @@ export default function Profile() {
               updateProfile={updateFieldMutation.mutate}
               isUpdating={updateFieldMutation.isPending}
             />
+
+            {/* Brand Storytelling Generator */}
+            {isOwnProfile && (
+              <BrandStorytellingGenerator
+                profile={profile}
+                updateProfile={updateFieldMutation.mutate}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="experience">
