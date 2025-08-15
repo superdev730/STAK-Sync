@@ -3,68 +3,67 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { SocialMediaSection } from "@/components/SocialMediaSection";
-import { SimpleProfileAIAssistant } from "@/components/SimpleProfileAIAssistant";
-import { BrandStorytellingGenerator } from "@/components/BrandStorytellingGenerator";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { apiRequest } from "@/lib/queryClient";
 import { 
-  Users, 
-  MapPin, 
-  Building2, 
-  Globe, 
-  Linkedin, 
-  Twitter, 
-  Github, 
-  Mail,
-  MessageCircle,
-  Calendar,
-  TrendingUp,
-  Eye,
-  Award,
-  Star,
-  Edit2,
-  Camera
+  User,
+  Camera,
+  Wand2,
+  Linkedin,
+  Twitter,
+  Github,
+  Globe,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  Plus,
+  Trash2,
+  Copy,
+  Check,
+  Users,
+  Sparkles,
+  Building2,
+  MapPin,
+  Target
 } from "lucide-react";
 
 interface UserProfile {
   id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  profileImageUrl: string | null;
-  position: string | null;
-  company: string | null;
-  location: string | null;
-  bio: string | null;
-  linkedinUrl: string | null;
-  twitterUrl: string | null;
-  githubUrl: string | null;
-  websiteUrls: string[] | null;
-  skills: string[] | null;
-  industries: string[] | null;
-  networkingGoals: string | null;
-  investmentStage: string | null;
-  fundingRange: string | null;
-  privacySettings: any | null;
-  createdAt: string;
-  updatedAt: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  title?: string;
+  company?: string;
+  bio?: string;
+  location?: string;
+  linkedinUrl?: string;
+  twitterUrl?: string;
+  githubUrl?: string;
+  websiteUrls?: string[];
+  skills?: string[];
+  industries?: string[];
+  networkingGoal?: string;
+  profileImageUrl?: string;
 }
 
-interface ProfileStats {
-  completionPercentage: number;
-  signalScore: number;
-  connections: number;
-  meetingRequestsCount: number;
-  profileViews: number;
+interface SocialSource {
+  platform: string;
+  url: string;
+  isValid: boolean;
+  isAnalyzing: boolean;
+  hasData: boolean;
+  error?: string;
 }
 
 export default function Profile() {
-  // All hooks declared at the top level in consistent order
   const { user: currentUser } = useAuth();
   const [, params] = useRoute("/profile/:userId?");
   const userId = params?.userId;
@@ -72,82 +71,185 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
-  // State hooks
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<{[key: string]: any}>({});
-  
-  // Query hooks
+  // State for AI-powered profile building
+  const [activeStep, setActiveStep] = useState<'input' | 'ai' | 'preview'>('input');
+  const [socialSources, setSocialSources] = useState<SocialSource[]>([]);
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [newSocialUrl, setNewSocialUrl] = useState('');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Profile data query
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: userId ? ["/api/profile", userId] : ["/api/profile"],
     enabled: !!currentUser,
   });
 
-  const { data: stats } = useQuery<ProfileStats>({
-    queryKey: userId ? ["/api/profile/stats", userId] : ["/api/profile/stats"],
-    enabled: !!currentUser && !!profile,
-  });
-
-  // Mutation hooks
-  const updateFieldMutation = useMutation({
-    mutationFn: async ({ field, value }: { field: string, value: any }) => {
-      const response = await apiRequest("PUT", "/api/profile", { [field]: value });
+  // Update profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: async (updates: Partial<UserProfile>) => {
+      const response = await apiRequest("PUT", "/api/profile", updates);
       return response.json();
     },
-    onSuccess: (data, { field }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-      setEditingField(null);
-      setEditValues(prev => ({ ...prev, [field]: undefined }));
       toast({
         title: "Profile Updated",
         description: "Your profile has been successfully updated.",
       });
     },
-    onError: (error: any, { field }) => {
+    onError: (error: any) => {
       toast({
         title: "Update Failed",
-        description: `Failed to update ${field}. Please try again.`,
+        description: error.message || "Failed to update profile. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  // All helper functions after hooks
-  const getSyncLevel = (score: number) => {
-    if (score >= 800) return { level: "Sync Master", color: "bg-stak-copper", badge: "🏆" };
-    if (score >= 600) return { level: "Sync Expert", color: "bg-yellow-500", badge: "⭐" };
-    if (score >= 400) return { level: "Sync Builder", color: "bg-gray-500", badge: "🚀" };
-    if (score >= 200) return { level: "Sync Starter", color: "bg-stak-forest", badge: "🌱" };
-    return { level: "New Member", color: "bg-gray-400", badge: "👋" };
+  // AI Profile building mutation
+  const buildProfileMutation = useMutation({
+    mutationFn: async ({ sources, prompt }: { sources: SocialSource[], prompt?: string }) => {
+      const cleanSources = sources.map(s => ({ platform: s.platform, url: s.url }));
+      
+      const response = await apiRequest("POST", "/api/profile/ai/build-complete", {
+        socialSources: cleanSources,
+        additionalContext: prompt,
+        currentProfile: {
+          firstName: profile?.firstName,
+          lastName: profile?.lastName,
+          email: profile?.email,
+          company: profile?.company,
+          title: profile?.title
+        }
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.profile) {
+        // Update profile with AI-generated data
+        updateProfileMutation.mutate(data.profile);
+        setActiveStep('preview');
+        toast({
+          title: "Profile Built Successfully",
+          description: "AI has analyzed your sources and built a comprehensive profile.",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Profile Building Failed",
+        description: error.message || "Failed to build profile with AI assistance.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Photo upload mutation
+  const uploadPhotoMutation = useMutation({
+    mutationFn: async (base64Image: string) => {
+      const response = await apiRequest("PUT", "/api/profile", { profileImageUrl: base64Image });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      toast({
+        title: "Photo Updated",
+        description: "Your profile photo has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Upload Failed",
+        description: "Failed to update photo. Please try a smaller image.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please choose an image smaller than 2MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      uploadPhotoMutation.mutate(base64);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const startEditing = (field: string, currentValue: any) => {
-    setEditingField(field);
-    setEditValues(prev => ({ ...prev, [field]: currentValue || '' }));
+  const addSocialSource = () => {
+    if (!newSocialUrl.trim()) return;
+
+    let platform = 'Website';
+    if (newSocialUrl.includes('linkedin.com')) platform = 'LinkedIn';
+    else if (newSocialUrl.includes('twitter.com') || newSocialUrl.includes('x.com')) platform = 'Twitter';
+    else if (newSocialUrl.includes('github.com')) platform = 'GitHub';
+
+    const newSource: SocialSource = {
+      platform,
+      url: newSocialUrl.trim(),
+      isValid: true,
+      isAnalyzing: false,
+      hasData: false
+    };
+
+    setSocialSources(prev => [...prev, newSource]);
+    setNewSocialUrl('');
   };
 
-  const cancelEditing = () => {
-    setEditingField(null);
-    setEditValues({});
+  const removeSocialSource = (index: number) => {
+    setSocialSources(prev => prev.filter((_, i) => i !== index));
   };
 
-  const saveField = (field: string) => {
-    const value = editValues[field];
-    if (value !== undefined) {
-      updateFieldMutation.mutate({ field, value });
+  const startAIProfileBuild = () => {
+    if (socialSources.length === 0 && !aiPrompt.trim()) {
+      toast({
+        title: "Add Sources or Context",
+        description: "Please add at least one social media profile or provide additional context.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsBuilding(true);
+    setSocialSources(prev => prev.map(s => ({ ...s, isAnalyzing: true })));
+    
+    buildProfileMutation.mutate({
+      sources: socialSources,
+      prompt: aiPrompt
+    });
+  };
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+    toast({
+      title: "Copied",
+      description: "Content copied to clipboard",
+    });
+  };
+
+  const getSocialIcon = (platform: string) => {
+    switch (platform) {
+      case 'LinkedIn': return <Linkedin className="h-4 w-4" />;
+      case 'Twitter': return <Twitter className="h-4 w-4" />;
+      case 'GitHub': return <Github className="h-4 w-4" />;
+      default: return <Globe className="h-4 w-4" />;
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent, field: string) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      saveField(field);
-    }
-    if (e.key === 'Escape') {
-      cancelEditing();
-    }
-  };
-
-  // Early returns after all hooks
   if (profileLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -159,7 +261,7 @@ export default function Profile() {
     );
   }
 
-  if (!profile) {
+  if (!profile && !isOwnProfile) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -171,414 +273,415 @@ export default function Profile() {
     );
   }
 
-  const syncLevel = getSyncLevel(stats?.signalScore || 0);
-
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Profile Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col md:flex-row gap-6">
-            {/* Profile Image */}
-            <div className="flex-shrink-0">
-              {isOwnProfile ? (
-                <div className="relative group cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        // Limit file size to 2MB to prevent base64 bloat
-                        if (file.size > 2 * 1024 * 1024) {
-                          toast({
-                            title: "File Too Large",
-                            description: "Please choose an image smaller than 2MB",
-                            variant: "destructive"
-                          });
-                          return;
-                        }
-                        
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                          const base64 = e.target?.result as string;
-                          updateFieldMutation.mutate({ 
-                            field: 'profileImageUrl', 
-                            value: base64 
-                          });
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="hidden"
-                    id="photo-upload"
-                    data-testid="input-photo-upload"
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        
+        {/* Header Section */}
+        <Card className="mb-8 border-0 shadow-sm">
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+              
+              {/* Profile Photo */}
+              <div className="relative group">
+                <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
+                  <AvatarImage 
+                    src={profile?.profileImageUrl || undefined} 
+                    alt={`${profile?.firstName} ${profile?.lastName}`} 
                   />
-                  <label
-                    htmlFor="photo-upload"
-                    className="block cursor-pointer relative"
-                    data-testid="button-edit-photo"
-                  >
-                    <Avatar className="w-32 h-32 border-4 border-white shadow-lg hover:opacity-80 transition-opacity">
-                      <AvatarImage 
-                        src={profile.profileImageUrl || undefined} 
-                        alt={`${profile.firstName} ${profile.lastName}`} 
-                      />
-                      <AvatarFallback className="text-2xl bg-stak-copper text-white">
-                        {(profile.firstName?.[0] || 'U')}{(profile.lastName?.[0] || 'N')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                  <AvatarFallback className="text-2xl bg-stak-copper text-white">
+                    {(profile?.firstName?.[0] || 'U')}{(profile?.lastName?.[0] || 'N')}
+                  </AvatarFallback>
+                </Avatar>
+                
+                {isOwnProfile && (
+                  <>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                      id="photo-upload"
+                      data-testid="input-photo-upload"
+                    />
+                    <label
+                      htmlFor="photo-upload"
+                      className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full cursor-pointer"
+                      data-testid="button-edit-photo"
+                    >
                       <div className="text-center text-white">
                         <Camera className="h-8 w-8 mx-auto mb-1" />
                         <div className="text-xs font-medium">Change Photo</div>
                       </div>
-                    </div>
-                  </label>
-                </div>
-              ) : (
-                <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
-                  <AvatarImage 
-                    src={profile.profileImageUrl || undefined} 
-                    alt={`${profile.firstName} ${profile.lastName}`} 
-                  />
-                  <AvatarFallback className="text-2xl bg-stak-copper text-white">
-                    {(profile.firstName?.[0] || 'U')}{(profile.lastName?.[0] || 'N')}
-                  </AvatarFallback>
-                </Avatar>
-              )}
-            </div>
-
-            {/* Profile Info */}
-            <div className="flex-grow">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
-                <div>
-                  {/* Name */}
-                  <div className="mb-2">
-                    <div className="text-2xl font-bold text-stak-black" data-testid="text-user-name">
-                      {isOwnProfile ? (
-                        <input
-                          type="text"
-                          value={`${profile.firstName || ''} ${profile.lastName || ''}`.trim() || ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            const [firstName, ...lastNameParts] = value.split(' ');
-                            const lastName = lastNameParts.join(' ');
-                            
-                            if (firstName !== profile.firstName) {
-                              updateFieldMutation.mutate({ 
-                                field: 'firstName', 
-                                value: firstName 
-                              });
-                            }
-                            if (lastName !== profile.lastName) {
-                              updateFieldMutation.mutate({ 
-                                field: 'lastName', 
-                                value: lastName 
-                              });
-                            }
-                          }}
-                          placeholder="Your name"
-                          className="text-2xl font-bold text-stak-black bg-transparent border-none focus:outline-none w-full"
-                          data-testid="input-user-name"
-                        />
-                      ) : (
-                        `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User Name'
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Position & Company */}
-                  <div className="mb-2">
-                    {isOwnProfile ? (
-                      <input
-                        type="text"
-                        value={profile.title || profile.position || ''}
-                        onChange={(e) => updateFieldMutation.mutate({ field: 'position', value: e.target.value })}
-                        className="text-lg font-medium text-gray-800 bg-transparent border-none focus:outline-none w-full"
-                        placeholder="Your job title"
-                        data-testid="text-job-title"
-                      />
-                    ) : (
-                      <span className="text-lg font-medium text-gray-800">{profile.title || profile.position || 'Job title not provided'}</span>
-                    )}
-                    {profile.company && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <Building2 className="w-4 h-4 text-gray-500" />
-                        {isOwnProfile ? (
-                          <input
-                            type="text"
-                            value={profile.company || ''}
-                            onChange={(e) => updateFieldMutation.mutate({ field: 'company', value: e.target.value })}
-                            className="text-gray-600 bg-transparent border-none focus:outline-none w-full"
-                            placeholder="Company name"
-                            data-testid="text-company"
-                          />
-                        ) : (
-                          <span className="text-gray-600">{profile.company}</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Location */}
-                  {profile.location && (
-                    <div className="flex items-center gap-1 text-gray-600">
-                      <MapPin className="w-4 h-4" />
-                      {isOwnProfile ? (
-                        <input
-                          type="text"
-                          value={profile.location || ''}
-                          onChange={(e) => updateFieldMutation.mutate({ field: 'location', value: e.target.value })}
-                          className="bg-transparent border-none focus:outline-none w-full"
-                          placeholder="Your location"
-                          data-testid="text-location"
-                        />
-                      ) : (
-                        <span>{profile.location}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Sync Score */}
-                <div className="flex-shrink-0">
-                  <div className="text-center">
-                    <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-white text-sm font-medium ${syncLevel.color}`}>
-                      <span>{syncLevel.badge}</span>
-                      <span>{syncLevel.level}</span>
-                    </div>
-                    <div className="mt-2">
-                      <div className="text-2xl font-bold text-stak-copper" data-testid="text-sync-score">
-                        {stats?.signalScore || 0}
-                      </div>
-                      <div className="text-xs text-gray-500">Sync Score</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bio */}
-              <div className="mb-4">
-                {isOwnProfile ? (
-                  <textarea
-                    value={profile.bio || ''}
-                    onChange={(e) => updateFieldMutation.mutate({ field: 'bio', value: e.target.value })}
-                    className="w-full text-gray-700 leading-relaxed bg-transparent border-none focus:outline-none resize-none min-h-[100px]"
-                    placeholder="Tell others about yourself..."
-                    data-testid="text-bio"
-                  />
-                ) : (
-                  <p className="text-gray-700 leading-relaxed">{profile.bio || 'Bio not provided'}</p>
+                    </label>
+                  </>
                 )}
               </div>
 
-              {/* Action Buttons */}
-              {!isOwnProfile && (
-                <div className="flex gap-2">
-                  <Button className="bg-stak-copper hover:bg-stak-copper/90" data-testid="button-connect">
-                    <Users className="w-4 h-4 mr-2" />
-                    Connect
-                  </Button>
-                  <Button variant="outline" data-testid="button-message">
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Message
-                  </Button>
-                  <Button variant="outline" data-testid="button-schedule">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Schedule Meeting
-                  </Button>
+              {/* Profile Info */}
+              <div className="flex-grow text-center md:text-left">
+                <div className="mb-4">
+                  <h1 className="text-3xl font-bold text-stak-black mb-2">
+                    {isOwnProfile ? (
+                      <Input
+                        value={`${profile?.firstName || ''} ${profile?.lastName || ''}`.trim()}
+                        onChange={(e) => {
+                          const [firstName, ...lastNameParts] = e.target.value.split(' ');
+                          const lastName = lastNameParts.join(' ');
+                          updateProfileMutation.mutate({ 
+                            firstName: firstName || '', 
+                            lastName: lastName || '' 
+                          });
+                        }}
+                        className="text-3xl font-bold border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                        placeholder="Your Name"
+                        data-testid="input-user-name"
+                      />
+                    ) : (
+                      `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() || 'User Name'
+                    )}
+                  </h1>
+                  
+                  <div className="text-xl text-gray-700 mb-2">
+                    {isOwnProfile ? (
+                      <Input
+                        value={profile?.title || ''}
+                        onChange={(e) => updateProfileMutation.mutate({ title: e.target.value })}
+                        className="text-xl border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                        placeholder="Your Job Title"
+                        data-testid="input-job-title"
+                      />
+                    ) : (
+                      profile?.title || 'Job Title'
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-center md:justify-start gap-4 text-gray-600 mb-4">
+                    {profile?.company && (
+                      <div className="flex items-center gap-1">
+                        <Building2 className="w-4 h-4" />
+                        {isOwnProfile ? (
+                          <Input
+                            value={profile.company}
+                            onChange={(e) => updateProfileMutation.mutate({ company: e.target.value })}
+                            className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                            placeholder="Company"
+                            data-testid="input-company"
+                          />
+                        ) : (
+                          <span>{profile.company}</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {profile?.location && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        {isOwnProfile ? (
+                          <Input
+                            value={profile.location}
+                            onChange={(e) => updateProfileMutation.mutate({ location: e.target.value })}
+                            className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                            placeholder="Location"
+                            data-testid="input-location"
+                          />
+                        ) : (
+                          <span>{profile.location}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {/* Profile Tabs */}
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="experience">Experience</TabsTrigger>
-            <TabsTrigger value="connections">Network</TabsTrigger>
-            {isOwnProfile && <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>}
-          </TabsList>
+                {/* AI Profile Builder for own profile */}
+                {isOwnProfile && (
+                  <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button className="bg-stak-copper hover:bg-stak-copper/90 text-white">
+                          <Wand2 className="h-4 w-4 mr-2" />
+                          Build Profile with AI
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-stak-copper" />
+                            AI Profile Builder
+                          </DialogTitle>
+                          <DialogDescription>
+                            Let AI analyze your social media profiles and online presence to build a comprehensive professional profile instantly.
+                          </DialogDescription>
+                        </DialogHeader>
 
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Skills & Industries */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="w-5 h-5" />
-                    Skills & Expertise
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium text-gray-800 mb-2">Skills</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.skills?.length ? (
-                          profile.skills.map((skill, index) => (
-                            <Badge key={index} variant="secondary" data-testid={`badge-skill-${index}`}>
-                              {skill}
-                            </Badge>
-                          ))
-                        ) : (
-                          <p className="text-gray-500 text-sm">
-                            {isOwnProfile ? "Add your skills to showcase your expertise" : "No skills listed"}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                        <Tabs value={activeStep} onValueChange={(v) => setActiveStep(v as any)} className="w-full">
+                          <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="input">1. Add Sources</TabsTrigger>
+                            <TabsTrigger value="ai">2. AI Analysis</TabsTrigger>
+                            <TabsTrigger value="preview">3. Preview</TabsTrigger>
+                          </TabsList>
 
-                    <div>
-                      <h4 className="font-medium text-gray-800 mb-2">Industries</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.industries?.length ? (
-                          profile.industries.map((industry, index) => (
-                            <Badge key={index} variant="outline" data-testid={`badge-industry-${index}`}>
-                              {industry}
-                            </Badge>
-                          ))
-                        ) : (
-                          <p className="text-gray-500 text-sm">
-                            {isOwnProfile ? "Add industries you work in" : "No industries listed"}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                          <TabsContent value="input" className="space-y-6">
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Social Media & Online Profiles</CardTitle>
+                                <p className="text-sm text-gray-600">Add your profiles for AI to analyze and extract information</p>
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                <div className="flex gap-2">
+                                  <Input
+                                    value={newSocialUrl}
+                                    onChange={(e) => setNewSocialUrl(e.target.value)}
+                                    placeholder="https://linkedin.com/in/yourname"
+                                    className="flex-grow"
+                                  />
+                                  <Button onClick={addSocialSource} size="sm">
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+
+                                <div className="space-y-2">
+                                  {socialSources.map((source, index) => (
+                                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                                      <div className="flex items-center gap-2">
+                                        {getSocialIcon(source.platform)}
+                                        <span className="font-medium">{source.platform}</span>
+                                        <span className="text-sm text-gray-500 truncate max-w-xs">{source.url}</span>
+                                        {source.isAnalyzing && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+                                        {source.hasData && <CheckCircle className="h-4 w-4 text-green-500" />}
+                                        {source.error && <AlertCircle className="h-4 w-4 text-red-500" />}
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removeSocialSource(index)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Additional Context</CardTitle>
+                                <p className="text-sm text-gray-600">Any specific achievements or information to highlight</p>
+                              </CardHeader>
+                              <CardContent>
+                                <Textarea
+                                  value={aiPrompt}
+                                  onChange={(e) => setAiPrompt(e.target.value)}
+                                  placeholder="e.g., Led Series A funding round, Published 3 papers on AI ethics, Built team from 2 to 20 engineers..."
+                                  rows={4}
+                                />
+                              </CardContent>
+                            </Card>
+
+                            <Button
+                              onClick={startAIProfileBuild}
+                              disabled={isBuilding || (socialSources.length === 0 && !aiPrompt.trim())}
+                              className="w-full bg-stak-copper hover:bg-stak-copper/90"
+                            >
+                              {isBuilding ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Building Profile...
+                                </>
+                              ) : (
+                                <>
+                                  <Wand2 className="h-4 w-4 mr-2" />
+                                  Build My Profile
+                                </>
+                              )}
+                            </Button>
+                          </TabsContent>
+
+                          <TabsContent value="ai" className="space-y-4">
+                            <div className="text-center py-8">
+                              <Loader2 className="h-12 w-12 animate-spin text-stak-copper mx-auto mb-4" />
+                              <h3 className="text-lg font-semibold mb-2">Analyzing Your Online Presence</h3>
+                              <p className="text-gray-600">AI is gathering and synthesizing information from your profiles...</p>
+                            </div>
+                          </TabsContent>
+
+                          <TabsContent value="preview" className="space-y-4">
+                            <div className="text-center py-4">
+                              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                              <h3 className="text-lg font-semibold mb-2">Profile Built Successfully!</h3>
+                              <p className="text-gray-600">Your profile has been updated with AI-generated content.</p>
+                            </div>
+                          </TabsContent>
+                        </Tabs>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Profile Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
-                    Profile Analytics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <div className="text-2xl font-bold text-stak-copper" data-testid="text-profile-views">
-                        {stats?.profileViews || 0}
-                      </div>
-                      <div className="text-sm text-gray-600">Profile Views</div>
-                    </div>
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <div className="text-2xl font-bold text-stak-forest" data-testid="text-connections">
-                        {stats?.connections || 0}
-                      </div>
-                      <div className="text-sm text-gray-600">Connections</div>
-                    </div>
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <div className="text-2xl font-bold text-gray-800" data-testid="text-meeting-requests">
-                        {stats?.meetingRequestsCount || 0}
-                      </div>
-                      <div className="text-sm text-gray-600">Meeting Requests</div>
-                    </div>
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <div className="text-2xl font-bold text-yellow-600" data-testid="text-completion">
-                        {stats?.completionPercentage || 0}%
-                      </div>
-                      <div className="text-sm text-gray-600">Profile Complete</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                )}
+              </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Profile Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Bio Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  About
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isOwnProfile ? (
+                  <Textarea
+                    value={profile?.bio || ''}
+                    onChange={(e) => updateProfileMutation.mutate({ bio: e.target.value })}
+                    placeholder="Tell others about yourself, your experience, and what you're passionate about..."
+                    className="min-h-[120px] border-none shadow-none p-0 bg-transparent focus-visible:ring-0 resize-none"
+                    data-testid="textarea-bio"
+                  />
+                ) : (
+                  <p className="text-gray-700 leading-relaxed">
+                    {profile?.bio || "No bio provided."}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Networking Goals */}
-            {profile.networkingGoals && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Star className="w-5 h-5" />
-                    Networking Goals
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isOwnProfile ? (
-                    <textarea
-                      value={profile.networkingGoals || ''}
-                      onChange={(e) => updateFieldMutation.mutate({ field: 'networkingGoals', value: e.target.value })}
-                      className="w-full text-gray-700 bg-transparent border-none focus:outline-none resize-none"
-                      placeholder="What are your networking goals?"
-                      data-testid="text-networking-goals"
-                    />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Networking Goals
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isOwnProfile ? (
+                  <Textarea
+                    value={profile?.networkingGoal || ''}
+                    onChange={(e) => updateProfileMutation.mutate({ networkingGoal: e.target.value })}
+                    placeholder="What are you looking to achieve through networking? Who would you like to meet?"
+                    className="min-h-[100px] border-none shadow-none p-0 bg-transparent focus-visible:ring-0 resize-none"
+                    data-testid="textarea-networking-goals"
+                  />
+                ) : (
+                  <p className="text-gray-700 leading-relaxed">
+                    {profile?.networkingGoal || "No networking goals specified."}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            
+            {/* Skills */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Skills & Expertise</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {profile?.skills?.length ? (
+                    profile.skills.map((skill, index) => (
+                      <Badge key={index} variant="secondary" className="bg-stak-copper/10 text-stak-copper">
+                        {skill}
+                      </Badge>
+                    ))
                   ) : (
-                    <p className="text-gray-700">{profile.networkingGoals || 'Networking goals not provided'}</p>
+                    <p className="text-gray-500 text-sm">No skills listed</p>
                   )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Social & Web Presence - Completely Rewritten */}
-            <SocialMediaSection 
-              profile={profile}
-              isOwnProfile={isOwnProfile}
-              updateProfile={updateFieldMutation.mutate}
-              isUpdating={updateFieldMutation.isPending}
-            />
-
-            {/* Brand Storytelling Generator */}
-            {isOwnProfile && (
-              <BrandStorytellingGenerator
-                profile={profile}
-                updateProfile={updateFieldMutation.mutate}
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="experience">
-            <Card>
-              <CardHeader>
-                <CardTitle>Professional Experience</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-500">Experience section coming soon...</p>
+                </div>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="connections">
+            {/* Industries */}
             <Card>
               <CardHeader>
-                <CardTitle>Professional Network</CardTitle>
+                <CardTitle className="text-lg">Industries</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-500">Network view coming soon...</p>
+                <div className="flex flex-wrap gap-2">
+                  {profile?.industries?.length ? (
+                    profile.industries.map((industry, index) => (
+                      <Badge key={index} variant="outline" className="border-stak-copper text-stak-copper">
+                        {industry}
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 text-sm">No industries specified</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          {isOwnProfile && (
-            <TabsContent value="ai-assistant">
-              <SimpleProfileAIAssistant 
-                currentProfile={{
-                  bio: profile.bio || '',
-                  firstName: profile.firstName || '',
-                  lastName: profile.lastName || '',
-                  company: profile.company || '',
-                  title: profile.position || '',
-                  skills: profile.skills || [],
-                  industries: profile.industries || [],
-                  networkingGoal: profile.networkingGoals || '',
-                  linkedinUrl: profile.linkedinUrl || '',
-                  twitterUrl: profile.twitterUrl || '',
-                  githubUrl: profile.githubUrl || '',
-                  websiteUrls: profile.websiteUrls || []
-                }}
-                onBioUpdate={(newBio) => {
-                  updateFieldMutation.mutate({ field: 'bio', value: newBio });
-                }}
-              />
-            </TabsContent>
-          )}
-        </Tabs>
+            {/* Social Links */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Connect</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {profile?.linkedinUrl && (
+                  <a 
+                    href={profile.linkedinUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
+                  >
+                    <Linkedin className="h-4 w-4" />
+                    LinkedIn
+                  </a>
+                )}
+                {profile?.twitterUrl && (
+                  <a 
+                    href={profile.twitterUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-blue-400 hover:text-blue-600 transition-colors"
+                  >
+                    <Twitter className="h-4 w-4" />
+                    Twitter
+                  </a>
+                )}
+                {profile?.githubUrl && (
+                  <a 
+                    href={profile.githubUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors"
+                  >
+                    <Github className="h-4 w-4" />
+                    GitHub
+                  </a>
+                )}
+                {profile?.websiteUrls?.map((url, index) => (
+                  <a 
+                    key={index}
+                    href={url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-green-600 hover:text-green-800 transition-colors"
+                  >
+                    <Globe className="h-4 w-4" />
+                    Website
+                  </a>
+                ))}
+                
+                {!profile?.linkedinUrl && !profile?.twitterUrl && !profile?.githubUrl && !profile?.websiteUrls?.length && (
+                  <p className="text-gray-500 text-sm">No social links added</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
