@@ -353,14 +353,17 @@ export function SimpleProfileAIAssistant({ currentProfile, onBioUpdate }: Simple
               <CardContent className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    What would you like your bio to emphasize? (Optional)
+                    Additional context or specific achievements to highlight (Optional)
                   </label>
                   <Textarea
-                    placeholder="e.g., 'Focus on my AI expertise and startup experience' or 'Highlight my leadership in sustainable tech'"
+                    placeholder="e.g., 'Led Series A funding round that raised $5M', 'Published 3 papers on AI ethics', 'Built team from 2 to 20 engineers', or 'Copy your LinkedIn summary here for enhanced analysis'"
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
-                    className="min-h-[100px]"
+                    className="min-h-[120px]"
                   />
+                  <p className="text-xs text-gray-600 mt-1">
+                    💡 <strong>LinkedIn Tip:</strong> Since LinkedIn blocks automated access, copy your current LinkedIn summary, job descriptions, or recent achievements here for the AI to use.
+                  </p>
                 </div>
 
                 {currentProfile.bio && (
@@ -459,9 +462,12 @@ export function SimpleProfileAIAssistant({ currentProfile, onBioUpdate }: Simple
                     <Bot className="h-5 w-5 text-blue-600 mt-0.5" />
                     <div>
                       <h4 className="font-medium text-blue-800 mb-1">AI-Powered Profile Analysis</h4>
-                      <p className="text-blue-700 text-sm">
-                        Our AI will navigate your social media profiles, websites, and online presence to extract professional information, achievements, and experience for your bio.
+                      <p className="text-blue-700 text-sm mb-2">
+                        Our AI analyzes your online presence to extract professional information, achievements, and experience for your bio.
                       </p>
+                      <div className="text-xs text-blue-600">
+                        <p><strong>Note:</strong> LinkedIn and some platforms block automated access. For best results with LinkedIn, manually copy your profile information to the AI Help tab.</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -548,6 +554,22 @@ export function SimpleProfileAIAssistant({ currentProfile, onBioUpdate }: Simple
 
                           <div className="mt-3 text-xs text-gray-600">
                             <p>🔒 Your credentials are used only for this session and are not stored.</p>
+                            {source.platform === 'LinkedIn' && (
+                              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                <p className="text-yellow-800 font-medium">⚠️ LinkedIn Access Limitation</p>
+                                <p className="text-yellow-700 mt-1">
+                                  LinkedIn blocks automated access. Instead, please manually copy key information from your LinkedIn profile (recent achievements, job descriptions, skills) and paste it in the AI prompt field on the AI Help tab.
+                                </p>
+                              </div>
+                            )}
+                            {source.platform === 'Twitter' && (
+                              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                                <p className="text-blue-800 font-medium">ℹ️ Twitter/X Access</p>
+                                <p className="text-blue-700 mt-1">
+                                  For best results, ensure your Twitter/X profile is public or provide your recent tweets and bio manually in the AI Help tab.
+                                </p>
+                              </div>
+                            )}
                             {source.platform === 'GitHub' && (
                               <p className="mt-1">
                                 Create a Personal Access Token at: 

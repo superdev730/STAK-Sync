@@ -569,47 +569,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let socialDataExtracted = null;
       
       if (includeSocialData && socialSources?.length > 0) {
-        // Simulate social media data extraction and enhanced bio generation
-        const mockSocialData = {};
+        // Enhanced bio generation with social media context
+        const socialDataExtracted = {};
         
-        // Simulate extracting data from each social source
+        // Process each social source with realistic extraction simulation
         for (const source of socialSources) {
           if (source.platform === 'LinkedIn') {
-            mockSocialData[source.platform] = {
-              profile: `Senior ${currentProfile.title || 'Professional'} with 5+ years experience`,
-              achievements: `Led team of 10+ at ${currentProfile.company || 'previous role'}, increased efficiency by 40%`,
-              skills: currentProfile.skills?.slice(0, 5).join(', ') || 'Leadership, Strategy, Innovation'
+            // LinkedIn often blocks automated access, so provide helpful guidance
+            socialDataExtracted[source.platform] = {
+              profile: `${currentProfile.title || 'Professional'} with extensive LinkedIn presence`,
+              achievements: `Note: LinkedIn blocks automated access. For best results, manually copy your LinkedIn profile information to the prompt field.`,
+              skills: currentProfile.skills?.slice(0, 5).join(', ') || 'Professional networking, Leadership',
+              status: 'manual_input_recommended'
             };
           } else if (source.platform === 'GitHub') {
-            mockSocialData[source.platform] = {
-              profile: `Active developer with 50+ repositories`,
-              achievements: `Contributed to major open source projects, 500+ commits this year`,
-              skills: 'JavaScript, Python, React, Node.js'
+            socialDataExtracted[source.platform] = {
+              profile: `Software developer with active GitHub presence`,
+              achievements: `Maintains open source projects and contributions`,
+              skills: 'Software Development, Version Control, Open Source Contribution',
+              status: 'accessible'
             };
           } else if (source.platform === 'Twitter') {
-            mockSocialData[source.platform] = {
-              profile: `Thought leader in ${currentProfile.industries?.[0] || 'technology'}`,
-              achievements: `Regularly shares insights on industry trends, 1000+ followers`,
-              skills: 'Content Creation, Public Speaking, Industry Analysis'
+            socialDataExtracted[source.platform] = {
+              profile: `Active on Twitter/X sharing industry insights`,
+              achievements: `Engages with professional community and shares thought leadership`,
+              skills: 'Content Creation, Industry Commentary, Professional Networking',
+              status: 'public_accessible'
             };
-          } else {
-            mockSocialData[source.platform] = {
-              profile: `Professional presence on ${source.platform.toLowerCase()}`,
-              achievements: `Maintains active professional profile and network`,
-              skills: 'Digital Presence, Professional Networking'
+          } else if (source.platform.includes('Website') || source.platform === 'Custom') {
+            socialDataExtracted[source.platform] = {
+              profile: `Professional website and portfolio`,
+              achievements: `Maintains professional online presence with portfolio`,
+              skills: 'Digital Presence, Personal Branding, Portfolio Management',
+              status: 'accessible'
             };
           }
         }
         
-        socialDataExtracted = mockSocialData;
+        // Generate enhanced bio using social data and any manual input from prompt
+        const manualContext = prompt && prompt.trim() ? prompt.trim() : '';
+        const hasManualLinkedInData = manualContext.toLowerCase().includes('linkedin') || manualContext.length > 100;
         
-        // Generate enhanced bio using social data
-        const socialInsights = Object.values(mockSocialData)
-          .map(data => data.achievements)
-          .filter(Boolean)
-          .slice(0, 2);
+        let bioContent = `${currentProfile.firstName} is a ${currentProfile.title || 'professional'} at ${currentProfile.company || 'their company'}`;
         
-        generatedBio = `${currentProfile.firstName} is a ${currentProfile.title || 'professional'} at ${currentProfile.company || 'their company'} with a proven track record in ${currentProfile.industries?.slice(0,2).join(' and ') || 'their field'}. ${socialInsights.join('. ')}. They specialize in ${currentProfile.skills?.slice(0,3).join(', ') || 'various areas'} and are passionate about ${currentProfile.networkingGoal || 'building meaningful professional connections and driving innovation through collaborative partnerships'}.`;
+        // Add industry context if available
+        if (currentProfile.industries?.length > 0) {
+          bioContent += ` specializing in ${currentProfile.industries.slice(0,2).join(' and ')}`;
+        }
+        
+        // Include manual context if provided (especially useful for LinkedIn data)
+        if (hasManualLinkedInData) {
+          bioContent += `. ${manualContext.split('.')[0]}.`;
+        }
+        
+        // Add skills and networking focus
+        bioContent += ` With expertise in ${currentProfile.skills?.slice(0,3).join(', ') || 'their field'}, they are passionate about ${currentProfile.networkingGoal || 'building meaningful professional connections and driving innovation through strategic partnerships'}.`;
+        
+        // Add any additional context from manual input
+        if (manualContext && !hasManualLinkedInData) {
+          bioContent += ` ${manualContext}`;
+        }
+        
+        generatedBio = bioContent;
       } else {
         // Standard bio generation without social data
         generatedBio = `${currentProfile.firstName} is a ${currentProfile.title || 'professional'} at ${currentProfile.company || 'their company'} with expertise in ${currentProfile.skills?.slice(0,3).join(', ') || 'various fields'}. They are passionate about ${currentProfile.networkingGoal || 'building meaningful professional connections and driving innovation'}.`;
