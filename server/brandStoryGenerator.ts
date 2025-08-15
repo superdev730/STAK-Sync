@@ -176,7 +176,7 @@ export class BrandStoryGenerator {
   private generateTechnicalStory(baseElements: any, profileData: ProfileData): BrandStory {
     const { name, title, company, keySkills, primaryIndustry, valueThemes } = baseElements;
     
-    const techSkills = keySkills.filter(skill => 
+    const techSkills = keySkills.filter((skill: string) => 
       skill.toLowerCase().includes('python') ||
       skill.toLowerCase().includes('javascript') ||
       skill.toLowerCase().includes('react') ||
