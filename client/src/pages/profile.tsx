@@ -450,56 +450,186 @@ export default function Profile() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {profile.linkedinUrl && (
-                    <a 
-                      href={profile.linkedinUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                      data-testid="link-linkedin"
-                    >
-                      <Linkedin className="w-5 h-5 text-blue-600" />
-                      <span className="text-gray-700">LinkedIn Profile</span>
-                    </a>
-                  )}
-                  {profile.twitterUrl && (
-                    <a 
-                      href={profile.twitterUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                      data-testid="link-twitter"
-                    >
-                      <Twitter className="w-5 h-5 text-sky-500" />
-                      <span className="text-gray-700">Twitter/X Profile</span>
-                    </a>
-                  )}
-                  {profile.githubUrl && (
-                    <a 
-                      href={profile.githubUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                      data-testid="link-github"
-                    >
-                      <Github className="w-5 h-5 text-gray-800" />
-                      <span className="text-gray-700">GitHub Profile</span>
-                    </a>
-                  )}
+                <div className="space-y-3">
+                  {/* Always show LinkedIn with inline edit if it's your profile */}
+                  <div className="flex items-center gap-3 p-3 border rounded-lg">
+                    <Linkedin className="w-5 h-5 text-blue-600" />
+                    {profile.linkedinUrl ? (
+                      <div className="flex-grow">
+                        {isOwnProfile ? (
+                          <InlineEdit
+                            value={profile.linkedinUrl}
+                            onSave={(value) => updateFieldMutation.mutate({ field: 'linkedinUrl', value })}
+                            isEditable={isOwnProfile}
+                            className="text-gray-700 flex-grow"
+                            placeholder="Your LinkedIn URL"
+                            dataTestId="input-linkedin-url"
+                          />
+                        ) : (
+                          <a 
+                            href={profile.linkedinUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                            data-testid="link-linkedin"
+                          >
+                            LinkedIn Profile
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex-grow">
+                        {isOwnProfile ? (
+                          <InlineEdit
+                            value=""
+                            onSave={(value) => updateFieldMutation.mutate({ field: 'linkedinUrl', value })}
+                            isEditable={isOwnProfile}
+                            className="text-gray-500"
+                            placeholder="Add your LinkedIn URL"
+                            dataTestId="input-linkedin-url"
+                          />
+                        ) : (
+                          <span className="text-gray-500">LinkedIn not provided</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Twitter */}
+                  <div className="flex items-center gap-3 p-3 border rounded-lg">
+                    <Twitter className="w-5 h-5 text-sky-500" />
+                    {profile.twitterUrl ? (
+                      <div className="flex-grow">
+                        {isOwnProfile ? (
+                          <InlineEdit
+                            value={profile.twitterUrl}
+                            onSave={(value) => updateFieldMutation.mutate({ field: 'twitterUrl', value })}
+                            isEditable={isOwnProfile}
+                            className="text-gray-700 flex-grow"
+                            placeholder="Your Twitter/X URL"
+                            dataTestId="input-twitter-url"
+                          />
+                        ) : (
+                          <a 
+                            href={profile.twitterUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-sky-500 hover:underline"
+                            data-testid="link-twitter"
+                          >
+                            Twitter/X Profile
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex-grow">
+                        {isOwnProfile ? (
+                          <InlineEdit
+                            value=""
+                            onSave={(value) => updateFieldMutation.mutate({ field: 'twitterUrl', value })}
+                            isEditable={isOwnProfile}
+                            className="text-gray-500"
+                            placeholder="Add your Twitter/X URL"
+                            dataTestId="input-twitter-url"
+                          />
+                        ) : (
+                          <span className="text-gray-500">Twitter not provided</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* GitHub */}
+                  <div className="flex items-center gap-3 p-3 border rounded-lg">
+                    <Github className="w-5 h-5 text-gray-800" />
+                    {profile.githubUrl ? (
+                      <div className="flex-grow">
+                        {isOwnProfile ? (
+                          <InlineEdit
+                            value={profile.githubUrl}
+                            onSave={(value) => updateFieldMutation.mutate({ field: 'githubUrl', value })}
+                            isEditable={isOwnProfile}
+                            className="text-gray-700 flex-grow"
+                            placeholder="Your GitHub URL"
+                            dataTestId="input-github-url"
+                          />
+                        ) : (
+                          <a 
+                            href={profile.githubUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-gray-800 hover:underline"
+                            data-testid="link-github"
+                          >
+                            GitHub Profile
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex-grow">
+                        {isOwnProfile ? (
+                          <InlineEdit
+                            value=""
+                            onSave={(value) => updateFieldMutation.mutate({ field: 'githubUrl', value })}
+                            isEditable={isOwnProfile}
+                            className="text-gray-500"
+                            placeholder="Add your GitHub URL"
+                            dataTestId="input-github-url"
+                          />
+                        ) : (
+                          <span className="text-gray-500">GitHub not provided</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Website URLs */}
                   {profile.websiteUrls?.map((url, index) => (
-                    <a 
-                      key={index}
-                      href={url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                      data-testid={`link-website-${index}`}
-                    >
+                    <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
                       <Globe className="w-5 h-5 text-gray-600" />
-                      <span className="text-gray-700">Personal Website</span>
-                    </a>
+                      <div className="flex-grow">
+                        {isOwnProfile ? (
+                          <InlineEdit
+                            value={url}
+                            onSave={(value) => {
+                              const newUrls = [...(profile.websiteUrls || [])];
+                              newUrls[index] = value;
+                              updateFieldMutation.mutate({ field: 'websiteUrls', value: newUrls });
+                            }}
+                            isEditable={isOwnProfile}
+                            className="text-gray-700 flex-grow"
+                            placeholder="Website URL"
+                            dataTestId={`input-website-url-${index}`}
+                          />
+                        ) : (
+                          <a 
+                            href={url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-gray-600 hover:underline"
+                            data-testid={`link-website-${index}`}
+                          >
+                            Personal Website
+                          </a>
+                        )}
+                      </div>
+                    </div>
                   ))}
+
+                  {/* Add new website button for own profile */}
+                  {isOwnProfile && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const newUrls = [...(profile.websiteUrls || []), ''];
+                        updateFieldMutation.mutate({ field: 'websiteUrls', value: newUrls });
+                      }}
+                      className="w-full border-dashed"
+                      data-testid="button-add-website"
+                    >
+                      + Add Website
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
