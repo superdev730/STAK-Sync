@@ -534,7 +534,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Profile update endpoint
   app.put('/api/profile', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
       const profileData = req.body;
       
       console.log('Profile update request:', { userId, field: Object.keys(profileData), data: profileData });
@@ -552,6 +556,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         delete profileData.jobInfo;
         profileData.position = position;
         profileData.company = company;
+      }
+
+      // Map frontend field names to backend field names
+      if (profileData.position !== undefined) {
+        profileData.title = profileData.position;
+        delete profileData.position;
       }
 
       // Clean the data to remove empty strings and undefined values, but preserve arrays
@@ -576,11 +586,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user: updatedUser,
         message: "Profile updated successfully" 
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error updating profile:", error);
       res.status(500).json({ 
         message: "Failed to update profile",
-        error: error.message 
+        error: error instanceof Error ? error.message : "Unknown error" 
       });
     }
   });

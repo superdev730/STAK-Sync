@@ -293,14 +293,14 @@ export default function Profile() {
                     {isOwnProfile ? (
                       <input
                         type="text"
-                        value={profile.position || ''}
+                        value={profile.title || profile.position || ''}
                         onChange={(e) => updateFieldMutation.mutate({ field: 'position', value: e.target.value })}
                         className="text-lg font-medium text-gray-800 bg-transparent border-none focus:outline-none w-full"
                         placeholder="Your job title"
                         data-testid="text-job-title"
                       />
                     ) : (
-                      <span className="text-lg font-medium text-gray-800">{profile.position || 'Job title not provided'}</span>
+                      <span className="text-lg font-medium text-gray-800">{profile.title || profile.position || 'Job title not provided'}</span>
                     )}
                     {profile.company && (
                       <div className="flex items-center gap-1 mt-1">
