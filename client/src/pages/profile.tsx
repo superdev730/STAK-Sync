@@ -620,14 +620,24 @@ export default function Profile() {
                   {isOwnProfile && (
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        const newUrls = [...(profile.websiteUrls || []), ''];
-                        updateFieldMutation.mutate({ field: 'websiteUrls', value: newUrls });
+                      onClick={async () => {
+                        try {
+                          const newUrls = [...(profile.websiteUrls || []), ''];
+                          await updateFieldMutation.mutateAsync({ field: 'websiteUrls', value: newUrls });
+                        } catch (error) {
+                          console.error('Error adding website:', error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to add website field. Please try again.",
+                            variant: "destructive",
+                          });
+                        }
                       }}
                       className="w-full border-dashed"
                       data-testid="button-add-website"
+                      disabled={updateFieldMutation.isPending}
                     >
-                      + Add Website
+                      {updateFieldMutation.isPending ? 'Adding...' : '+ Add Website'}
                     </Button>
                   )}
                 </div>

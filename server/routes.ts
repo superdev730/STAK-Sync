@@ -552,9 +552,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profileData.company = company;
       }
 
-      // Clean the data to remove empty strings and undefined values
+      // Clean the data to remove empty strings and undefined values, but preserve arrays
       const cleanedData = Object.fromEntries(
-        Object.entries(profileData).filter(([_, value]) => value !== "" && value !== undefined && value !== null)
+        Object.entries(profileData).filter(([key, value]) => {
+          // Always preserve arrays, even if they contain empty strings
+          if (Array.isArray(value)) return true;
+          // Filter out empty strings, undefined, and null for other values
+          return value !== "" && value !== undefined && value !== null;
+        })
       );
 
       // Update the user profile
