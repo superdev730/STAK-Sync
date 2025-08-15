@@ -249,7 +249,11 @@ export default function Profile() {
                         title: profile.position || "",
                         skills: profile.skills || [],
                         industries: profile.industries || [],
-                        networkingGoal: profile.networkingGoals || ""
+                        networkingGoal: profile.networkingGoals || "",
+                        linkedinUrl: profile.linkedinUrl || "",
+                        twitterUrl: profile.twitterUrl || "",
+                        githubUrl: profile.githubUrl || "",
+                        websiteUrls: profile.websiteUrls || []
                       }}
                       onBioUpdate={async (newBio: string) => {
                         try {
