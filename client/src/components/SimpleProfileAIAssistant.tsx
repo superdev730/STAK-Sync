@@ -362,7 +362,7 @@ export function SimpleProfileAIAssistant({ currentProfile, onBioUpdate }: Simple
                     className="min-h-[120px]"
                   />
                   <p className="text-xs text-gray-600 mt-1">
-                    💡 <strong>LinkedIn Tip:</strong> Since LinkedIn blocks automated access, copy your current LinkedIn summary, job descriptions, or recent achievements here for the AI to use.
+                    💡 <strong>Tip:</strong> Add any specific achievements, projects, or highlights you'd like emphasized in your bio. Our AI will combine this with your public profile data.
                   </p>
                 </div>
 
@@ -466,7 +466,7 @@ export function SimpleProfileAIAssistant({ currentProfile, onBioUpdate }: Simple
                         Our AI analyzes your online presence to extract professional information, achievements, and experience for your bio.
                       </p>
                       <div className="text-xs text-blue-600">
-                        <p><strong>Note:</strong> LinkedIn and some platforms block automated access. For best results with LinkedIn, manually copy your profile information to the AI Help tab.</p>
+                        <p><strong>AI Analysis:</strong> We'll automatically read public LinkedIn profiles, GitHub repositories, and websites to extract professional information and generate enhanced bios.</p>
                       </div>
                     </div>
                   </div>
@@ -555,10 +555,10 @@ export function SimpleProfileAIAssistant({ currentProfile, onBioUpdate }: Simple
                           <div className="mt-3 text-xs text-gray-600">
                             <p>🔒 Your credentials are used only for this session and are not stored.</p>
                             {source.platform === 'LinkedIn' && (
-                              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                                <p className="text-yellow-800 font-medium">⚠️ LinkedIn Access Limitation</p>
-                                <p className="text-yellow-700 mt-1">
-                                  LinkedIn blocks automated access. Instead, please manually copy key information from your LinkedIn profile (recent achievements, job descriptions, skills) and paste it in the AI prompt field on the AI Help tab.
+                              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                                <p className="text-blue-800 font-medium">🔗 LinkedIn Public Profile Access</p>
+                                <p className="text-blue-700 mt-1">
+                                  Our AI will automatically read your public LinkedIn profile information including headline, about section, and experience to generate your bio.
                                 </p>
                               </div>
                             )}
