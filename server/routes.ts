@@ -556,6 +556,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Profile Enhancement endpoints
+  app.post("/api/profile/ai/generate-bio", isAuthenticated, async (req, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      const { prompt, currentProfile } = req.body;
+      
+      // For now, return a simple generated bio (can be enhanced with actual AI later)
+      const generatedBio = `${currentProfile.firstName} is a ${currentProfile.title || 'professional'} at ${currentProfile.company || 'their company'} with expertise in ${currentProfile.skills?.slice(0,3).join(', ') || 'various fields'}. They are passionate about ${currentProfile.networkingGoal || 'building meaningful professional connections and driving innovation'}.`;
+      
+      res.json({
+        bio: generatedBio,
+        confidence: 0.85,
+        reasoning: "Generated based on profile information and networking goals"
+      });
+    } catch (error) {
+      console.error("Error generating AI bio:", error);
+      res.status(500).json({ message: "Failed to generate bio" });
+    }
+  });
+
+  // Get connections for profile assistance - placeholder implementation
+  app.get("/api/profile/connections-for-assistance", isAuthenticated, async (req, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      // For now, return empty array (can be enhanced with actual connections)
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching connections for assistance:", error);
+      res.status(500).json({ message: "Failed to fetch connections" });
+    }
+  });
+
+  // Request recommendations from connections - placeholder implementation
+  app.post("/api/profile/request-recommendations", isAuthenticated, async (req, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      const { connectionIds, message, specificAsk, fieldType } = req.body;
+      
+      // For now, return success message (can be enhanced with actual requests)
+      res.json({ sentCount: connectionIds?.length || 0, requests: [] });
+    } catch (error) {
+      console.error("Error requesting recommendations:", error);
+      res.status(500).json({ message: "Failed to send recommendation requests" });
+    }
+  });
+
+  // Get profile recommendations - placeholder implementation
+  app.get("/api/profile/recommendations", isAuthenticated, async (req, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      // For now, return empty array (can be enhanced with actual recommendations)
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch recommendations" });
+    }
+  });
+
+  // Use a recommendation in profile - placeholder implementation
+  app.post("/api/profile/recommendations/:id/use", isAuthenticated, async (req, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      const recommendationId = req.params.id;
+      
+      // For now, return success message (can be enhanced with actual usage)
+      res.json({ success: true, message: "Recommendation applied successfully" });
+    } catch (error) {
+      console.error("Error using recommendation:", error);
+      res.status(500).json({ message: "Failed to use recommendation" });
+    }
+  });
+
   // User object upload endpoint for profile images
   app.post("/api/user/objects/upload", isAuthenticated, async (req, res) => {
     try {

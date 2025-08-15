@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeManager } from "@/components/BadgeManager";
+import { SimpleProfileAIAssistant } from "@/components/SimpleProfileAIAssistant";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -117,9 +118,10 @@ export default function Profile() {
   const handleGetUploadParameters = async () => {
     try {
       const response = await apiRequest("POST", "/api/user/objects/upload");
+      const data = await response.json();
       return {
         method: "PUT" as const,
-        url: response.uploadURL || response.url,
+        url: data.uploadURL || data.url,
       };
     } catch (error) {
       console.error("Error getting upload parameters:", error);
@@ -235,7 +237,39 @@ export default function Profile() {
             {/* About Section */}
             <Card className="border border-gray-200 shadow-sm">
               <CardContent className="p-6 bg-white">
-                <h2 className="text-xl font-semibold mb-4 text-stak-black">About</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-stak-black">About</h2>
+                  {isOwnProfile && (
+                    <SimpleProfileAIAssistant 
+                      currentProfile={{
+                        bio: profile.bio || "",
+                        firstName: profile.firstName || "",
+                        lastName: profile.lastName || "",
+                        company: profile.company || "",
+                        title: profile.position || "",
+                        skills: profile.skills || [],
+                        industries: profile.industries || [],
+                        networkingGoal: profile.networkingGoals || ""
+                      }}
+                      onBioUpdate={async (newBio: string) => {
+                        try {
+                          await apiRequest("PUT", "/api/profile", { bio: newBio });
+                          queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+                          toast({
+                            title: "Bio Updated",
+                            description: "Your profile bio has been successfully updated.",
+                          });
+                        } catch (error: any) {
+                          toast({
+                            title: "Update Failed",
+                            description: "Failed to update your bio. Please try again.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                    />
+                  )}
+                </div>
                 <p className="text-gray-700 leading-relaxed">
                   {profile.bio || "No bio available yet."}
                 </p>

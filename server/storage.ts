@@ -18,6 +18,8 @@ import {
   badges,
   userBadges,
   badgeAchievements,
+  profileRecommendations,
+  profileAssistanceRequests,
   type User,
   type UpsertUser,
   type Match,

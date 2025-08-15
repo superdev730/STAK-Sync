@@ -102,6 +102,35 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Profile recommendations from connections
+export const profileRecommendations = pgTable("profile_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  recommenderId: varchar("recommender_id").notNull().references(() => users.id),
+  fieldType: varchar("field_type").notNull(), // 'bio', 'skills', 'achievements', 'personality'
+  recommendation: text("recommendation").notNull(),
+  context: text("context"), // Why they're recommending this
+  isApproved: boolean("is_approved").default(false),
+  isUsed: boolean("is_used").default(false),
+  requestMessage: text("request_message"), // Message sent when requesting recommendation
+  status: varchar("status").notNull().default("pending"), // pending, approved, declined, used
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Profile assistance requests sent to connections
+export const profileAssistanceRequests = pgTable("profile_assistance_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  requestedUserId: varchar("requested_user_id").notNull().references(() => users.id),
+  fieldType: varchar("field_type").notNull(),
+  requestMessage: text("request_message").notNull(),
+  specificAsk: text("specific_ask"), // What specifically they want help with
+  status: varchar("status").notNull().default("pending"), // pending, completed, declined
+  sentAt: timestamp("sent_at").defaultNow(),
+  respondedAt: timestamp("responded_at"),
+});
+
 // Invite system for easy user onboarding
 export const invites = pgTable("invites", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
