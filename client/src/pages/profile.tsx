@@ -189,6 +189,16 @@ export default function Profile() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
+                        // Limit file size to 2MB to prevent base64 bloat
+                        if (file.size > 2 * 1024 * 1024) {
+                          toast({
+                            title: "File Too Large",
+                            description: "Please choose an image smaller than 2MB",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
                         const reader = new FileReader();
                         reader.onload = (e) => {
                           const base64 = e.target?.result as string;

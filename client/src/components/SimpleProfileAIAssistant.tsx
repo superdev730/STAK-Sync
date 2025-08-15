@@ -135,11 +135,36 @@ export function SimpleProfileAIAssistant({ currentProfile, onBioUpdate }: Simple
   // AI Bio Generation with Social Media Integration
   const generateBioMutation = useMutation({
     mutationFn: async (data: { prompt: string; includeSocialData: boolean; authCredentials?: AuthCredentials }) => {
+      // Clean currentProfile to avoid cyclic references
+      const cleanProfile = {
+        bio: currentProfile.bio,
+        firstName: currentProfile.firstName,
+        lastName: currentProfile.lastName,
+        company: currentProfile.company,
+        title: currentProfile.title,
+        skills: currentProfile.skills,
+        industries: currentProfile.industries,
+        networkingGoal: currentProfile.networkingGoal,
+        linkedinUrl: currentProfile.linkedinUrl,
+        twitterUrl: currentProfile.twitterUrl,
+        githubUrl: currentProfile.githubUrl,
+        websiteUrls: currentProfile.websiteUrls
+      };
+
+      // Clean socialSources to remove React components
+      const cleanSocialSources = socialSources.map(source => ({
+        platform: source.platform,
+        url: source.url,
+        requiresAuth: source.requiresAuth,
+        authProvided: source.authProvided,
+        status: source.status
+      }));
+
       const response = await apiRequest("/api/profile/ai/generate-bio", "POST", {
         prompt: data.prompt,
-        currentProfile,
+        currentProfile: cleanProfile,
         includeSocialData: data.includeSocialData,
-        socialSources: data.includeSocialData ? socialSources : [],
+        socialSources: data.includeSocialData ? cleanSocialSources : [],
         authCredentials: data.authCredentials || {}
       });
       return response.json();
@@ -173,10 +198,34 @@ export function SimpleProfileAIAssistant({ currentProfile, onBioUpdate }: Simple
   // Social Media Analysis
   const analyzeSocialMediaMutation = useMutation({
     mutationFn: async (credentials: AuthCredentials) => {
+      // Clean currentProfile and socialSources to avoid cyclic references
+      const cleanProfile = {
+        bio: currentProfile.bio,
+        firstName: currentProfile.firstName,
+        lastName: currentProfile.lastName,
+        company: currentProfile.company,
+        title: currentProfile.title,
+        skills: currentProfile.skills,
+        industries: currentProfile.industries,
+        networkingGoal: currentProfile.networkingGoal,
+        linkedinUrl: currentProfile.linkedinUrl,
+        twitterUrl: currentProfile.twitterUrl,
+        githubUrl: currentProfile.githubUrl,
+        websiteUrls: currentProfile.websiteUrls
+      };
+
+      const cleanSocialSources = socialSources.map(source => ({
+        platform: source.platform,
+        url: source.url,
+        requiresAuth: source.requiresAuth,
+        authProvided: source.authProvided,
+        status: source.status
+      }));
+
       const response = await apiRequest("/api/profile/ai/analyze-social-media", "POST", {
-        socialSources,
+        socialSources: cleanSocialSources,
         authCredentials: credentials,
-        currentProfile
+        currentProfile: cleanProfile
       });
       return response.json();
     },
