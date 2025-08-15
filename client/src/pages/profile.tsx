@@ -240,25 +240,33 @@ export default function Profile() {
 
                   {/* Position & Company */}
                   <div className="mb-2">
-                    <InlineEdit
-                      value={profile.position || ''}
-                      onSave={(value) => updateFieldMutation.mutate({ field: 'position', value })}
-                      isEditable={isOwnProfile}
-                      className="text-lg font-medium text-gray-800"
-                      placeholder="Your job title"
-                      dataTestId="text-job-title"
-                    />
+                    {isOwnProfile ? (
+                      <input
+                        type="text"
+                        value={profile.position || ''}
+                        onChange={(e) => updateFieldMutation.mutate({ field: 'position', value: e.target.value })}
+                        className="text-lg font-medium text-gray-800 bg-transparent border-none focus:outline-none w-full"
+                        placeholder="Your job title"
+                        data-testid="text-job-title"
+                      />
+                    ) : (
+                      <span className="text-lg font-medium text-gray-800">{profile.position || 'Job title not provided'}</span>
+                    )}
                     {profile.company && (
                       <div className="flex items-center gap-1 mt-1">
                         <Building2 className="w-4 h-4 text-gray-500" />
-                        <InlineEdit
-                          value={profile.company || ''}
-                          onSave={(value) => updateFieldMutation.mutate({ field: 'company', value })}
-                          isEditable={isOwnProfile}
-                          className="text-gray-600"
-                          placeholder="Company name"
-                          dataTestId="text-company"
-                        />
+                        {isOwnProfile ? (
+                          <input
+                            type="text"
+                            value={profile.company || ''}
+                            onChange={(e) => updateFieldMutation.mutate({ field: 'company', value: e.target.value })}
+                            className="text-gray-600 bg-transparent border-none focus:outline-none w-full"
+                            placeholder="Company name"
+                            data-testid="text-company"
+                          />
+                        ) : (
+                          <span className="text-gray-600">{profile.company}</span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -267,13 +275,18 @@ export default function Profile() {
                   {profile.location && (
                     <div className="flex items-center gap-1 text-gray-600">
                       <MapPin className="w-4 h-4" />
-                      <InlineEdit
-                        value={profile.location || ''}
-                        onSave={(value) => updateFieldMutation.mutate({ field: 'location', value })}
-                        isEditable={isOwnProfile}
-                        placeholder="Your location"
-                        dataTestId="text-location"
-                      />
+                      {isOwnProfile ? (
+                        <input
+                          type="text"
+                          value={profile.location || ''}
+                          onChange={(e) => updateFieldMutation.mutate({ field: 'location', value: e.target.value })}
+                          className="bg-transparent border-none focus:outline-none w-full"
+                          placeholder="Your location"
+                          data-testid="text-location"
+                        />
+                      ) : (
+                        <span>{profile.location}</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -297,15 +310,17 @@ export default function Profile() {
 
               {/* Bio */}
               <div className="mb-4">
-                <InlineEdit
-                  value={profile.bio || ''}
-                  onSave={(value) => updateFieldMutation.mutate({ field: 'bio', value })}
-                  isEditable={isOwnProfile}
-                  className="text-gray-700 leading-relaxed"
-                  placeholder="Tell others about yourself..."
-                  multiline
-                  dataTestId="text-bio"
-                />
+                {isOwnProfile ? (
+                  <textarea
+                    value={profile.bio || ''}
+                    onChange={(e) => updateFieldMutation.mutate({ field: 'bio', value: e.target.value })}
+                    className="w-full text-gray-700 leading-relaxed bg-transparent border-none focus:outline-none resize-none min-h-[100px]"
+                    placeholder="Tell others about yourself..."
+                    data-testid="text-bio"
+                  />
+                ) : (
+                  <p className="text-gray-700 leading-relaxed">{profile.bio || 'Bio not provided'}</p>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -436,14 +451,17 @@ export default function Profile() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <InlineEdit
-                    value={profile.networkingGoals || ''}
-                    onSave={(value) => updateFieldMutation.mutate({ field: 'networkingGoals', value })}
-                    isEditable={isOwnProfile}
-                    className="text-gray-700"
-                    placeholder="What are your networking goals?"
-                    dataTestId="text-networking-goals"
-                  />
+                  {isOwnProfile ? (
+                    <textarea
+                      value={profile.networkingGoals || ''}
+                      onChange={(e) => updateFieldMutation.mutate({ field: 'networkingGoals', value: e.target.value })}
+                      className="w-full text-gray-700 bg-transparent border-none focus:outline-none resize-none"
+                      placeholder="What are your networking goals?"
+                      data-testid="text-networking-goals"
+                    />
+                  ) : (
+                    <p className="text-gray-700">{profile.networkingGoals || 'Networking goals not provided'}</p>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -508,13 +526,13 @@ export default function Profile() {
                     {profile.twitterUrl ? (
                       <div className="flex-grow">
                         {isOwnProfile ? (
-                          <InlineEdit
+                          <input
+                            type="text"
                             value={profile.twitterUrl}
-                            onSave={(value) => updateFieldMutation.mutate({ field: 'twitterUrl', value })}
-                            isEditable={isOwnProfile}
-                            className="text-gray-700 flex-grow"
+                            onChange={(e) => updateFieldMutation.mutate({ field: 'twitterUrl', value: e.target.value })}
+                            className="flex-grow text-gray-700 bg-transparent border-none focus:outline-none"
                             placeholder="Your Twitter/X URL"
-                            dataTestId="input-twitter-url"
+                            data-testid="input-twitter-url"
                           />
                         ) : (
                           <a 
@@ -531,13 +549,13 @@ export default function Profile() {
                     ) : (
                       <div className="flex-grow">
                         {isOwnProfile ? (
-                          <InlineEdit
+                          <input
+                            type="text"
                             value=""
-                            onSave={(value) => updateFieldMutation.mutate({ field: 'twitterUrl', value })}
-                            isEditable={isOwnProfile}
-                            className="text-gray-500"
+                            onChange={(e) => updateFieldMutation.mutate({ field: 'twitterUrl', value: e.target.value })}
+                            className="flex-grow text-gray-500 bg-transparent border-none focus:outline-none"
                             placeholder="Add your Twitter/X URL"
-                            dataTestId="input-twitter-url"
+                            data-testid="input-twitter-url"
                           />
                         ) : (
                           <span className="text-gray-500">Twitter not provided</span>
@@ -552,13 +570,13 @@ export default function Profile() {
                     {profile.githubUrl ? (
                       <div className="flex-grow">
                         {isOwnProfile ? (
-                          <InlineEdit
+                          <input
+                            type="text"
                             value={profile.githubUrl}
-                            onSave={(value) => updateFieldMutation.mutate({ field: 'githubUrl', value })}
-                            isEditable={isOwnProfile}
-                            className="text-gray-700 flex-grow"
+                            onChange={(e) => updateFieldMutation.mutate({ field: 'githubUrl', value: e.target.value })}
+                            className="flex-grow text-gray-700 bg-transparent border-none focus:outline-none"
                             placeholder="Your GitHub URL"
-                            dataTestId="input-github-url"
+                            data-testid="input-github-url"
                           />
                         ) : (
                           <a 
@@ -575,13 +593,13 @@ export default function Profile() {
                     ) : (
                       <div className="flex-grow">
                         {isOwnProfile ? (
-                          <InlineEdit
+                          <input
+                            type="text"
                             value=""
-                            onSave={(value) => updateFieldMutation.mutate({ field: 'githubUrl', value })}
-                            isEditable={isOwnProfile}
-                            className="text-gray-500"
+                            onChange={(e) => updateFieldMutation.mutate({ field: 'githubUrl', value: e.target.value })}
+                            className="flex-grow text-gray-500 bg-transparent border-none focus:outline-none"
                             placeholder="Add your GitHub URL"
-                            dataTestId="input-github-url"
+                            data-testid="input-github-url"
                           />
                         ) : (
                           <span className="text-gray-500">GitHub not provided</span>
@@ -596,17 +614,17 @@ export default function Profile() {
                       <Globe className="w-5 h-5 text-gray-600" />
                       <div className="flex-grow">
                         {isOwnProfile ? (
-                          <InlineEdit
+                          <input
+                            type="text"
                             value={url}
-                            onSave={(value) => {
+                            onChange={(e) => {
                               const newUrls = [...(profile.websiteUrls || [])];
-                              newUrls[index] = value;
+                              newUrls[index] = e.target.value;
                               updateFieldMutation.mutate({ field: 'websiteUrls', value: newUrls });
                             }}
-                            isEditable={isOwnProfile}
-                            className="text-gray-700 flex-grow"
+                            className="flex-grow text-gray-700 bg-transparent border-none focus:outline-none"
                             placeholder="Website URL"
-                            dataTestId={`input-website-url-${index}`}
+                            data-testid={`input-website-url-${index}`}
                           />
                         ) : (
                           <a 
