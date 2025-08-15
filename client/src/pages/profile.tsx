@@ -82,6 +82,8 @@ export default function Profile() {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{[key: string]: any}>({});
   
+  // Always call all hooks at the top level
+  
   // Fetch profile data - either current user's or the specified user's
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: userId ? ["/api/profile", userId] : ["/api/profile"],
@@ -140,37 +142,7 @@ export default function Profile() {
     }
   };
 
-  const handleImageUploadComplete = async (result: any) => {
-    try {
-      if (result.successful && result.successful.length > 0) {
-        const uploadedFile = result.successful[0];
-        const imageUrl = uploadedFile.uploadURL;
-
-        // Update user profile with new image URL
-        await apiRequest("PUT", "/api/user/profile-image", {
-          profileImageUrl: imageUrl,
-        });
-
-        // Refresh profile data
-        queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-
-        toast({
-          title: "Profile Image Updated",
-          description: "Your profile image has been successfully updated.",
-        });
-      }
-    } catch (error) {
-      console.error("Error updating profile image:", error);
-      toast({
-        title: "Upload Failed",
-        description: "Failed to update your profile image. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Inline editing mutations
+  // Inline editing mutations - declared once before early returns
   const updateFieldMutation = useMutation({
     mutationFn: async ({ field, value }: { field: string, value: any }) => {
       const response = await apiRequest("PUT", "/api/profile", { [field]: value });
@@ -221,6 +193,36 @@ export default function Profile() {
     }
     if (e.key === 'Escape') {
       cancelEditing();
+    }
+  };
+
+  const handleImageUploadComplete = async (result: any) => {
+    try {
+      if (result.successful && result.successful.length > 0) {
+        const uploadedFile = result.successful[0];
+        const imageUrl = uploadedFile.uploadURL;
+
+        // Update user profile with new image URL
+        await apiRequest("PUT", "/api/user/profile-image", {
+          profileImageUrl: imageUrl,
+        });
+
+        // Refresh profile data
+        queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+
+        toast({
+          title: "Profile Image Updated",
+          description: "Your profile image has been successfully updated.",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating profile image:", error);
+      toast({
+        title: "Upload Failed",
+        description: "Failed to update your profile image. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
