@@ -211,27 +211,30 @@ export default function Profile() {
                   <div className="mb-2">
                     <div className="text-2xl font-bold text-stak-black" data-testid="text-user-name">
                       {isOwnProfile ? (
-                        <InlineEdit
-                          value={`${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User Name'}
-                          onSave={(value) => {
+                        <input
+                          type="text"
+                          value={`${profile.firstName || ''} ${profile.lastName || ''}`.trim() || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
                             const [firstName, ...lastNameParts] = value.split(' ');
                             const lastName = lastNameParts.join(' ');
-                            updateFieldMutation.mutate({ 
-                              field: 'firstName', 
-                              value: firstName 
-                            });
-                            if (lastName) {
+                            
+                            if (firstName !== profile.firstName) {
+                              updateFieldMutation.mutate({ 
+                                field: 'firstName', 
+                                value: firstName 
+                              });
+                            }
+                            if (lastName !== profile.lastName) {
                               updateFieldMutation.mutate({ 
                                 field: 'lastName', 
                                 value: lastName 
                               });
                             }
                           }}
-                          isEditing={editingField === 'name'}
-                          onStartEdit={() => startEditing('name', `${profile.firstName || ''} ${profile.lastName || ''}`.trim())}
-                          onCancel={cancelEditing}
                           placeholder="Your name"
-                          className="text-2xl font-bold text-stak-black"
+                          className="text-2xl font-bold text-stak-black bg-transparent border-none focus:outline-none w-full"
+                          data-testid="input-user-name"
                         />
                       ) : (
                         `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User Name'
