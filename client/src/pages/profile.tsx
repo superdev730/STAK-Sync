@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { BadgeManager } from "@/components/BadgeManager";
 import { SimpleProfileAIAssistant } from "@/components/SimpleProfileAIAssistant";
+import { InlineEdit } from "@/components/InlineEdit";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { apiRequest } from "@/lib/queryClient";
@@ -26,7 +29,11 @@ import {
   Star,
   Zap,
   Camera,
-  Upload
+  Upload,
+  Edit,
+  Check,
+  X,
+  Save
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoute } from "wouter";
@@ -70,6 +77,10 @@ export default function Profile() {
   const isOwnProfile = !userId || userId === currentUser?.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // Inline editing states
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{[key: string]: any}>({});
   
   // Fetch profile data - either current user's or the specified user's
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
@@ -159,6 +170,60 @@ export default function Profile() {
     }
   };
 
+  // Inline editing mutations
+  const updateFieldMutation = useMutation({
+    mutationFn: async ({ field, value }: { field: string, value: any }) => {
+      const response = await apiRequest("PUT", "/api/profile", { [field]: value });
+      return response.json();
+    },
+    onSuccess: (data, { field }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      setEditingField(null);
+      setEditValues(prev => ({ ...prev, [field]: undefined }));
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
+      });
+    },
+    onError: (error: any, { field }) => {
+      toast({
+        title: "Update Failed",
+        description: `Failed to update ${field}. Please try again.`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const startEditing = (field: string, currentValue: any) => {
+    setEditingField(field);
+    setEditValues(prev => ({ ...prev, [field]: currentValue || '' }));
+  };
+
+  const cancelEditing = () => {
+    setEditingField(null);
+    setEditValues({});
+  };
+
+  const saveField = (field: string) => {
+    const value = editValues[field];
+    if (value !== undefined) {
+      updateFieldMutation.mutate({ field, value });
+    } else {
+      // For direct field updates without editValues
+      updateFieldMutation.mutate({ field, value: editValues[field] || '' });
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent, field: string) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveField(field);
+    }
+    if (e.key === 'Escape') {
+      cancelEditing();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-4xl mx-auto px-6 py-8">
@@ -196,21 +261,65 @@ export default function Profile() {
               <div className="flex-1 pt-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h1 className="text-3xl font-bold text-stak-black mb-2">
-                      {profile.firstName} {profile.lastName}
-                    </h1>
+                    <div className="mb-2">
+                      <InlineEdit
+                        value={`${profile.firstName || ''} ${profile.lastName || ''}`.trim()}
+                        onSave={(value) => {
+                          const names = value.trim().split(' ');
+                          const firstName = names[0] || '';
+                          const lastName = names.slice(1).join(' ') || '';
+                          updateFieldMutation.mutate({ 
+                            field: 'names', 
+                            value: { firstName, lastName }
+                          });
+                        }}
+                        isEditing={editingField === 'name'}
+                        onStartEdit={() => startEditing('name', `${profile.firstName || ''} ${profile.lastName || ''}`.trim())}
+                        onCancel={cancelEditing}
+                        placeholder="Enter your full name"
+                        displayClassName="text-3xl font-bold text-stak-black"
+                        canEdit={isOwnProfile}
+                        isLoading={updateFieldMutation.isPending && editingField === 'name'}
+                      />
+                    </div>
+                    
                     <div className="flex items-center space-x-2 mb-3">
                       <Briefcase className="h-4 w-4 text-stak-copper" />
-                      <span className="text-lg text-stak-black font-medium">
-                        {profile.position} {profile.company && `at ${profile.company}`}
-                      </span>
+                      <InlineEdit
+                        value={profile.position ? `${profile.position}${profile.company ? ` at ${profile.company}` : ''}` : ''}
+                        onSave={(value) => {
+                          const atIndex = value.indexOf(' at ');
+                          const position = atIndex > -1 ? value.substring(0, atIndex) : value;
+                          const company = atIndex > -1 ? value.substring(atIndex + 4) : '';
+                          updateFieldMutation.mutate({ 
+                            field: 'jobInfo', 
+                            value: { position: position.trim(), company: company.trim() }
+                          });
+                        }}
+                        isEditing={editingField === 'job'}
+                        onStartEdit={() => startEditing('job', profile.position ? `${profile.position}${profile.company ? ` at ${profile.company}` : ''}` : '')}
+                        onCancel={cancelEditing}
+                        placeholder="Enter your title and company (e.g. 'CEO at STAK Ventures')"
+                        displayClassName="text-lg text-stak-black font-medium"
+                        canEdit={isOwnProfile}
+                        isLoading={updateFieldMutation.isPending && editingField === 'job'}
+                      />
                     </div>
-                    {profile.location && (
-                      <div className="flex items-center space-x-2 mb-4">
-                        <MapPin className="h-4 w-4 text-stak-copper" />
-                        <span className="text-gray-600">{profile.location}</span>
-                      </div>
-                    )}
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <MapPin className="h-4 w-4 text-stak-copper" />
+                      <InlineEdit
+                        value={profile.location || ''}
+                        onSave={(value) => saveField('location')}
+                        isEditing={editingField === 'location'}
+                        onStartEdit={() => startEditing('location', profile.location)}
+                        onCancel={cancelEditing}
+                        placeholder="Add your location"
+                        displayClassName="text-gray-600"
+                        canEdit={isOwnProfile}
+                        isLoading={updateFieldMutation.isPending && editingField === 'location'}
+                      />
+                    </div>
                   </div>
                   
                   {!isOwnProfile && (
@@ -256,72 +365,128 @@ export default function Profile() {
                         websiteUrls: profile.websiteUrls || []
                       }}
                       onBioUpdate={async (newBio: string) => {
-                        try {
-                          await apiRequest("PUT", "/api/profile", { bio: newBio });
-                          queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-                          toast({
-                            title: "Bio Updated",
-                            description: "Your profile bio has been successfully updated.",
-                          });
-                        } catch (error: any) {
-                          toast({
-                            title: "Update Failed",
-                            description: "Failed to update your bio. Please try again.",
-                            variant: "destructive",
-                          });
-                        }
+                        updateFieldMutation.mutate({ field: 'bio', value: newBio });
                       }}
                     />
                   )}
                 </div>
-                <p className="text-gray-700 leading-relaxed">
-                  {profile.bio || "No bio available yet."}
-                </p>
+                <InlineEdit
+                  value={profile.bio || ''}
+                  onSave={(value) => {
+                    setEditValues(prev => ({ ...prev, bio: value }));
+                    saveField('bio');
+                  }}
+                  isEditing={editingField === 'bio'}
+                  onStartEdit={() => startEditing('bio', profile.bio)}
+                  onCancel={cancelEditing}
+                  placeholder="Tell the STAK community about your professional background, achievements, and what drives you in your work..."
+                  displayClassName="text-gray-700 leading-relaxed"
+                  multiline={true}
+                  canEdit={isOwnProfile}
+                  isLoading={updateFieldMutation.isPending && editingField === 'bio'}
+                />
               </CardContent>
             </Card>
 
             {/* Networking Goals */}
-            {profile.networkingGoals && (
-              <Card className="border border-gray-200 shadow-sm">
-                <CardContent className="p-6 bg-white">
-                  <h2 className="text-xl font-semibold mb-4 flex items-center text-stak-black">
-                    <Users className="h-5 w-5 mr-2 text-stak-copper" />
-                    Networking Goals
-                  </h2>
-                  <p className="text-gray-700">{profile.networkingGoals}</p>
-                </CardContent>
-              </Card>
-            )}
+            <Card className="border border-gray-200 shadow-sm">
+              <CardContent className="p-6 bg-white">
+                <h2 className="text-xl font-semibold mb-4 flex items-center text-stak-black">
+                  <Users className="h-5 w-5 mr-2 text-stak-copper" />
+                  Networking Goals
+                </h2>
+                <InlineEdit
+                  value={profile.networkingGoals || ''}
+                  onSave={(value) => {
+                    setEditValues(prev => ({ ...prev, networkingGoals: value }));
+                    saveField('networkingGoals');
+                  }}
+                  isEditing={editingField === 'networkingGoals'}
+                  onStartEdit={() => startEditing('networkingGoals', profile.networkingGoals)}
+                  onCancel={cancelEditing}
+                  placeholder="What are you looking to achieve through networking? (e.g., 'Seeking investors for Series A', 'Looking to hire senior engineers', 'Expanding into European markets')"
+                  displayClassName="text-gray-700"
+                  multiline={true}
+                  canEdit={isOwnProfile}
+                  isLoading={updateFieldMutation.isPending && editingField === 'networkingGoals'}
+                />
+              </CardContent>
+            </Card>
 
             {/* Skills & Industries */}
             <Card className="border border-gray-200 shadow-sm">
               <CardContent className="p-6 bg-white">
                 <h2 className="text-xl font-semibold mb-4 text-stak-black">Expertise</h2>
                 <div className="space-y-4">
-                  {profile.skills && profile.skills.length > 0 && (
-                    <div>
-                      <h3 className="font-medium text-stak-black mb-2">Skills</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.skills.map((skill, index) => (
-                          <Badge key={index} variant="secondary" className="bg-gray-100 text-stak-black border border-gray-300">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {profile.industries && profile.industries.length > 0 && (
-                    <div>
-                      <h3 className="font-medium text-stak-black mb-2">Industries</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.industries.map((industry, index) => (
-                          <Badge key={index} variant="outline" className="border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
-                            {industry}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Skills Section */}
+                  <div>
+                    <h3 className="font-medium text-stak-black mb-2">Skills</h3>
+                    {(isOwnProfile || (profile.skills && profile.skills.length > 0)) && (
+                      <>
+                        {editingField !== 'skills' && profile.skills && profile.skills.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {profile.skills.map((skill, index) => (
+                              <Badge key={index} variant="secondary" className="bg-gray-100 text-stak-black border border-gray-300">
+                                {skill}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {isOwnProfile && (
+                          <InlineEdit
+                            value={profile.skills?.join(', ') || ''}
+                            onSave={(value) => {
+                              const skills = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                              updateFieldMutation.mutate({ field: 'skills', value: skills });
+                            }}
+                            isEditing={editingField === 'skills'}
+                            onStartEdit={() => startEditing('skills', profile.skills?.join(', '))}
+                            onCancel={cancelEditing}
+                            placeholder="Add your skills separated by commas (e.g., 'JavaScript, Product Management, Team Leadership, AI/ML')"
+                            displayClassName=""
+                            canEdit={isOwnProfile}
+                            isLoading={updateFieldMutation.isPending && editingField === 'skills'}
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Industries Section */}
+                  <div>
+                    <h3 className="font-medium text-stak-black mb-2">Industries</h3>
+                    {(isOwnProfile || (profile.industries && profile.industries.length > 0)) && (
+                      <>
+                        {editingField !== 'industries' && profile.industries && profile.industries.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {profile.industries.map((industry, index) => (
+                              <Badge key={index} variant="outline" className="border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
+                                {industry}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {isOwnProfile && (
+                          <InlineEdit
+                            value={profile.industries?.join(', ') || ''}
+                            onSave={(value) => {
+                              const industries = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                              updateFieldMutation.mutate({ field: 'industries', value: industries });
+                            }}
+                            isEditing={editingField === 'industries'}
+                            onStartEdit={() => startEditing('industries', profile.industries?.join(', '))}
+                            onCancel={cancelEditing}
+                            placeholder="Add your industries separated by commas (e.g., 'FinTech, Enterprise Software, Healthcare, AI')"
+                            displayClassName=""
+                            canEdit={isOwnProfile}
+                            isLoading={updateFieldMutation.isPending && editingField === 'industries'}
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

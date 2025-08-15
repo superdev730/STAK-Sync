@@ -536,6 +536,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const profileData = req.body;
+      
+      // Handle special cases for composite fields
+      if (profileData.names) {
+        const { firstName, lastName } = profileData.names;
+        delete profileData.names;
+        profileData.firstName = firstName;
+        profileData.lastName = lastName;
+      }
+      
+      if (profileData.jobInfo) {
+        const { position, company } = profileData.jobInfo;
+        delete profileData.jobInfo;
+        profileData.position = position;
+        profileData.company = company;
+      }
 
       // Clean the data to remove empty strings and undefined values
       const cleanedData = Object.fromEntries(
