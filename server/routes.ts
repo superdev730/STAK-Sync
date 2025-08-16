@@ -245,15 +245,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ).length;
       const completionPercentage = Math.round((completedFields / fields.length) * 100);
 
-      // Calculate signal score (0-1000)
+      // Calculate sync score (0-1000)
       const baseScore = completionPercentage * 4; // Up to 400 points for completion
       const activityBonus = Math.min(300, 0); // Activity points (placeholder)
       const networkBonus = Math.min(300, 0); // Network points (placeholder)
-      const signalScore = Math.min(1000, baseScore + activityBonus + networkBonus);
+      const syncScore = Math.min(1000, baseScore + activityBonus + networkBonus);
 
       const stats = {
         completionPercentage,
-        signalScore,
+        syncScore,
         connections: 0, // Placeholder
         meetingRequestsCount: 0, // Placeholder
         profileViews: 0 // Placeholder
@@ -286,11 +286,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const completionPercentage = Math.round((completedFields / fields.length) * 100);
 
       const baseScore = completionPercentage * 4;
-      const signalScore = Math.min(1000, baseScore);
+      const syncScore = Math.min(1000, baseScore);
 
       const stats = {
         completionPercentage,
-        signalScore,
+        syncScore,
         connections: 0,
         meetingRequestsCount: 0,
         profileViews: 0

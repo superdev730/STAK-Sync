@@ -97,7 +97,7 @@ export default function Discover() {
       <div className="max-w-7xl mx-auto p-3 lg:p-6 space-y-4 lg:space-y-8">
         {/* Header */}
         <div className="bg-white border border-gray-200 rounded-lg p-4 lg:p-8 text-center shadow-sm">
-          <h1 className="text-2xl lg:text-4xl font-bold text-slate-900 mb-2 lg:mb-4">Find Signal, Cut the Noise</h1>
+          <h1 className="text-2xl lg:text-4xl font-bold text-slate-900 mb-2 lg:mb-4">Get in Sync, Cut the Noise</h1>
           <p className="text-base lg:text-xl text-slate-600 mb-4 lg:mb-6 px-2 lg:px-0">AI-powered matching for STAK's exclusive membership community</p>
           
           {/* Demo Setup */}

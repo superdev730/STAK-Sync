@@ -47,7 +47,7 @@ interface UserProfile {
 
 interface UserStats {
   completionPercentage: number;
-  signalScore: number;
+  syncScore: number;
   connections: number;
   meetingRequestsCount: number;
   profileViews: number;
@@ -132,7 +132,7 @@ export default function AdminUserProfile() {
   }
 
   const completionPercentage = userStats?.completionPercentage || 0;
-  const signalScore = userStats?.signalScore || 0;
+  const syncScore = userStats?.syncScore || 0;
 
   return (
     <div className="min-h-screen bg-stak-black">
@@ -198,7 +198,7 @@ export default function AdminUserProfile() {
                     <div className="text-xs text-stak-light-gray">Profile Complete</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-stak-copper">{signalScore}</div>
+                    <div className="text-2xl font-bold text-stak-copper">{syncScore}</div>
                     <div className="text-xs text-stak-light-gray">Sync Score</div>
                   </div>
                   <div className="text-center">

@@ -24,8 +24,8 @@ interface UserStats {
   pendingMeetups: number;
   unreadMessages: number;
   profileCompleteness?: number;
-  signalScore?: number;
-  signalLevel?: string;
+  syncScore?: number;
+  syncLevel?: string;
 }
 
 export default function Home() {
