@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import OnboardingWizard from "@/components/OnboardingWizard";
 import { apiRequest } from "@/lib/queryClient";
 import { 
   User,
@@ -32,7 +33,8 @@ import {
   Sparkles,
   Building2,
   MapPin,
-  Target
+  Target,
+  UserPlus
 } from "lucide-react";
 
 interface UserProfile {
@@ -78,12 +80,32 @@ export default function Profile() {
   const [newSocialUrl, setNewSocialUrl] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Profile data query
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: userId ? ["/api/profile", userId] : ["/api/profile"],
     enabled: !!currentUser,
   });
+
+  // Check if profile is incomplete and show onboarding for new users
+  useEffect(() => {
+    if (profile && isOwnProfile) {
+      const isIncomplete = !profile.bio || !profile.title || !profile.firstName;
+      if (isIncomplete) {
+        // Show onboarding for incomplete profiles
+        const hasSeenOnboarding = localStorage.getItem('stak-onboarding-completed');
+        if (!hasSeenOnboarding) {
+          setShowOnboarding(true);
+        }
+      }
+    }
+  }, [profile, isOwnProfile]);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    localStorage.setItem('stak-onboarding-completed', 'true');
+  };
 
   // Fixed update profile mutation with proper error handling
   const updateProfileMutation = useMutation({
@@ -481,14 +503,22 @@ export default function Profile() {
                   </div>
                 </div>
 
-                {/* AI Profile Builder for own profile */}
+                {/* Profile Actions for own profile */}
                 {isOwnProfile && (
                   <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                    <Button 
+                      onClick={() => setShowOnboarding(true)}
+                      className="bg-stak-copper hover:bg-stak-copper/90 text-white"
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Complete Profile Setup
+                    </Button>
+                    
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button className="bg-stak-copper hover:bg-stak-copper/90 text-white">
+                        <Button variant="outline">
                           <Wand2 className="h-4 w-4 mr-2" />
-                          Build Profile with AI
+                          AI Profile Builder
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -770,6 +800,13 @@ export default function Profile() {
             </Card>
           </div>
         </div>
+
+        {/* Onboarding Wizard */}
+        <OnboardingWizard
+          isOpen={showOnboarding}
+          onClose={handleOnboardingComplete}
+          profile={profile}
+        />
       </div>
     </div>
   );
