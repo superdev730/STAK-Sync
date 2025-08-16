@@ -70,29 +70,29 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
 
   return (
     <Card className="bg-stak-black border border-stak-gray hover:border-stak-copper transition-all duration-300">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 p-3 lg:p-6">
         <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-stak-copper/20 rounded-full flex items-center justify-center">
-              <span className="text-stak-copper font-semibold text-lg">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
+            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-stak-copper/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-stak-copper font-semibold text-sm lg:text-lg">
                 {matchedUser.firstName?.[0] || 'U'}{matchedUser.lastName?.[0] || ''}
               </span>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-stak-white">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base lg:text-lg font-semibold text-stak-white truncate">
                 {matchedUser.firstName || 'Unknown'} {matchedUser.lastName || 'User'}
               </h3>
-              {matchedUser.title && <p className="text-sm text-stak-light-gray">{matchedUser.title}</p>}
+              {matchedUser.title && <p className="text-xs lg:text-sm text-stak-light-gray truncate">{matchedUser.title}</p>}
               {matchedUser.company && (
-                <p className="text-sm text-stak-light-gray flex items-center">
-                  <Building className="w-3 h-3 mr-1" />
-                  {matchedUser.company}
+                <p className="text-xs lg:text-sm text-stak-light-gray flex items-center truncate">
+                  <Building className="w-3 h-3 mr-1 flex-shrink-0" />
+                  <span className="truncate">{matchedUser.company}</span>
                 </p>
               )}
             </div>
           </div>
-          <div className="text-right">
-            <div className={`text-2xl font-bold ${getScoreColor(matchScore)}`}>
+          <div className="text-right flex-shrink-0">
+            <div className={`text-xl lg:text-2xl font-bold ${getScoreColor(matchScore)}`}>
               {matchScore}%
             </div>
             <p className="text-xs text-stak-light-gray">Match Score</p>
@@ -100,13 +100,13 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 lg:space-y-4 p-3 lg:p-6">
         {/* Location and Industries */}
         {matchedUser.location && (
-          <div className="flex items-center space-x-4 text-sm text-stak-light-gray">
+          <div className="flex items-center space-x-4 text-xs lg:text-sm text-stak-light-gray">
             <div className="flex items-center">
               <MapPin className="w-3 h-3 mr-1" />
-              {matchedUser.location}
+              <span className="truncate">{matchedUser.location}</span>
             </div>
           </div>
         )}
@@ -114,7 +114,7 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
         {/* Industries and Skills */}
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1">
-            {matchedUser.industries?.slice(0, 3).map((industry, index) => (
+            {matchedUser.industries?.slice(0, window.innerWidth < 640 ? 2 : 3).map((industry, index) => (
               <Badge key={index} variant="outline" className="text-xs border-stak-copper text-stak-copper">
                 {industry}
               </Badge>
@@ -124,9 +124,11 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
 
         {/* Bio */}
         {matchedUser.bio && (
-          <p className="text-sm text-stak-light-gray line-clamp-2">
-            {matchedUser.bio}
-          </p>
+          <div className="bg-stak-gray/30 rounded-lg p-3 border border-stak-gray/50">
+            <p className="text-xs lg:text-sm text-stak-light-gray leading-relaxed line-clamp-2 lg:line-clamp-3">
+              {matchedUser.bio}
+            </p>
+          </div>
         )}
 
         {/* AI Insights */}
@@ -221,26 +223,30 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
         <div className="flex space-x-2 pt-2">
           <Button
             onClick={() => onConnect(match.id)}
-            className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
+            className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium text-sm"
+            size={window.innerWidth < 640 ? "sm" : "default"}
           >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Connect
+            <MessageSquare className="w-3 h-3 lg:w-4 lg:h-4 mr-1 lg:mr-2" />
+            <span className="hidden sm:inline">Connect</span>
+            <span className="sm:hidden">✓</span>
           </Button>
           <Button
             onClick={() => onPass(match.id)}
             variant="outline"
-            className="border-stak-gray text-stak-light-gray hover:bg-stak-gray"
+            className="border-stak-gray text-stak-light-gray hover:bg-stak-gray text-sm px-3 lg:px-4"
+            size={window.innerWidth < 640 ? "sm" : "default"}
           >
-            Pass
+            <span className="hidden sm:inline">Pass</span>
+            <span className="sm:hidden">✗</span>
           </Button>
           {showDetails && onViewAnalysis && (
             <Button
               onClick={() => onViewAnalysis(match.id)}
               variant="ghost"
               size="sm"
-              className="text-stak-copper"
+              className="text-stak-copper px-2 lg:px-3"
             >
-              <Brain className="w-4 h-4" />
+              <Brain className="w-3 h-3 lg:w-4 lg:h-4" />
             </Button>
           )}
         </div>
