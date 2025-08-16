@@ -531,9 +531,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simplified profile update endpoint
-  app.put('/api/profile', isAuthenticated, async (req: any, res) => {
+  // Fixed profile update endpoint with detailed logging
+  app.put('/api/profile', async (req: any, res) => {
+    console.log('=== PROFILE UPDATE ENDPOINT HIT ===');
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.url);
+    console.log('Request body:', req.body);
+    
     try {
+      // Check authentication manually with detailed logging
+      if (!req.isAuthenticated || !req.isAuthenticated()) {
+        console.log('Authentication failed: User not authenticated');
+        console.log('Session ID:', req.sessionID);
+        console.log('Has user:', !!req.user);
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
       const userId = req.user?.claims?.sub;
       if (!userId) {
         console.log('Authentication failed: No user ID found');
@@ -558,7 +571,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Profile updated successfully:', {
         userId,
         updatedFields: Object.keys(updates),
-        newData: updatedUser
       });
       
       res.json({ 

@@ -85,24 +85,41 @@ export default function Profile() {
     enabled: !!currentUser,
   });
 
-  // Simplified update profile mutation
+  // Fixed update profile mutation with proper error handling
   const updateProfileMutation = useMutation({
     mutationFn: async (updates: Partial<UserProfile>) => {
-      console.log('=== FRONTEND UPDATE REQUEST ===');
-      console.log('Sending updates:', updates);
+      console.log('=== PROFILE UPDATE ATTEMPT ===');
+      console.log('Updates:', updates);
       
-      const response = await apiRequest("PUT", "/api/profile", updates);
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('API request failed:', response.status, errorData);
-        throw new Error(`Update failed: ${response.status} ${errorData}`);
+      try {
+        const response = await fetch('/api/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(updates),
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Server error response:', errorText);
+          throw new Error(`Server error: ${response.status} ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('=== UPDATE SUCCESS ===');
+        console.log('Result:', result);
+        return result;
+
+      } catch (networkError: any) {
+        console.error('=== NETWORK ERROR ===');
+        console.error('Error details:', networkError);
+        throw new Error(`Network error: ${networkError.message}`);
       }
-      
-      const result = await response.json();
-      console.log('=== FRONTEND UPDATE SUCCESS ===');
-      console.log('Response:', result);
-      return result;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
@@ -112,13 +129,13 @@ export default function Profile() {
       });
     },
     onError: (error: any, variables) => {
-      console.error('=== FRONTEND UPDATE ERROR ===');
+      console.error('=== MUTATION ERROR ===');
       console.error('Error:', error);
       console.error('Variables:', variables);
       
       toast({
         title: "Update Failed", 
-        description: error.message || "Failed to update profile. Please try again.",
+        description: error.message || "Failed to update profile. Check console for details.",
         variant: "destructive",
       });
     },
