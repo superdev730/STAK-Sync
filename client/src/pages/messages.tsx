@@ -3,7 +3,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { MessageSquare, Search, Plus, Users, Filter } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import MessageInterface from "@/components/MessageInterface";
@@ -14,6 +23,9 @@ import type { Message, User } from "@shared/schema";
 
 export default function Messages() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showNewMessageDialog, setShowNewMessageDialog] = useState(false);
+  const [newMessageSearch, setNewMessageSearch] = useState("");
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -231,12 +243,57 @@ export default function Messages() {
 
   const uniqueConversations = getUniqueConversations();
 
+  // Filter conversations based on search query
+  const filteredConversations = uniqueConversations.filter(conv => {
+    const fullName = `${conv.user.firstName} ${conv.user.lastName}`.toLowerCase();
+    const company = conv.user.company?.toLowerCase() || '';
+    const title = conv.user.title?.toLowerCase() || '';
+    const searchLower = searchQuery.toLowerCase();
+    
+    return fullName.includes(searchLower) || 
+           company.includes(searchLower) || 
+           title.includes(searchLower);
+  });
+
+  // Filter matches for new message dialog
+  const availableMatches = matches?.filter(match => {
+    if (!match.matchedUser) return false;
+    
+    // Don't show users we already have conversations with
+    const hasConversation = uniqueConversations.some(conv => 
+      conv.user.id === match.matchedUser.id
+    );
+    
+    // Filter by search in new message dialog
+    if (newMessageSearch) {
+      const fullName = `${match.matchedUser.firstName} ${match.matchedUser.lastName}`.toLowerCase();
+      const company = match.matchedUser.company?.toLowerCase() || '';
+      const title = match.matchedUser.title?.toLowerCase() || '';
+      const searchLower = newMessageSearch.toLowerCase();
+      
+      return !hasConversation && (
+        fullName.includes(searchLower) || 
+        company.includes(searchLower) || 
+        title.includes(searchLower)
+      );
+    }
+    
+    return !hasConversation;
+  }) || [];
+
   // Mark messages as read when conversation is selected
   useEffect(() => {
     if (selectedUser && currentUser) {
       apiRequest(`/api/conversations/${selectedUser.id}/read`, 'PUT', {}).catch(console.error);
     }
   }, [selectedUser, currentUser]);
+
+  // Handle starting a new conversation
+  const handleStartConversation = (user: User) => {
+    setSelectedUser(user);
+    setShowNewMessageDialog(false);
+    setNewMessageSearch("");
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -250,14 +307,46 @@ export default function Messages() {
         {/* Messages Interface */}
         <Card className="bg-white border border-gray-200 shadow-sm overflow-hidden">
           <CardContent className="p-0">
-            <div className="grid lg:grid-cols-3 h-[600px]">
+            <div className="grid lg:grid-cols-3 h-[700px]">
               {/* Conversations List */}
               <div className="border-r border-gray-200 bg-white">
                 <div className="p-4 border-b border-gray-200 bg-white">
-                  <h3 className="font-semibold text-black text-lg">Messages</h3>
-                  <p className="text-sm text-gray-600 mt-1">{uniqueConversations.length} conversations</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-black text-lg">Messages</h3>
+                    <Button 
+                      size="sm"
+                      onClick={() => setShowNewMessageDialog(true)}
+                      className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      New
+                    </Button>
+                  </div>
+                  
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      type="text"
+                      placeholder="Search conversations..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 pr-3 py-2 w-full border-gray-200 focus:border-stak-copper"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-3">
+                    <p className="text-sm text-gray-600">{filteredConversations.length} conversations</p>
+                    <Button 
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      <Filter className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="overflow-y-auto" style={{ height: 'calc(600px - 80px)' }}>
+                <div className="overflow-y-auto" style={{ height: 'calc(700px - 160px)' }}>
                   {isLoading ? (
                     <div className="space-y-1">
                       {[1, 2, 3].map((i) => (
@@ -272,15 +361,30 @@ export default function Messages() {
                         </div>
                       ))}
                     </div>
-                  ) : uniqueConversations.length === 0 ? (
+                  ) : filteredConversations.length === 0 ? (
                     <div className="p-8 text-center">
                       <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-700 font-medium">No conversations yet</p>
-                      <p className="text-sm text-gray-500 mt-2">Start connecting with professionals to begin messaging</p>
+                      <p className="text-gray-700 font-medium">
+                        {searchQuery ? 'No conversations found' : 'No conversations yet'}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {searchQuery 
+                          ? 'Try adjusting your search terms' 
+                          : 'Start connecting with professionals to begin messaging'}
+                      </p>
+                      {!searchQuery && (
+                        <Button 
+                          onClick={() => setShowNewMessageDialog(true)}
+                          className="mt-4 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start New Conversation
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div>
-                      {uniqueConversations.map(({ user, lastMessage, unreadCount }) => (
+                      {filteredConversations.map(({ user, lastMessage, unreadCount }) => (
                         <div
                           key={user.id}
                           className={`p-4 cursor-pointer transition-colors border-b border-gray-100 ${
@@ -361,6 +465,13 @@ export default function Messages() {
                     <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-gray-700 mb-2">Select a conversation</h3>
                     <p className="text-gray-500">Choose a contact to start messaging</p>
+                    <Button 
+                      onClick={() => setShowNewMessageDialog(true)}
+                      className="mt-6 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Start New Conversation
+                    </Button>
                   </div>
                 </div>
               )}
@@ -368,6 +479,99 @@ export default function Messages() {
           </div>
         </CardContent>
       </Card>
+
+      {/* New Message Dialog */}
+      <Dialog open={showNewMessageDialog} onOpenChange={setShowNewMessageDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Start New Conversation</DialogTitle>
+            <DialogDescription>
+              Select a matched professional to start messaging
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            {/* Search Bar */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search by name, company, or title..."
+                value={newMessageSearch}
+                onChange={(e) => setNewMessageSearch(e.target.value)}
+                className="pl-9 pr-3 py-2 w-full"
+              />
+            </div>
+
+            {/* Available Matches List */}
+            <div className="overflow-y-auto max-h-[50vh] space-y-2">
+              {availableMatches.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">
+                    {newMessageSearch 
+                      ? 'No matches found for your search' 
+                      : matches && matches.length > 0
+                        ? 'You have conversations with all your matches'
+                        : 'No matches available'}
+                  </p>
+                  {!matches || matches.length === 0 ? (
+                    <Button 
+                      onClick={() => {
+                        setShowNewMessageDialog(false);
+                        setLocation('/discover');
+                      }}
+                      className="mt-4 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                    >
+                      Find New Matches
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                availableMatches.map((match) => (
+                  <div
+                    key={match.id}
+                    className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => handleStartConversation(match.matchedUser)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="w-12 h-12">
+                        <AvatarImage 
+                          src={match.matchedUser.profileImageUrl || ""} 
+                          alt={match.matchedUser.firstName || ""} 
+                        />
+                        <AvatarFallback className="bg-stak-copper/20 text-stak-copper font-semibold">
+                          {match.matchedUser.firstName?.[0]}{match.matchedUser.lastName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-gray-900">
+                            {match.matchedUser.firstName} {match.matchedUser.lastName}
+                          </p>
+                          <Badge variant="outline" className="text-stak-copper border-stak-copper">
+                            {match.matchScore}% Match
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {match.matchedUser.title}
+                          {match.matchedUser.company && ` at ${match.matchedUser.company}`}
+                        </p>
+                        {match.matchedUser.location && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            📍 {match.matchedUser.location}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );
