@@ -26,7 +26,7 @@ export default function Discover() {
 
   const handleConnect = async (matchId: string) => {
     try {
-      await apiRequest("POST", `/api/matches/${matchId}/status`, { status: "connected" });
+      await apiRequest(`/api/matches/${matchId}/status`, "POST", { status: "connected" });
       toast({
         title: "Connection Sent!",
         description: "Your connection request has been sent successfully.",
@@ -43,7 +43,7 @@ export default function Discover() {
 
   const handlePass = async (matchId: string) => {
     try {
-      await apiRequest("POST", `/api/matches/${matchId}/status`, { status: "passed" });
+      await apiRequest(`/api/matches/${matchId}/status`, "POST", { status: "passed" });
       refetch();
     } catch (error) {
       toast({
@@ -57,7 +57,10 @@ export default function Discover() {
 
 
   const generateMatchesMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/matches/generate", {}),
+    mutationFn: async () => {
+      const response = await apiRequest("/api/matches/generate", "POST", {});
+      return response.json();
+    },
     onSuccess: () => {
       toast({
         title: "AI Matches Generated!",
@@ -65,10 +68,10 @@ export default function Discover() {
       });
       refetch();
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to generate AI matches",
+        description: error.message || "Failed to generate AI matches",
         variant: "destructive",
       });
     }
@@ -209,13 +212,7 @@ export default function Discover() {
                 <div className="text-4xl font-bold mb-2">{matches?.length || 0}</div>
                 <p className="text-stak-black/80">Active Matches</p>
               </div>
-              <Button 
-                className="w-full mt-4 bg-stak-black text-stak-copper hover:bg-stak-gray"
-                onClick={() => window.open('/api/matches/analytics', '_blank')}
-              >
-                <Brain className="w-4 h-4 mr-2" />
-                View Analytics
-              </Button>
+
             </CardContent>
           </Card>
 
@@ -250,9 +247,7 @@ export default function Discover() {
                 </div>
               </div>
               
-              <Button className="w-full bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
-                Analyze My Profile
-              </Button>
+
             </CardContent>
           </Card>
 

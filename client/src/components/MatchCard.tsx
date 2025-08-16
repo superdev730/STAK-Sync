@@ -31,15 +31,15 @@ interface MatchCardProps {
     };
     matchedUser: {
       id: string;
-      firstName: string;
-      lastName: string;
-      title: string;
-      company: string;
-      bio: string;
-      location: string;
-      industries: string[];
-      skills: string[];
-      profileImageUrl?: string;
+      firstName: string | null;
+      lastName: string | null;
+      title: string | null;
+      company: string | null;
+      bio: string | null;
+      location: string | null;
+      industries: string[] | null;
+      skills: string[] | null;
+      profileImageUrl?: string | null;
     };
   };
   onConnect: (matchId: string) => void;
@@ -75,18 +75,20 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-stak-copper/20 rounded-full flex items-center justify-center">
               <span className="text-stak-copper font-semibold text-lg">
-                {matchedUser.firstName[0]}{matchedUser.lastName[0]}
+                {matchedUser.firstName?.[0] || 'U'}{matchedUser.lastName?.[0] || ''}
               </span>
             </div>
             <div>
               <h3 className="text-lg font-semibold text-stak-white">
-                {matchedUser.firstName} {matchedUser.lastName}
+                {matchedUser.firstName || 'Unknown'} {matchedUser.lastName || 'User'}
               </h3>
-              <p className="text-sm text-stak-light-gray">{matchedUser.title}</p>
-              <p className="text-sm text-stak-light-gray flex items-center">
-                <Building className="w-3 h-3 mr-1" />
-                {matchedUser.company}
-              </p>
+              {matchedUser.title && <p className="text-sm text-stak-light-gray">{matchedUser.title}</p>}
+              {matchedUser.company && (
+                <p className="text-sm text-stak-light-gray flex items-center">
+                  <Building className="w-3 h-3 mr-1" />
+                  {matchedUser.company}
+                </p>
+              )}
             </div>
           </div>
           <div className="text-right">
@@ -100,12 +102,14 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
 
       <CardContent className="space-y-4">
         {/* Location and Industries */}
-        <div className="flex items-center space-x-4 text-sm text-stak-light-gray">
-          <div className="flex items-center">
-            <MapPin className="w-3 h-3 mr-1" />
-            {matchedUser.location}
+        {matchedUser.location && (
+          <div className="flex items-center space-x-4 text-sm text-stak-light-gray">
+            <div className="flex items-center">
+              <MapPin className="w-3 h-3 mr-1" />
+              {matchedUser.location}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Industries and Skills */}
         <div className="space-y-2">
@@ -119,9 +123,11 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
         </div>
 
         {/* Bio */}
-        <p className="text-sm text-stak-light-gray line-clamp-2">
-          {matchedUser.bio}
-        </p>
+        {matchedUser.bio && (
+          <p className="text-sm text-stak-light-gray line-clamp-2">
+            {matchedUser.bio}
+          </p>
+        )}
 
         {/* AI Insights */}
         {compatibilityFactors && (
