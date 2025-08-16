@@ -85,20 +85,25 @@ export default function Profile() {
     enabled: !!currentUser,
   });
 
-  // Update profile mutation
+  // Update profile mutation with debugging
   const updateProfileMutation = useMutation({
     mutationFn: async (updates: Partial<UserProfile>) => {
+      console.log('Updating profile with:', updates);
       const response = await apiRequest("PUT", "/api/profile", updates);
-      return response.json();
+      const result = await response.json();
+      console.log('Profile update response:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      console.log('Profile update successful:', { data, variables });
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       toast({
         title: "Profile Updated",
         description: "Your profile has been successfully updated.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: any, variables) => {
+      console.error('Profile update failed:', { error, variables });
       toast({
         title: "Update Failed",
         description: error.message || "Failed to update profile. Please try again.",
@@ -167,25 +172,83 @@ export default function Profile() {
     },
   });
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File, maxSizeMB: number = 1.8): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      img.onload = () => {
+        // Calculate new dimensions to keep aspect ratio
+        const maxWidth = 800;
+        const maxHeight = 800;
+        let { width, height } = img;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw and compress
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Start with high quality and reduce until file size is acceptable
+        let quality = 0.9;
+        const tryCompress = () => {
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          const sizeInMB = (dataUrl.length * 0.75) / (1024 * 1024); // Rough base64 to bytes conversion
+          
+          if (sizeInMB <= maxSizeMB || quality <= 0.1) {
+            resolve(dataUrl);
+          } else {
+            quality -= 0.1;
+            tryCompress();
+          }
+        };
+        
+        tryCompress();
+      };
+
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
+    try {
+      // Show loading state
       toast({
-        title: "File Too Large",
-        description: "Please choose an image smaller than 2MB",
+        title: "Processing Image",
+        description: "Compressing and uploading your photo...",
+      });
+
+      // Compress image automatically
+      const compressedBase64 = await compressImage(file);
+      
+      // Upload compressed image
+      uploadPhotoMutation.mutate(compressedBase64);
+      
+    } catch (error) {
+      console.error('Image compression failed:', error);
+      toast({
+        title: "Upload Failed",
+        description: "Failed to process image. Please try a different photo.",
         variant: "destructive"
       });
-      return;
     }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      uploadPhotoMutation.mutate(base64);
-    };
-    reader.readAsDataURL(file);
   };
 
   const addSocialSource = () => {
@@ -356,40 +419,36 @@ export default function Profile() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-center md:justify-start gap-4 text-gray-600 mb-4">
-                    {profile?.company && (
-                      <div className="flex items-center gap-1">
-                        <Building2 className="w-4 h-4" />
-                        {isOwnProfile ? (
-                          <Input
-                            value={profile.company}
-                            onChange={(e) => updateProfileMutation.mutate({ company: e.target.value })}
-                            className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
-                            placeholder="Company"
-                            data-testid="input-company"
-                          />
-                        ) : (
-                          <span>{profile.company}</span>
-                        )}
-                      </div>
-                    )}
+                  <div className="flex flex-col md:flex-row items-center md:justify-start gap-4 text-gray-600 mb-4">
+                    <div className="flex items-center gap-1">
+                      <Building2 className="w-4 h-4" />
+                      {isOwnProfile ? (
+                        <Input
+                          value={profile?.company || ''}
+                          onChange={(e) => updateProfileMutation.mutate({ company: e.target.value })}
+                          className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                          placeholder="Company"
+                          data-testid="input-company"
+                        />
+                      ) : (
+                        <span>{profile?.company || 'No company specified'}</span>
+                      )}
+                    </div>
                     
-                    {profile?.location && (
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        {isOwnProfile ? (
-                          <Input
-                            value={profile.location}
-                            onChange={(e) => updateProfileMutation.mutate({ location: e.target.value })}
-                            className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
-                            placeholder="Location"
-                            data-testid="input-location"
-                          />
-                        ) : (
-                          <span>{profile.location}</span>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      {isOwnProfile ? (
+                        <Input
+                          value={profile?.location || ''}
+                          onChange={(e) => updateProfileMutation.mutate({ location: e.target.value })}
+                          className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                          placeholder="Location"
+                          data-testid="input-location"
+                        />
+                      ) : (
+                        <span>{profile?.location || 'No location specified'}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
