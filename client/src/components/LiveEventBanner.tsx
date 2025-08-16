@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Clock, Users, Calendar, Zap, Trophy, TrendingUp, Timer } from 'lucide-react';
+import { Clock, Users, Calendar, Zap, Trophy, TrendingUp, Timer, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { Link } from 'wouter';
 
 interface LiveEvent {
   id: string;
@@ -219,6 +220,19 @@ export function LiveEventBanner() {
               </Button>
             )}
 
+            {/* Event Preparation Button */}
+            {!isEventStarted && (
+              <Button 
+                asChild
+                className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80 font-semibold px-6 py-2"
+              >
+                <Link href={`/events/live/${liveEvent.id}/preparation`}>
+                  <Target className="w-4 h-4 mr-2" />
+                  Event Prep
+                </Link>
+              </Button>
+            )}
+            
             {/* Join Event Button */}
             <Button 
               onClick={handleJoinEvent}

@@ -24,6 +24,7 @@ import MatchAnalysis from "@/pages/match-analysis";
 import Questionnaire from "@/pages/questionnaire";
 import ProximityPage from "@/pages/proximity";
 import LiveEvent from "@/pages/LiveEvent";
+import EventPreparation from "@/pages/event-preparation";
 import Logout from "@/pages/logout";
 import NotFound from "@/pages/not-found";
 import Layout from "@/components/Layout";
@@ -56,6 +57,7 @@ function Router() {
             <Route path="/messages" component={Messages} />
             <Route path="/events" component={EventsNew} />
             <Route path="/events/live/:eventId" component={LiveEvent} />
+            <Route path="/events/live/:eventId/preparation" component={EventPreparation} />
             <Route path="/live-dashboard" component={LiveDashboard} />
             <Route path="/admin" component={Admin} />
             <Route path="/admin/users" component={AdminUsers} />
