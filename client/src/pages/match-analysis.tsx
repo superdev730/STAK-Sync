@@ -99,13 +99,13 @@ export default function MatchAnalysis() {
 
   const { match, matchedUser, aiAnalysis, compatibilityFactors, recommendedTopics, mutualGoals, collaborationPotential, meetingSuggestions } = analysis;
 
-  const overallScore = Math.round(
-    (compatibilityFactors.industryAlignment + 
-     compatibilityFactors.experienceLevel + 
-     compatibilityFactors.geographicProximity + 
-     compatibilityFactors.goalAlignment + 
-     compatibilityFactors.skillsComplementarity) / 5
-  );
+  const overallScore = compatibilityFactors ? Math.round(
+    ((compatibilityFactors.industryAlignment || 0) + 
+     (compatibilityFactors.experienceLevel || 0) + 
+     (compatibilityFactors.geographicProximity || 0) + 
+     (compatibilityFactors.goalAlignment || 0) + 
+     (compatibilityFactors.skillsComplementarity || 0)) / 5
+  ) : match?.matchScore || 75;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -145,10 +145,10 @@ export default function MatchAnalysis() {
                   {matchedUser.firstName} {matchedUser.lastName}
                 </h2>
                 
-                {matchedUser.position && (
+                {matchedUser.title && (
                   <div className="flex items-center text-lg text-gray-700 mb-2">
                     <Briefcase className="h-5 w-5 mr-2 text-gray-500" />
-                    <span className="font-medium">{matchedUser.position}</span>
+                    <span className="font-medium">{matchedUser.title}</span>
                     {matchedUser.company && (
                       <span className="text-gray-600"> at {matchedUser.company}</span>
                     )}
@@ -191,60 +191,66 @@ export default function MatchAnalysis() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700 leading-relaxed">{aiAnalysis}</p>
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {typeof aiAnalysis === 'string' ? aiAnalysis : 
+                   typeof aiAnalysis === 'object' && aiAnalysis?.aiReasoning ? aiAnalysis.aiReasoning :
+                   'AI analysis not available'}
+                </div>
               </CardContent>
             </Card>
 
             {/* Compatibility Breakdown */}
-            <Card className="bg-white border border-gray-200">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold text-gray-900 flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
-                  Compatibility Breakdown
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Industry Alignment</span>
-                    <span className="text-sm text-gray-600">{compatibilityFactors.industryAlignment}%</span>
+            {compatibilityFactors && (
+              <Card className="bg-white border border-gray-200">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-gray-900 flex items-center">
+                    <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                    Compatibility Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">Industry Alignment</span>
+                      <span className="text-sm text-gray-600">{compatibilityFactors.industryAlignment || 0}%</span>
+                    </div>
+                    <Progress value={compatibilityFactors.industryAlignment || 0} className="h-2" />
                   </div>
-                  <Progress value={compatibilityFactors.industryAlignment} className="h-2" />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Experience Level</span>
-                    <span className="text-sm text-gray-600">{compatibilityFactors.experienceLevel}%</span>
+                  
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">Experience Level</span>
+                      <span className="text-sm text-gray-600">{compatibilityFactors.experienceLevel || 0}%</span>
+                    </div>
+                    <Progress value={compatibilityFactors.experienceLevel || 0} className="h-2" />
                   </div>
-                  <Progress value={compatibilityFactors.experienceLevel} className="h-2" />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Geographic Proximity</span>
-                    <span className="text-sm text-gray-600">{compatibilityFactors.geographicProximity}%</span>
+                  
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">Geographic Proximity</span>
+                      <span className="text-sm text-gray-600">{compatibilityFactors.geographicProximity || 0}%</span>
+                    </div>
+                    <Progress value={compatibilityFactors.geographicProximity || 0} className="h-2" />
                   </div>
-                  <Progress value={compatibilityFactors.geographicProximity} className="h-2" />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Goal Alignment</span>
-                    <span className="text-sm text-gray-600">{compatibilityFactors.goalAlignment}%</span>
+                  
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">Goal Alignment</span>
+                      <span className="text-sm text-gray-600">{compatibilityFactors.goalAlignment || 0}%</span>
+                    </div>
+                    <Progress value={compatibilityFactors.goalAlignment || 0} className="h-2" />
                   </div>
-                  <Progress value={compatibilityFactors.goalAlignment} className="h-2" />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Skills Complementarity</span>
-                    <span className="text-sm text-gray-600">{compatibilityFactors.skillsComplementarity}%</span>
+                  
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">Skills Complementarity</span>
+                      <span className="text-sm text-gray-600">{compatibilityFactors.skillsComplementarity || 0}%</span>
+                    </div>
+                    <Progress value={compatibilityFactors.skillsComplementarity || 0} className="h-2" />
                   </div>
-                  <Progress value={compatibilityFactors.skillsComplementarity} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Collaboration Potential */}
             <Card className="bg-white border border-gray-200">
@@ -255,7 +261,10 @@ export default function MatchAnalysis() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700 leading-relaxed">{collaborationPotential}</p>
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {typeof collaborationPotential === 'string' ? collaborationPotential : 
+                   'Collaboration opportunities are being analyzed...'}
+                </div>
               </CardContent>
             </Card>
           </div>
