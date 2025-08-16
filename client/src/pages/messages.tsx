@@ -291,6 +291,7 @@ export default function Messages() {
 
   // Handle starting a new conversation
   const handleStartConversation = (user: User) => {
+    console.log('Starting conversation with:', user);
     setSelectedUser(user);
     setShowNewMessageDialog(false);
     setNewMessageSearch("");
@@ -357,7 +358,7 @@ export default function Messages() {
                         otherUser={selectedUser}
                         messages={selectedConversation || []}
                         onSendMessage={handleSendMessage}
-                        matchId={matches?.find((m: any) => m.matchedUserId === selectedUser.id)?.id}
+                        matchId={matches?.find((m: any) => m.matchedUser?.id === selectedUser.id)?.id}
                       />
                     </div>
                   </div>
@@ -509,7 +510,7 @@ export default function Messages() {
                       otherUser={selectedUser}
                       messages={selectedConversation || []}
                       onSendMessage={handleSendMessage}
-                      matchId={matches?.find((m: any) => m.matchedUserId === selectedUser.id)?.id}
+                      matchId={matches?.find((m: any) => m.matchedUser?.id === selectedUser.id)?.id}
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full bg-gray-50">

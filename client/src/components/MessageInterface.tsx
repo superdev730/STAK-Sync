@@ -132,6 +132,13 @@ export default function MessageInterface({
 
   useEffect(() => {
     scrollToBottom();
+    // Debug logging
+    console.log('MessageInterface render:', { 
+      currentUser: currentUser?.firstName, 
+      otherUser: otherUser?.firstName, 
+      messagesCount: messages.length,
+      matchId 
+    });
     // Generate quick responses when new messages arrive and the last message is not from current user
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
@@ -139,7 +146,7 @@ export default function MessageInterface({
         generateQuickResponses();
       }
     }
-  }, [messages]);
+  }, [messages, currentUser, otherUser, matchId]);
 
   const generateQuickResponses = async () => {
     if (loadingResponses) return;
