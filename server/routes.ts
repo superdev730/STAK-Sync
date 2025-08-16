@@ -531,55 +531,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Profile update endpoint
+  // Simplified profile update endpoint
   app.put('/api/profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
+        console.log('Authentication failed: No user ID found');
         return res.status(401).json({ message: "User not authenticated" });
       }
 
-      const profileData = req.body;
+      const updates = req.body;
       
-      console.log('Profile update request:', { userId, field: Object.keys(profileData), data: profileData });
+      console.log('=== PROFILE UPDATE REQUEST ===');
+      console.log('User ID:', userId);
+      console.log('Updates:', JSON.stringify(updates, null, 2));
       
-      // Handle special cases for composite fields
-      if (profileData.names) {
-        const { firstName, lastName } = profileData.names;
-        delete profileData.names;
-        profileData.firstName = firstName;
-        profileData.lastName = lastName;
-      }
-      
-      if (profileData.jobInfo) {
-        const { position, company } = profileData.jobInfo;
-        delete profileData.jobInfo;
-        profileData.position = position;
-        profileData.company = company;
+      // Validate updates object
+      if (!updates || typeof updates !== 'object') {
+        console.log('Invalid updates object:', updates);
+        return res.status(400).json({ message: "Invalid update data" });
       }
 
-      // Map frontend field names to backend field names
-      if (profileData.position !== undefined) {
-        profileData.title = profileData.position;
-        delete profileData.position;
-      }
-
-      // Clean the data but preserve empty strings as they might be valid updates
-      const cleanedData = Object.fromEntries(
-        Object.entries(profileData).filter(([key, value]) => {
-          // Always preserve arrays
-          if (Array.isArray(value)) return true;
-          // Only filter out undefined and null, but keep empty strings
-          return value !== undefined && value !== null;
-        })
-      );
-
-      console.log('Cleaned profile data:', cleanedData);
-
-      // Update the user profile
-      const updatedUser = await storage.updateUser(userId, cleanedData);
+      // Update the user profile directly
+      const updatedUser = await storage.updateUser(userId, updates);
       
-      console.log('Profile updated successfully for user:', userId);
+      console.log('Profile updated successfully:', {
+        userId,
+        updatedFields: Object.keys(updates),
+        newData: updatedUser
+      });
       
       res.json({ 
         success: true, 
@@ -587,7 +567,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Profile updated successfully" 
       });
     } catch (error: unknown) {
-      console.error("Error updating profile:", error);
+      console.error('=== PROFILE UPDATE ERROR ===');
+      console.error('Error details:', error);
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+      
       res.status(500).json({ 
         message: "Failed to update profile",
         error: error instanceof Error ? error.message : "Unknown error" 

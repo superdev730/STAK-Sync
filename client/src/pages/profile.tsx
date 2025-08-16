@@ -85,17 +85,26 @@ export default function Profile() {
     enabled: !!currentUser,
   });
 
-  // Update profile mutation with debugging
+  // Simplified update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (updates: Partial<UserProfile>) => {
-      console.log('Updating profile with:', updates);
+      console.log('=== FRONTEND UPDATE REQUEST ===');
+      console.log('Sending updates:', updates);
+      
       const response = await apiRequest("PUT", "/api/profile", updates);
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('API request failed:', response.status, errorData);
+        throw new Error(`Update failed: ${response.status} ${errorData}`);
+      }
+      
       const result = await response.json();
-      console.log('Profile update response:', result);
+      console.log('=== FRONTEND UPDATE SUCCESS ===');
+      console.log('Response:', result);
       return result;
     },
     onSuccess: (data, variables) => {
-      console.log('Profile update successful:', { data, variables });
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       toast({
         title: "Profile Updated",
@@ -103,9 +112,12 @@ export default function Profile() {
       });
     },
     onError: (error: any, variables) => {
-      console.error('Profile update failed:', { error, variables });
+      console.error('=== FRONTEND UPDATE ERROR ===');
+      console.error('Error:', error);
+      console.error('Variables:', variables);
+      
       toast({
-        title: "Update Failed",
+        title: "Update Failed", 
         description: error.message || "Failed to update profile. Please try again.",
         variant: "destructive",
       });
