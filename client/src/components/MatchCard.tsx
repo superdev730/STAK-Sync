@@ -222,7 +222,14 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
         {/* Action Buttons */}
         <div className="flex space-x-2 pt-2">
           <Button
-            onClick={() => onConnect(match.id)}
+            onClick={() => {
+              console.log('MatchCard Connect clicked:', { 
+                matchId: match.id, 
+                matchedUser: `${match.matchedUser.firstName} ${match.matchedUser.lastName}`,
+                userId: match.matchedUser.id 
+              });
+              onConnect(match.id);
+            }}
             className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium text-sm"
             size={window.innerWidth < 640 ? "sm" : "default"}
           >

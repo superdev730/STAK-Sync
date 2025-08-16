@@ -82,6 +82,19 @@ export default function Messages() {
     enabled: !!selectedUser,
   });
 
+  // Debug logging for conversation state
+  useEffect(() => {
+    console.log('Messages page debug state:', {
+      selectedUser: selectedUser ? `${selectedUser.firstName} ${selectedUser.lastName}` : null,
+      selectedUserId: selectedUser?.id,
+      conversationsCount: conversations?.length || 0,
+      selectedConversationCount: selectedConversation?.length || 0,
+      matchesCount: matches?.length || 0,
+      showMobileChat,
+      currentUser: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : null
+    });
+  }, [selectedUser, conversations, selectedConversation, matches, showMobileChat, currentUser]);
+
   // WebSocket for real-time messages
   useWebSocket({
     onMessage: (data) => {
@@ -586,7 +599,14 @@ export default function Messages() {
                   <div
                     key={match.id}
                     className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => handleStartConversation(match.matchedUser)}
+                    onClick={() => {
+                      console.log('New message dialog - selecting user:', {
+                        matchId: match.id,
+                        matchedUser: `${match.matchedUser.firstName} ${match.matchedUser.lastName}`,
+                        userId: match.matchedUser.id
+                      });
+                      handleStartConversation(match.matchedUser);
+                    }}
                   >
                     <div className="flex items-center space-x-3">
                       <Avatar className="w-12 h-12">

@@ -27,6 +27,7 @@ export default function Discover() {
   });
 
   const handleConnect = async (matchId: string, matchedUser: User) => {
+    console.log('Connecting to user:', { matchId, matchedUser: `${matchedUser.firstName} ${matchedUser.lastName}`, userId: matchedUser.id });
     try {
       await apiRequest(`/api/matches/${matchId}/status`, "POST", { status: "connected" });
       toast({
@@ -35,8 +36,10 @@ export default function Discover() {
       });
       refetch();
       // Navigate to messages with the connected user
+      console.log('Navigating to messages with userId:', matchedUser.id);
       setLocation(`/messages?userId=${matchedUser.id}`);
     } catch (error) {
+      console.error('Connection error:', error);
       toast({
         title: "Error",
         description: "Failed to send connection request",
