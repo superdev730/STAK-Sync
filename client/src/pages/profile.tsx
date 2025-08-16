@@ -81,6 +81,8 @@ export default function Profile() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [editingBio, setEditingBio] = useState<string | undefined>(undefined);
+  const [editingGoal, setEditingGoal] = useState<string | undefined>(undefined);
 
   // Profile data query
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
@@ -168,7 +170,8 @@ export default function Profile() {
     mutationFn: async ({ sources, prompt }: { sources: SocialSource[], prompt?: string }) => {
       const cleanSources = sources.map(s => ({ platform: s.platform, url: s.url }));
       
-      const response = await apiRequest("POST", "/api/profile/ai/build-complete", {
+      // Fixed: apiRequest expects (url, method, data) not (method, url, data)
+      const response = await apiRequest("/api/profile/ai/build-complete", "POST", {
         socialSources: cleanSources,
         additionalContext: prompt,
         currentProfile: {
@@ -204,7 +207,8 @@ export default function Profile() {
   // Photo upload mutation
   const uploadPhotoMutation = useMutation({
     mutationFn: async (base64Image: string) => {
-      const response = await apiRequest("PUT", "/api/profile", { profileImageUrl: base64Image });
+      // Fixed: apiRequest expects (url, method, data) not (method, url, data)
+      const response = await apiRequest("/api/profile", "PUT", { profileImageUrl: base64Image });
       return response.json();
     },
     onSuccess: () => {
@@ -657,13 +661,22 @@ export default function Profile() {
               </CardHeader>
               <CardContent>
                 {isOwnProfile ? (
-                  <Textarea
-                    value={profile?.bio || ''}
-                    onChange={(e) => updateProfileMutation.mutate({ bio: e.target.value })}
-                    placeholder="Tell others about yourself, your experience, and what you're passionate about..."
-                    className="min-h-[120px] border-none shadow-none p-0 bg-transparent focus-visible:ring-0 resize-none"
-                    data-testid="textarea-bio"
-                  />
+                  <div className="space-y-2">
+                    <Textarea
+                      value={editingBio ?? (profile?.bio || '')}
+                      onChange={(e) => setEditingBio(e.target.value)}
+                      onBlur={() => {
+                        if (editingBio !== undefined && editingBio !== profile?.bio) {
+                          updateProfileMutation.mutate({ bio: editingBio });
+                        }
+                        setEditingBio(undefined);
+                      }}
+                      placeholder="Tell others about yourself, your experience, and what you're passionate about..."
+                      className="min-h-[120px]"
+                      data-testid="textarea-bio"
+                    />
+                    <p className="text-xs text-gray-500">Click outside or press Tab to save changes</p>
+                  </div>
                 ) : (
                   <p className="text-gray-700 leading-relaxed">
                     {profile?.bio || "No bio provided."}
@@ -682,13 +695,22 @@ export default function Profile() {
               </CardHeader>
               <CardContent>
                 {isOwnProfile ? (
-                  <Textarea
-                    value={profile?.networkingGoal || ''}
-                    onChange={(e) => updateProfileMutation.mutate({ networkingGoal: e.target.value })}
-                    placeholder="What are you looking to achieve through networking? Who would you like to meet?"
-                    className="min-h-[100px] border-none shadow-none p-0 bg-transparent focus-visible:ring-0 resize-none"
-                    data-testid="textarea-networking-goals"
-                  />
+                  <div className="space-y-2">
+                    <Textarea
+                      value={editingGoal ?? (profile?.networkingGoal || '')}
+                      onChange={(e) => setEditingGoal(e.target.value)}
+                      onBlur={() => {
+                        if (editingGoal !== undefined && editingGoal !== profile?.networkingGoal) {
+                          updateProfileMutation.mutate({ networkingGoal: editingGoal });
+                        }
+                        setEditingGoal(undefined);
+                      }}
+                      placeholder="What are you looking to achieve through networking? Who would you like to meet?"
+                      className="min-h-[100px]"
+                      data-testid="textarea-networking-goals"
+                    />
+                    <p className="text-xs text-gray-500">Click outside or press Tab to save changes</p>
+                  </div>
                 ) : (
                   <p className="text-gray-700 leading-relaxed">
                     {profile?.networkingGoal || "No networking goals specified."}

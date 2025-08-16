@@ -200,23 +200,26 @@ export default function OnboardingWizard({ isOpen, onClose, profile }: Onboardin
     if (!newSocialUrl.trim()) return;
 
     // Enhanced URL parsing with automatic platform detection
-    const url = newSocialUrl.trim().toLowerCase();
+    const input = newSocialUrl.trim();
+    const url = input.toLowerCase();
     let platform = 'Website';
-    let cleanUrl = newSocialUrl.trim();
+    let cleanUrl = input;
     
-    // Auto-detect and clean URLs
-    if (url.includes('linkedin.com') || url.includes('linkedin')) {
+    // Auto-detect and clean URLs - check @ handle FIRST
+    if (input.startsWith('@')) {
+      // Twitter/X handle
+      platform = 'Twitter';
+      cleanUrl = `https://x.com/${input.substring(1)}`;
+    } else if (url.includes('linkedin.com') || url.includes('linkedin')) {
       platform = 'LinkedIn';
       // Ensure proper LinkedIn URL format
       if (!cleanUrl.startsWith('http')) {
         cleanUrl = `https://linkedin.com/in/${cleanUrl.replace(/.*\/in\//, '')}`;
       }
-    } else if (url.includes('twitter.com') || url.includes('x.com') || url.includes('@')) {
+    } else if (url.includes('twitter.com') || url.includes('x.com')) {
       platform = 'Twitter';
-      // Handle Twitter/X URLs and @handles
-      if (cleanUrl.startsWith('@')) {
-        cleanUrl = `https://x.com/${cleanUrl.substring(1)}`;
-      } else if (!cleanUrl.startsWith('http')) {
+      // Handle Twitter/X URLs
+      if (!cleanUrl.startsWith('http')) {
         cleanUrl = `https://x.com/${cleanUrl}`;
       }
     } else if (url.includes('github.com') || url.includes('github')) {
