@@ -83,6 +83,7 @@ export default function Profile() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [editingBio, setEditingBio] = useState<string | undefined>(undefined);
   const [editingGoal, setEditingGoal] = useState<string | undefined>(undefined);
+  const [networkingGoalSuggestions, setNetworkingGoalSuggestions] = useState<string[]>([]);
 
   // Profile data query
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
@@ -186,8 +187,16 @@ export default function Profile() {
     },
     onSuccess: (data) => {
       if (data.profile) {
+        // Store networking goal suggestions if provided
+        if (data.profile.networkingGoalSuggestions) {
+          setNetworkingGoalSuggestions(data.profile.networkingGoalSuggestions);
+        }
+        
+        // Remove suggestions from the profile data before updating
+        const { networkingGoalSuggestions, ...profileData } = data.profile;
+        
         // Update profile with AI-generated data
-        updateProfileMutation.mutate(data.profile);
+        updateProfileMutation.mutate(profileData);
         setActiveStep('preview');
         toast({
           title: "Profile Built Successfully",
@@ -695,7 +704,37 @@ export default function Profile() {
               </CardHeader>
               <CardContent>
                 {isOwnProfile ? (
-                  <div className="space-y-2">
+                  <div className="space-y-4">
+                    {/* Show networking goal suggestions if available */}
+                    {networkingGoalSuggestions.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-stak-copper">Quick suggestions based on your role:</p>
+                        <div className="space-y-2">
+                          {networkingGoalSuggestions.slice(0, 3).map((suggestion, index) => (
+                            <Button
+                              key={index}
+                              variant="outline"
+                              size="sm"
+                              className="text-left h-auto py-2 px-3 whitespace-normal w-full hover:bg-stak-copper/10 hover:border-stak-copper"
+                              onClick={() => {
+                                setEditingGoal(suggestion);
+                                updateProfileMutation.mutate({ networkingGoal: suggestion });
+                                setNetworkingGoalSuggestions([]);
+                                toast({
+                                  title: "Networking Goal Updated",
+                                  description: "Your networking goal has been set.",
+                                });
+                              }}
+                            >
+                              {suggestion}
+                            </Button>
+                          ))}
+                        </div>
+                        <Separator className="my-2" />
+                        <p className="text-xs text-muted-foreground">Or write your own:</p>
+                      </div>
+                    )}
+                    
                     <Textarea
                       value={editingGoal ?? (profile?.networkingGoal || '')}
                       onChange={(e) => setEditingGoal(e.target.value)}
