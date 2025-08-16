@@ -18,6 +18,10 @@ export default function Messages() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  
+  // Get userId from URL parameters
+  const searchParams = new URLSearchParams(window.location.search);
+  const userIdFromUrl = searchParams.get('userId');
 
   const { data: conversations, isLoading } = useQuery<(Message & { sender: User; receiver: User })[]>({
     queryKey: ["/api/conversations"],
@@ -26,6 +30,26 @@ export default function Messages() {
   const { data: matches } = useQuery<any[]>({
     queryKey: ["/api/matches"],
   });
+
+  // Handle user selection from URL
+  useEffect(() => {
+    if (userIdFromUrl && matches) {
+      // Find the user from matches
+      const matchedUser = matches.find(m => m.matchedUser?.id === userIdFromUrl)?.matchedUser;
+      if (matchedUser) {
+        setSelectedUser(matchedUser);
+      } else {
+        // Try to find user from conversations if not in matches
+        const conversationUser = conversations?.find(c => 
+          c.sender.id === userIdFromUrl || c.receiver.id === userIdFromUrl
+        );
+        if (conversationUser) {
+          const user = conversationUser.sender.id === userIdFromUrl ? conversationUser.sender : conversationUser.receiver;
+          setSelectedUser(user);
+        }
+      }
+    }
+  }, [userIdFromUrl, matches, conversations]);
 
   // Initialize demo messages on first load
   useEffect(() => {

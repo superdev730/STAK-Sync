@@ -8,6 +8,7 @@ import { RefreshCw, Sliders, Brain, Zap, Users } from "lucide-react";
 import { MatchCard } from "@/components/MatchCard";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import type { Match, User } from "@shared/schema";
 
 export default function Discover() {
@@ -19,12 +20,13 @@ export default function Discover() {
   });
 
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const { data: matches, isLoading, refetch } = useQuery<(Match & { matchedUser: User })[]>({
     queryKey: ["/api/matches"],
   });
 
-  const handleConnect = async (matchId: string) => {
+  const handleConnect = async (matchId: string, matchedUser: User) => {
     try {
       await apiRequest(`/api/matches/${matchId}/status`, "POST", { status: "connected" });
       toast({
@@ -32,6 +34,8 @@ export default function Discover() {
         description: "Your connection request has been sent successfully.",
       });
       refetch();
+      // Navigate to messages with the connected user
+      setLocation(`/messages?userId=${matchedUser.id}`);
     } catch (error) {
       toast({
         title: "Error",
@@ -190,7 +194,7 @@ export default function Discover() {
                       collaborationPotential: match.collaborationPotential || '',
                       meetingSuggestions: match.meetingSuggestions as any
                     }}
-                    onConnect={handleConnect}
+                    onConnect={(matchId) => handleConnect(matchId, match.matchedUser)}
                     onPass={handlePass}
                   />
                 ))
