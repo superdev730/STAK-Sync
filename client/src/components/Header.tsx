@@ -42,7 +42,6 @@ export default function Header() {
   const totalNotifications = unreadMessages;
 
   const navigation = [
-    { name: "Home", href: "/landing" },
     { name: "Dashboard", href: "/" },
     { name: "Discover", href: "/discover" },
     { 
@@ -69,7 +68,7 @@ export default function Header() {
       <header className="bg-stak-black border-b border-stak-gray sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/landing">
+            <Link href="/">
               <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer">
                 <img src="/api/logo" alt="STAK" className="h-7 w-7 sm:h-8 sm:w-8" />
                 <h1 className="text-lg sm:text-2xl font-bold text-stak-white">STAK Sync</h1>
@@ -90,7 +89,7 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 sm:space-x-8">
-              <Link href="/landing">
+              <Link href="/">
                 <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer">
                   <img src="/api/logo" alt="STAK" className="h-7 w-7 sm:h-8 sm:w-8" />
                   <h1 className="text-xl sm:text-2xl font-bold text-stak-white">STAK Sync</h1>

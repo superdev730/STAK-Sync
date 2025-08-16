@@ -25,18 +25,18 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-7xl font-bold mb-6">
-              Welcome to <span className="text-stak-copper">STAK Sync</span>
+              Welcome back, <span className="text-stak-copper">{user?.firstName}</span>
             </h1>
             <p className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed">
-              The world's most intelligent professional networking platform connecting venture capitalists, 
-              startup founders, and industry leaders through AI-powered matching and live event experiences.
+              Your professional networking dashboard - Discover new connections, manage conversations, 
+              and stay updated on the latest STAK ecosystem events.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
               <Button asChild size="lg" className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-bold px-10 py-4 text-lg rounded-xl">
-                <Link href="/discover">Join STAK Now</Link>
+                <Link href="/discover">Find New Matches</Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="border-2 border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black px-10 py-4 text-lg rounded-xl">
-                <Link href="/events">View Live Events</Link>
+                <Link href="/messages">View Messages</Link>
               </Button>
             </div>
             
