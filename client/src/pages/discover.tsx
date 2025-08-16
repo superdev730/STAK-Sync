@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Sliders, Brain, Zap } from "lucide-react";
+import { RefreshCw, Sliders, Brain, Zap, Users } from "lucide-react";
 import { MatchCard } from "@/components/MatchCard";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -152,16 +152,25 @@ export default function Discover() {
                 <div className="text-center py-12">
                   <div className="text-stak-light-gray text-lg mb-4">No AI matches available yet</div>
                   <div className="space-y-2 mb-6">
-                    <p className="text-sm text-stak-light-gray">First create demo members, then generate AI-powered matches</p>
+                    <p className="text-sm text-stak-light-gray">Click the button below to generate AI-powered matches based on your profile</p>
                   </div>
-                  <div className="space-x-2">
-                    <Button onClick={seedUsers} variant="outline" className="border-stak-copper text-stak-copper">
-                      <Users className="w-4 h-4 mr-2" />
-                      Create Demo Members
-                    </Button>
-                    <Button onClick={generateMatches} className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
-                      <Brain className="w-4 h-4 mr-2" />
-                      Generate AI Matches
+                  <div className="flex justify-center">
+                    <Button 
+                      onClick={generateMatches} 
+                      disabled={generateMatchesMutation.isPending}
+                      className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                    >
+                      {generateMatchesMutation.isPending ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Brain className="w-4 h-4 mr-2" />
+                          Generate AI Matches
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
