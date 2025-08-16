@@ -134,7 +134,7 @@ export default function OnboardingWizard({ isOpen, onClose, profile }: Onboardin
     },
   });
 
-  // AI Profile building mutation
+  // AI Profile building mutation with automatic URL parsing
   const buildProfileMutation = useMutation({
     mutationFn: async ({ sources, context }: { sources: SocialSource[], context?: string }) => {
       const cleanSources = sources.map(s => ({ platform: s.platform, url: s.url }));
@@ -160,7 +160,25 @@ export default function OnboardingWizard({ isOpen, onClose, profile }: Onboardin
     },
     onSuccess: (data) => {
       if (data.profile) {
-        setProfileData(prev => ({ ...prev, ...data.profile }));
+        // Auto-populate all profile fields from AI analysis
+        const aiProfile = data.profile;
+        setProfileData(prev => ({
+          ...prev,
+          firstName: aiProfile.firstName || prev.firstName,
+          lastName: aiProfile.lastName || prev.lastName,
+          title: aiProfile.title || prev.title,
+          company: aiProfile.company || prev.company,
+          location: aiProfile.location || prev.location,
+          bio: aiProfile.bio || prev.bio,
+          networkingGoal: aiProfile.networkingGoal || prev.networkingGoal,
+          linkedinUrl: aiProfile.linkedinUrl || prev.linkedinUrl,
+          twitterUrl: aiProfile.twitterUrl || prev.twitterUrl,
+          githubUrl: aiProfile.githubUrl || prev.githubUrl,
+          websiteUrls: aiProfile.websiteUrls || prev.websiteUrls,
+          skills: aiProfile.skills || prev.skills,
+          industries: aiProfile.industries || prev.industries,
+        }));
+        
         toast({
           title: "AI Profile Built",
           description: "Your profile has been enhanced with AI-generated content.",
@@ -181,14 +199,40 @@ export default function OnboardingWizard({ isOpen, onClose, profile }: Onboardin
   const addSocialSource = () => {
     if (!newSocialUrl.trim()) return;
 
+    // Enhanced URL parsing with automatic platform detection
+    const url = newSocialUrl.trim().toLowerCase();
     let platform = 'Website';
-    if (newSocialUrl.includes('linkedin.com')) platform = 'LinkedIn';
-    else if (newSocialUrl.includes('twitter.com') || newSocialUrl.includes('x.com')) platform = 'Twitter';
-    else if (newSocialUrl.includes('github.com')) platform = 'GitHub';
+    let cleanUrl = newSocialUrl.trim();
+    
+    // Auto-detect and clean URLs
+    if (url.includes('linkedin.com') || url.includes('linkedin')) {
+      platform = 'LinkedIn';
+      // Ensure proper LinkedIn URL format
+      if (!cleanUrl.startsWith('http')) {
+        cleanUrl = `https://linkedin.com/in/${cleanUrl.replace(/.*\/in\//, '')}`;
+      }
+    } else if (url.includes('twitter.com') || url.includes('x.com') || url.includes('@')) {
+      platform = 'Twitter';
+      // Handle Twitter/X URLs and @handles
+      if (cleanUrl.startsWith('@')) {
+        cleanUrl = `https://x.com/${cleanUrl.substring(1)}`;
+      } else if (!cleanUrl.startsWith('http')) {
+        cleanUrl = `https://x.com/${cleanUrl}`;
+      }
+    } else if (url.includes('github.com') || url.includes('github')) {
+      platform = 'GitHub';
+      // Ensure proper GitHub URL format
+      if (!cleanUrl.startsWith('http')) {
+        cleanUrl = `https://github.com/${cleanUrl.replace(/.*github\.com\//, '')}`;
+      }
+    } else if (!cleanUrl.startsWith('http')) {
+      // Add https:// to any website URL without protocol
+      cleanUrl = `https://${cleanUrl}`;
+    }
 
     const newSource: SocialSource = {
       platform,
-      url: newSocialUrl.trim(),
+      url: cleanUrl,
       isValid: true,
       isAnalyzing: false,
       hasData: false
@@ -201,19 +245,25 @@ export default function OnboardingWizard({ isOpen, onClose, profile }: Onboardin
     const updates: Partial<UserProfile> = {};
     switch (platform) {
       case 'LinkedIn':
-        updates.linkedinUrl = newSocialUrl.trim();
+        updates.linkedinUrl = cleanUrl;
         break;
       case 'Twitter':
-        updates.twitterUrl = newSocialUrl.trim();
+        updates.twitterUrl = cleanUrl;
         break;
       case 'GitHub':
-        updates.githubUrl = newSocialUrl.trim();
+        updates.githubUrl = cleanUrl;
         break;
       default:
-        updates.websiteUrls = [...(profileData.websiteUrls || []), newSocialUrl.trim()];
+        updates.websiteUrls = [...(profileData.websiteUrls || []), cleanUrl];
     }
     
     setProfileData(prev => ({ ...prev, ...updates }));
+    
+    // Show helpful toast
+    toast({
+      title: `${platform} Added`,
+      description: `Added ${platform} profile for AI analysis`,
+    });
   };
 
   const removeSocialSource = (index: number) => {
@@ -403,12 +453,28 @@ export default function OnboardingWizard({ isOpen, onClose, profile }: Onboardin
                 <Input
                   value={newSocialUrl}
                   onChange={(e) => setNewSocialUrl(e.target.value)}
-                  placeholder="https://linkedin.com/in/yourname"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addSocialSource();
+                    }
+                  }}
+                  placeholder="Paste any URL or username (e.g. linkedin.com/in/yourname, @twitter, github/username)"
                   className="flex-grow"
                 />
                 <Button onClick={addSocialSource} size="sm">
                   <Plus className="h-4 w-4" />
                 </Button>
+              </div>
+              
+              <div className="text-xs text-gray-500 mt-1">
+                <p>You can paste:</p>
+                <ul className="ml-4 space-y-1">
+                  <li>• Full URLs: https://linkedin.com/in/yourname</li>
+                  <li>• Partial URLs: linkedin.com/in/yourname</li>
+                  <li>• Social handles: @yourhandle</li>
+                  <li>• Just usernames: We'll auto-detect the platform</li>
+                </ul>
               </div>
 
               {socialSources.length > 0 && (

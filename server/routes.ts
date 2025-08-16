@@ -531,57 +531,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Fixed profile update endpoint with detailed logging
-  app.put('/api/profile', async (req: any, res) => {
+  // Fixed profile update endpoint with authentication
+  app.put('/api/profile', isAuthenticated, async (req: any, res) => {
     console.log('=== PROFILE UPDATE ENDPOINT HIT ===');
-    console.log('Request method:', req.method);
-    console.log('Request URL:', req.url);
     console.log('Request body:', req.body);
     
     try {
-      // Check authentication manually with detailed logging
-      if (!req.isAuthenticated || !req.isAuthenticated()) {
-        console.log('Authentication failed: User not authenticated');
-        console.log('Session ID:', req.sessionID);
-        console.log('Has user:', !!req.user);
-        return res.status(401).json({ message: "User not authenticated" });
-      }
-
       const userId = req.user?.claims?.sub;
       if (!userId) {
-        console.log('Authentication failed: No user ID found');
+        console.log('No user ID found in claims');
         return res.status(401).json({ message: "User not authenticated" });
       }
 
       const updates = req.body;
       
-      console.log('=== PROFILE UPDATE REQUEST ===');
-      console.log('User ID:', userId);
-      console.log('Updates:', JSON.stringify(updates, null, 2));
+      // Map frontend field names to database field names
+      const mappedUpdates: any = {};
+      
+      if (updates.firstName !== undefined) mappedUpdates.first_name = updates.firstName;
+      if (updates.lastName !== undefined) mappedUpdates.last_name = updates.lastName;
+      if (updates.title !== undefined) mappedUpdates.title = updates.title;
+      if (updates.company !== undefined) mappedUpdates.company = updates.company;
+      if (updates.location !== undefined) mappedUpdates.location = updates.location;
+      if (updates.bio !== undefined) mappedUpdates.bio = updates.bio;
+      if (updates.networkingGoal !== undefined) mappedUpdates.networking_goal = updates.networkingGoal;
+      if (updates.linkedinUrl !== undefined) mappedUpdates.linkedin_url = updates.linkedinUrl;
+      if (updates.twitterUrl !== undefined) mappedUpdates.twitter_url = updates.twitterUrl;
+      if (updates.githubUrl !== undefined) mappedUpdates.github_url = updates.githubUrl;
+      if (updates.websiteUrls !== undefined) mappedUpdates.website_urls = updates.websiteUrls;
+      if (updates.skills !== undefined) mappedUpdates.skills = updates.skills;
+      if (updates.industries !== undefined) mappedUpdates.industries = updates.industries;
+      if (updates.profileImageUrl !== undefined) mappedUpdates.profile_image_url = updates.profileImageUrl;
+      
+      console.log('Mapped updates for database:', mappedUpdates);
       
       // Validate updates object
-      if (!updates || typeof updates !== 'object') {
-        console.log('Invalid updates object:', updates);
-        return res.status(400).json({ message: "Invalid update data" });
+      if (!mappedUpdates || Object.keys(mappedUpdates).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
       }
 
-      // Update the user profile directly
-      const updatedUser = await storage.updateUser(userId, updates);
+      // Update the user profile
+      const updatedUser = await storage.updateUser(userId, mappedUpdates);
       
-      console.log('Profile updated successfully:', {
-        userId,
-        updatedFields: Object.keys(updates),
-      });
+      // Map database fields back to frontend format
+      const responseUser = {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.first_name,
+        lastName: updatedUser.last_name,
+        title: updatedUser.title,
+        company: updatedUser.company,
+        location: updatedUser.location,
+        bio: updatedUser.bio,
+        profileImageUrl: updatedUser.profile_image_url,
+        networkingGoal: updatedUser.networking_goal,
+        linkedinUrl: updatedUser.linkedin_url,
+        twitterUrl: updatedUser.twitter_url,
+        githubUrl: updatedUser.github_url,
+        websiteUrls: updatedUser.website_urls,
+        skills: updatedUser.skills,
+        industries: updatedUser.industries
+      };
+      
+      console.log('Profile updated successfully for user:', userId);
       
       res.json({ 
         success: true, 
-        user: updatedUser,
+        user: responseUser,
         message: "Profile updated successfully" 
       });
     } catch (error: unknown) {
       console.error('=== PROFILE UPDATE ERROR ===');
       console.error('Error details:', error);
-      console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
       
       res.status(500).json({ 
         message: "Failed to update profile",
