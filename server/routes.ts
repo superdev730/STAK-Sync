@@ -783,106 +783,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('AI Profile Build Request:', { userId, sourcesCount: socialSources?.length || 0 });
       
-      // Build comprehensive profile using AI and social media data
-      let generatedProfile: any = {
-        bio: '',
-        skills: [],
-        industries: [],
-        networkingGoal: ''
-      };
-
-      if (socialSources?.length > 0) {
-        // Generate bio based on available sources
-        let bioComponents = [];
-        
-        if (currentProfile?.firstName) {
-          bioComponents.push(`${currentProfile.firstName} is a`);
-          if (currentProfile.title) {
-            bioComponents.push(`${currentProfile.title.toLowerCase()}`);
-          } else {
-            bioComponents.push('professional');
-          }
-          if (currentProfile.company) {
-            bioComponents.push(`at ${currentProfile.company}`);
-          }
-        } else {
-          bioComponents.push('Experienced professional');
-        }
-
-        // Add context from social sources
-        const linkedinSource = socialSources.find((s: any) => s.platform === 'LinkedIn');
-        const githubSource = socialSources.find((s: any) => s.platform === 'GitHub');
-        const twitterSource = socialSources.find((s: any) => s.platform === 'Twitter');
-        
-        if (linkedinSource) {
-          bioComponents.push('with a strong LinkedIn presence showcasing extensive professional experience');
-          generatedProfile.skills.push('Professional Networking', 'LinkedIn Optimization', 'Industry Leadership');
-        }
-        
-        if (githubSource) {
-          bioComponents.push('and active open source contributions on GitHub');
-          generatedProfile.skills.push('Software Development', 'Open Source', 'Technical Leadership');
-          generatedProfile.industries.push('Technology', 'Software Development');
-        }
-        
-        if (twitterSource) {
-          bioComponents.push('who actively shares insights and engages with the professional community');
-          generatedProfile.skills.push('Content Creation', 'Thought Leadership', 'Social Media');
-        }
-
-        // Add additional context if provided
-        if (additionalContext && additionalContext.trim()) {
-          bioComponents.push(`. ${additionalContext.trim()}`);
-          
-          // Extract skills from context
-          const contextLower = additionalContext.toLowerCase();
-          if (contextLower.includes('funding') || contextLower.includes('investment')) {
-            generatedProfile.skills.push('Fundraising', 'Investment Strategy');
-            generatedProfile.industries.push('Venture Capital', 'Startups');
-          }
-          if (contextLower.includes('team') || contextLower.includes('hiring')) {
-            generatedProfile.skills.push('Team Building', 'Leadership', 'Hiring');
-          }
-        }
-
-        bioComponents.push('. Passionate about building meaningful professional connections and driving innovation through strategic partnerships.');
-        generatedProfile.bio = bioComponents.join(' ').replace(/\s+/g, ' ').trim();
-        
-        // Generate networking goals
-        generatedProfile.networkingGoal = 'Looking to connect with fellow industry leaders, potential collaborators, and innovative minds who share a passion for driving meaningful change. Interested in exploring strategic partnerships, mentorship opportunities, and knowledge sharing within the professional community.';
-
-        // Ensure unique skills and industries
-        generatedProfile.skills = [...new Set(generatedProfile.skills)];
-        generatedProfile.industries = [...new Set(generatedProfile.industries)];
-      } else if (additionalContext) {
-        // Generate profile from context only
-        generatedProfile.bio = `${currentProfile?.firstName || 'Professional'} brings ${additionalContext.trim()}. Passionate about leveraging expertise to drive innovation and build meaningful professional relationships.`;
-        generatedProfile.networkingGoal = 'Looking to connect with professionals who share similar interests and explore opportunities for collaboration and growth.';
-        generatedProfile.skills = ['Professional Development', 'Strategic Thinking'];
-      }
-
-      // Update the user's social URLs if provided
-      socialSources?.forEach((source: any) => {
-        switch (source.platform) {
-          case 'LinkedIn':
-            generatedProfile.linkedinUrl = source.url;
-            break;
-          case 'Twitter':
-            generatedProfile.twitterUrl = source.url;
-            break;
-          case 'GitHub':
-            generatedProfile.githubUrl = source.url;
-            break;
-          default:
-            if (!generatedProfile.websiteUrls) generatedProfile.websiteUrls = [];
-            generatedProfile.websiteUrls.push(source.url);
-        }
+      // Use the new AI Profile Builder module
+      const { aiProfileBuilder } = await import('./aiProfileBuilder');
+      const generatedProfile = await aiProfileBuilder.buildProfile(
+        socialSources || [],
+        additionalContext || '',
+        currentProfile || {}
+      );
+      
+      console.log('AI Profile Generated:', {
+        bioLength: generatedProfile.bio?.length,
+        skillsCount: generatedProfile.skills?.length,
+        industriesCount: generatedProfile.industries?.length
       });
       
       res.json({
         success: true,
         profile: generatedProfile,
-        message: "Profile built successfully with AI assistance"
+        message: "Profile built successfully with advanced AI assistance"
       });
       
     } catch (error: unknown) {
