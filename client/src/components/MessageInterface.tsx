@@ -202,9 +202,9 @@ export default function MessageInterface({
   };
 
   return (
-    <div className="flex flex-col h-[600px]">
+    <div className="flex flex-col h-full lg:h-[600px]">
       {/* Chat Header */}
-      <div className="p-6 border-b border-gray-200 bg-white">
+      <div className="p-4 lg:p-6 border-b border-gray-200 bg-white">
         <div className="flex items-start space-x-4">
           <Avatar 
             className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
@@ -271,7 +271,7 @@ export default function MessageInterface({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
+      <div className="flex-1 p-3 lg:p-4 overflow-y-auto space-y-4 bg-gray-50">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
             Start your conversation with {otherUser.firstName}
@@ -295,7 +295,7 @@ export default function MessageInterface({
                   </Avatar>
                 )}
                 <div
-                  className={`max-w-xs p-4 rounded-2xl ${
+                  className={`max-w-[70%] lg:max-w-xs p-3 lg:p-4 rounded-2xl ${
                     isOwnMessage
                       ? 'bg-stak-copper text-white rounded-tr-sm shadow-sm'
                       : 'bg-white text-gray-900 rounded-tl-sm shadow-sm border border-gray-200'
@@ -320,7 +320,7 @@ export default function MessageInterface({
 
       {/* Quick Responses - LinkedIn Style */}
       {showQuickResponses && quickResponses.length > 0 && (
-        <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+        <div className="px-3 lg:px-4 py-2 lg:py-3 border-t border-gray-200 bg-gray-50">
           <div className="flex flex-wrap gap-2">
             {quickResponses.map((response) => (
               <button
@@ -336,8 +336,8 @@ export default function MessageInterface({
       )}
 
       {/* Message Input */}
-      <div className="p-4 border-t border-gray-200 bg-white">
-        <div className="flex items-center space-x-3">
+      <div className="p-3 lg:p-4 border-t border-gray-200 bg-white">
+        <div className="flex items-center space-x-2 lg:space-x-3">
           <Input
             value={newMessage}
             onChange={(e) => {

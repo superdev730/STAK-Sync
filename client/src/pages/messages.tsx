@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MessageSquare, Search, Plus, Users, Filter } from "lucide-react";
+import { MessageSquare, Search, Plus, Users, Filter, ArrowLeft, Menu } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import MessageInterface from "@/components/MessageInterface";
@@ -26,6 +26,7 @@ export default function Messages() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewMessageDialog, setShowNewMessageDialog] = useState(false);
   const [newMessageSearch, setNewMessageSearch] = useState("");
+  const [showMobileChat, setShowMobileChat] = useState(false);
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -293,35 +294,82 @@ export default function Messages() {
     setSelectedUser(user);
     setShowNewMessageDialog(false);
     setNewMessageSearch("");
+    setShowMobileChat(true); // Show chat on mobile after selecting user
+  };
+
+  // Handle selecting a conversation
+  const handleSelectConversation = (user: User) => {
+    setSelectedUser(user);
+    setShowMobileChat(true); // Show chat on mobile
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-3 lg:p-6">
         {/* Header */}
-        <div className="bg-white border border-gray-200 rounded-lg p-8 mb-8 text-center shadow-sm">
-          <h1 className="text-4xl font-bold text-black mb-2">Professional Conversations</h1>
-          <p className="text-xl text-gray-600">Secure messaging platform designed for meaningful business connections</p>
+        <div className="bg-white border border-gray-200 rounded-lg p-4 lg:p-8 mb-4 lg:mb-8 text-center shadow-sm">
+          <h1 className="text-2xl lg:text-4xl font-bold text-black mb-2">Professional Conversations</h1>
+          <p className="text-base lg:text-xl text-gray-600 px-4 lg:px-0">Secure messaging platform designed for meaningful business connections</p>
         </div>
 
         {/* Messages Interface */}
         <Card className="bg-white border border-gray-200 shadow-sm overflow-hidden">
           <CardContent className="p-0">
-            <div className="grid lg:grid-cols-3 h-[700px]">
-              {/* Conversations List */}
-              <div className="border-r border-gray-200 bg-white">
-                <div className="p-4 border-b border-gray-200 bg-white">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-black text-lg">Messages</h3>
-                    <Button 
-                      size="sm"
-                      onClick={() => setShowNewMessageDialog(true)}
-                      className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      New
-                    </Button>
+            <div className="relative">
+              {/* Mobile Chat View - Shown when showMobileChat is true on mobile */}
+              <div className={`lg:hidden absolute inset-0 bg-white z-20 ${showMobileChat ? 'block' : 'hidden'}`}>
+                {selectedUser && currentUser && (
+                  <div className="flex flex-col h-[calc(100vh-250px)]">
+                    {/* Mobile Chat Header */}
+                    <div className="flex items-center p-4 border-b border-gray-200 bg-white">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowMobileChat(false)}
+                        className="mr-3"
+                      >
+                        <ArrowLeft className="w-5 h-5" />
+                      </Button>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">
+                          {selectedUser.firstName} {selectedUser.lastName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {selectedUser.title} at {selectedUser.company}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Mobile Message Interface */}
+                    <div className="flex-1 overflow-hidden">
+                      <MessageInterface
+                        currentUser={currentUser}
+                        otherUser={selectedUser}
+                        messages={selectedConversation || []}
+                        onSendMessage={handleSendMessage}
+                        matchId={matches?.find((m: any) => m.matchedUserId === selectedUser.id)?.id}
+                      />
+                    </div>
                   </div>
+                )}
+              </div>
+
+              {/* Desktop Grid / Mobile List */}
+              <div className="grid lg:grid-cols-3 lg:h-[700px]">
+                {/* Conversations List */}
+                <div className={`border-r border-gray-200 bg-white ${showMobileChat ? 'hidden lg:block' : 'block'}`}>
+                  <div className="p-4 border-b border-gray-200 bg-white">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-black text-lg">Messages</h3>
+                      <Button 
+                        size="sm"
+                        onClick={() => setShowNewMessageDialog(true)}
+                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                      >
+                        <Plus className="w-4 h-4 lg:mr-1" />
+                        <span className="hidden lg:inline">New</span>
+                      </Button>
+                    </div>
                   
                   {/* Search Bar */}
                   <div className="relative">
@@ -335,18 +383,18 @@ export default function Messages() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between mt-3">
-                    <p className="text-sm text-gray-600">{filteredConversations.length} conversations</p>
-                    <Button 
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      <Filter className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-xs lg:text-sm text-gray-600">{filteredConversations.length} conversations</p>
+                      <Button 
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-500 hover:text-gray-700 lg:inline-flex hidden"
+                      >
+                        <Filter className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <div className="overflow-y-auto" style={{ height: 'calc(700px - 160px)' }}>
+                  <div className="overflow-y-auto h-[calc(100vh-350px)] lg:h-[calc(700px-160px)]">
                   {isLoading ? (
                     <div className="space-y-1">
                       {[1, 2, 3].map((i) => (
@@ -389,10 +437,10 @@ export default function Messages() {
                           key={user.id}
                           className={`p-4 cursor-pointer transition-colors border-b border-gray-100 ${
                             selectedUser?.id === user.id
-                              ? 'bg-navy/10 border-l-4 border-l-navy'
+                              ? 'bg-navy/10 lg:border-l-4 lg:border-l-navy'
                               : 'hover:bg-gray-50'
                           }`}
-                          onClick={() => setSelectedUser(user as User)}
+                          onClick={() => handleSelectConversation(user as User)}
                         >
                           <div className="flex items-center space-x-3">
                             <div className="relative">
@@ -449,36 +497,37 @@ export default function Messages() {
                 </div>
               </div>
 
-            {/* Chat Interface */}
-            <div className="lg:col-span-2">
-              {selectedUser && currentUser ? (
-                <MessageInterface
-                  currentUser={currentUser}
-                  otherUser={selectedUser}
-                  messages={selectedConversation || []}
-                  onSendMessage={handleSendMessage}
-                  matchId={matches?.find((m: any) => m.matchedUserId === selectedUser.id)?.id}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full bg-gray-50">
-                  <div className="text-center">
-                    <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-700 mb-2">Select a conversation</h3>
-                    <p className="text-gray-500">Choose a contact to start messaging</p>
-                    <Button 
-                      onClick={() => setShowNewMessageDialog(true)}
-                      className="mt-6 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Start New Conversation
-                    </Button>
-                  </div>
+                {/* Chat Interface - Desktop Only */}
+                <div className="hidden lg:block lg:col-span-2">
+                  {selectedUser && currentUser ? (
+                    <MessageInterface
+                      currentUser={currentUser}
+                      otherUser={selectedUser}
+                      messages={selectedConversation || []}
+                      onSendMessage={handleSendMessage}
+                      matchId={matches?.find((m: any) => m.matchedUserId === selectedUser.id)?.id}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full bg-gray-50">
+                      <div className="text-center">
+                        <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-gray-700 mb-2">Select a conversation</h3>
+                        <p className="text-gray-500">Choose a contact to start messaging</p>
+                        <Button 
+                          onClick={() => setShowNewMessageDialog(true)}
+                          className="mt-6 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start New Conversation
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
       {/* New Message Dialog */}
       <Dialog open={showNewMessageDialog} onOpenChange={setShowNewMessageDialog}>
