@@ -19,7 +19,6 @@ import AdminEvents from "@/pages/admin-events";
 import AdminBilling from "@/pages/admin-billing";
 import AdminSponsors from "@/pages/admin-sponsors";
 import Profile from "@/pages/profile";
-import ProfileDetail from "@/pages/profile-detail";
 import ConnectRequest from "@/pages/connect-request";
 import MatchAnalysis from "@/pages/match-analysis";
 import Questionnaire from "@/pages/questionnaire";
@@ -66,7 +65,6 @@ function Router() {
             <Route path="/admin/sponsors" component={AdminSponsors} />
             <Route path="/profile" component={Profile} />
             <Route path="/profile/:userId" component={Profile} />
-            <Route path="/profile-detail" component={ProfileDetail} />
             <Route path="/connect-request" component={ConnectRequest} />
             <Route path="/match-analysis" component={MatchAnalysis} />
             <Route path="/notifications" component={() => <div className="p-8"><h1 className="text-2xl font-bold">Notifications</h1><p className="mt-4 text-gray-600">Notification center coming soon! For now, check the Messages and Matches tabs for updates.</p></div>} />
