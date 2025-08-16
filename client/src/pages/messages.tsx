@@ -309,7 +309,17 @@ export default function Messages() {
         {/* Header */}
         <div className="bg-white border border-gray-200 rounded-lg p-4 lg:p-8 mb-4 lg:mb-8 text-center shadow-sm">
           <h1 className="text-2xl lg:text-4xl font-bold text-black mb-2">Professional Conversations</h1>
-          <p className="text-base lg:text-xl text-gray-600 px-4 lg:px-0">Secure messaging platform designed for meaningful business connections</p>
+          <p className="text-base lg:text-xl text-gray-600 px-4 lg:px-0 mb-4">Secure messaging platform designed for meaningful business connections</p>
+          
+          {/* Primary New Message Button */}
+          <Button 
+            onClick={() => setShowNewMessageDialog(true)}
+            className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-6 py-2"
+            data-testid="button-new-message"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Start New Conversation
+          </Button>
         </div>
 
         {/* Messages Interface */}
@@ -361,14 +371,17 @@ export default function Messages() {
                   <div className="p-4 border-b border-gray-200 bg-white">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold text-black text-lg">Messages</h3>
-                      <Button 
-                        size="sm"
-                        onClick={() => setShowNewMessageDialog(true)}
-                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                      >
-                        <Plus className="w-4 h-4 lg:mr-1" />
-                        <span className="hidden lg:inline">New</span>
-                      </Button>
+                      <div className="flex items-center space-x-2">
+                        <Button 
+                          size="sm"
+                          onClick={() => setShowNewMessageDialog(true)}
+                          className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                          data-testid="button-new-message-sidebar"
+                        >
+                          <Plus className="w-4 h-4 lg:mr-1" />
+                          <span className="hidden lg:inline">New</span>
+                        </Button>
+                      </div>
                     </div>
                   
                   {/* Search Bar */}
@@ -413,22 +426,13 @@ export default function Messages() {
                     <div className="p-8 text-center">
                       <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-700 font-medium">
-                        {searchQuery ? 'No conversations found' : 'No conversations yet'}
+                        {searchQuery ? 'No conversations found' : 'Ready to start messaging'}
                       </p>
                       <p className="text-sm text-gray-500 mt-2">
                         {searchQuery 
-                          ? 'Try adjusting your search terms' 
-                          : 'Start connecting with professionals to begin messaging'}
+                          ? 'Try adjusting your search terms or start a new conversation' 
+                          : 'Use the "Start New Conversation" button above to connect with professionals'}
                       </p>
-                      {!searchQuery && (
-                        <Button 
-                          onClick={() => setShowNewMessageDialog(true)}
-                          className="mt-4 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Start New Conversation
-                        </Button>
-                      )}
                     </div>
                   ) : (
                     <div>
