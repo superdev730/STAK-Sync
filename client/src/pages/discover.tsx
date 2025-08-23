@@ -147,18 +147,18 @@ export default function Discover() {
                   </Button>
                 </div>
               </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-0">
               {isLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
+                <div className="space-y-2 p-6">
+                  {[1, 2, 3, 4, 5].map((i) => (
                     <div key={i} className="animate-pulse">
-                      <div className="flex space-x-4">
-                        <div className="w-16 h-16 bg-gray-200 rounded-xl"></div>
+                      <div className="flex items-center space-x-4 p-4">
+                        <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
                         <div className="flex-1 space-y-2">
                           <div className="h-4 bg-gray-200 rounded w-1/3"></div>
                           <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                          <div className="h-3 bg-gray-200 rounded w-full"></div>
                         </div>
+                        <div className="h-8 w-16 bg-gray-200 rounded"></div>
                       </div>
                     </div>
                   ))}
@@ -190,22 +190,149 @@ export default function Discover() {
                   </div>
                 </div>
               ) : (
-                filteredMatches.map((match) => (
-                  <MatchCard
-                    key={match.id}
-                    match={{
-                      ...match,
-                      aiAnalysis: match.aiAnalysis as string | undefined,
-                      compatibilityFactors: match.compatibilityFactors as any,
-                      recommendedTopics: match.recommendedTopics || [],
-                      mutualGoals: match.mutualGoals || [],
-                      collaborationPotential: match.collaborationPotential || '',
-                      meetingSuggestions: match.meetingSuggestions as any
-                    }}
-                    onConnect={(matchId) => handleConnect(matchId, match.matchedUser)}
-                    onPass={handlePass}
-                  />
-                ))
+                <div className="divide-y divide-stak-gray/30">
+                  {filteredMatches.map((match, index) => {
+                    const { matchedUser, matchScore } = match;
+                    
+                    // Generate engagement tags based on user data
+                    const getEngagementTags = (user: typeof matchedUser) => {
+                      const tags = [];
+                      
+                      // Industry-based tags
+                      if (user.industries?.some(ind => ind.toLowerCase().includes('venture') || ind.toLowerCase().includes('vc'))) {
+                        tags.push('VC');
+                      }
+                      if (user.industries?.some(ind => ind.toLowerCase().includes('invest'))) {
+                        tags.push('Investor');
+                      }
+                      if (user.title?.toLowerCase().includes('founder') || user.title?.toLowerCase().includes('ceo')) {
+                        tags.push('Founder');
+                      }
+                      if (user.title?.toLowerCase().includes('cto') || user.title?.toLowerCase().includes('engineer')) {
+                        tags.push('Tech Leader');
+                      }
+                      if (user.industries?.some(ind => ind.toLowerCase().includes('market') || ind.toLowerCase().includes('sales'))) {
+                        tags.push('GTM Specialist');
+                      }
+                      if (user.industries?.some(ind => ind.toLowerCase().includes('community') || ind.toLowerCase().includes('network'))) {
+                        tags.push('Community Builder');
+                      }
+                      if (user.bio?.toLowerCase().includes('exit') || user.bio?.toLowerCase().includes('acquisition')) {
+                        tags.push('Prior Exits');
+                      }
+                      if (user.industries?.some(ind => ind.toLowerCase().includes('advisor') || ind.toLowerCase().includes('mentor'))) {
+                        tags.push('Advisor');
+                      }
+                      
+                      // Default tags if none found
+                      if (tags.length === 0) {
+                        if (user.industries?.length) {
+                          tags.push(user.industries[0]);
+                        }
+                        if (user.skills?.length) {
+                          tags.push(user.skills[0]);
+                        }
+                      }
+                      
+                      return tags.slice(0, 3); // Limit to 3 tags
+                    };
+
+                    const getScoreColor = (score: number) => {
+                      if (score >= 90) return "text-green-400";
+                      if (score >= 80) return "text-blue-400";
+                      if (score >= 70) return "text-yellow-400";
+                      return "text-gray-400";
+                    };
+
+                    const engagementTags = getEngagementTags(matchedUser);
+
+                    return (
+                      <div 
+                        key={match.id} 
+                        className="flex items-center justify-between p-4 hover:bg-stak-gray/20 transition-colors group cursor-pointer"
+                        data-testid={`match-row-${index}`}
+                        onClick={() => handleConnect(match.id, matchedUser)}
+                      >
+                        {/* Left side - User info */}
+                        <div className="flex items-center space-x-4 flex-1 min-w-0">
+                          {/* Avatar */}
+                          <div className="w-10 h-10 bg-stak-copper/20 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-stak-copper font-semibold text-sm">
+                              {matchedUser.firstName?.[0] || 'U'}{matchedUser.lastName?.[0] || ''}
+                            </span>
+                          </div>
+                          
+                          {/* User details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-3">
+                              <h3 className="text-base font-semibold text-stak-white truncate">
+                                {matchedUser.firstName || 'Unknown'} {matchedUser.lastName || 'User'}
+                              </h3>
+                              {/* Match Score Badge */}
+                              <Badge className={`${getScoreColor(matchScore)} bg-transparent border text-xs font-bold`} data-testid={`score-${index}`}>
+                                {matchScore}%
+                              </Badge>
+                            </div>
+                            
+                            {/* Title and Company */}
+                            <div className="flex items-center space-x-1 text-sm text-stak-light-gray truncate mt-1">
+                              {matchedUser.title && (
+                                <span className="truncate" data-testid={`title-${index}`}>{matchedUser.title}</span>
+                              )}
+                              {matchedUser.title && matchedUser.company && (
+                                <span>•</span>
+                              )}
+                              {matchedUser.company && (
+                                <span className="truncate" data-testid={`company-${index}`}>{matchedUser.company}</span>
+                              )}
+                            </div>
+                            
+                            {/* Engagement Tags */}
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {engagementTags.map((tag, tagIndex) => (
+                                <Badge 
+                                  key={tagIndex} 
+                                  variant="outline" 
+                                  className="text-xs border-stak-copper/50 text-stak-copper bg-stak-copper/10 px-2 py-0"
+                                  data-testid={`tag-${index}-${tagIndex}`}
+                                >
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right side - Actions */}
+                        <div className="flex items-center space-x-2 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                            data-testid={`button-connect-${index}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleConnect(match.id, matchedUser);
+                            }}
+                          >
+                            Connect
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-stak-gray/50 text-stak-light-gray hover:bg-stak-gray/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                            data-testid={`button-pass-${index}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePass(match.id);
+                            }}
+                          >
+                            Pass
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </CardContent>
             </Card>
