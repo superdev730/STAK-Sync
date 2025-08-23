@@ -80,26 +80,36 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
               </span>
             </div>
             
-            {/* Name and Title - Flexible Width */}
+            {/* Name, Title, Company, Description - Flexible Width */}
             <div className="flex-1 min-w-0">
               <h3 className="text-lg font-semibold text-stak-white truncate mb-0.5">
                 {matchedUser.firstName || 'Unknown'} {matchedUser.lastName || 'User'}
               </h3>
-              <div className="flex items-center gap-2 text-sm text-stak-light-gray">
+              
+              <div className="text-sm text-stak-light-gray mb-1">
                 {matchedUser.title && (
                   <span className="truncate">{matchedUser.title}</span>
                 )}
-                {matchedUser.company && matchedUser.title && (
-                  <span>•</span>
-                )}
                 {matchedUser.company && (
-                  <span className="truncate">{matchedUser.company}</span>
+                  <div className="flex items-center gap-1 text-stak-copper">
+                    <Building className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate font-medium">{matchedUser.company}</span>
+                  </div>
                 )}
               </div>
               
-              {/* Industries */}
+              {/* Description - Max 2 sentences from bio */}
+              {matchedUser.bio && (
+                <div className="text-xs text-stak-light-gray leading-relaxed mb-2">
+                  <span className="line-clamp-2">
+                    {matchedUser.bio.split('.').slice(0, 2).join('.').trim()}{matchedUser.bio.split('.').length > 2 ? '.' : ''}
+                  </span>
+                </div>
+              )}
+              
+              {/* Industries - Moved to bottom */}
               {matchedUser.industries && matchedUser.industries.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
+                <div className="flex flex-wrap gap-1">
                   {matchedUser.industries.slice(0, 2).map((industry, index) => (
                     <Badge key={index} variant="outline" className="text-xs border-stak-copper/50 text-stak-copper">
                       {industry}
@@ -118,8 +128,17 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
             <p className="text-xs text-stak-light-gray">Sync</p>
           </div>
 
-          {/* Action Buttons - Fixed Width */}
-          <div className="flex gap-2 w-20 flex-shrink-0">
+          {/* Action Buttons - Fixed Width, Pass on left, Connect on right */}
+          <div className="flex gap-2 w-28 flex-shrink-0">
+            <Button
+              onClick={() => onPass(match.id)}
+              variant="outline"
+              size="sm"
+              className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500"
+            >
+              Pass
+            </Button>
+            
             <Button
               onClick={() => {
                 console.log('MatchCard Connect clicked:', { 
@@ -132,7 +151,8 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
               className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
               size="sm"
             >
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="w-4 h-4 mr-1" />
+              Connect
             </Button>
             
             {showDetails ? (
@@ -140,7 +160,7 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDetails(false)}
-                className="text-stak-light-gray hover:bg-stak-gray/20"
+                className="text-stak-light-gray hover:bg-stak-gray/20 px-2"
               >
                 <span className="text-xs">−</span>
               </Button>
@@ -149,7 +169,7 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDetails(true)}
-                className="text-stak-light-gray hover:bg-stak-gray/20"
+                className="text-stak-light-gray hover:bg-stak-gray/20 px-2"
               >
                 <span className="text-xs">+</span>
               </Button>
@@ -197,25 +217,17 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
               </div>
             )}
 
-            {/* Action Buttons */}
+            {/* Additional Action Buttons */}
             <div className="flex gap-2">
-              <Button
-                onClick={() => onPass(match.id)}
-                variant="outline"
-                size="sm"
-                className="flex-1 border-stak-gray text-stak-light-gray hover:bg-stak-gray/20"
-              >
-                Pass
-              </Button>
               {onViewAnalysis && (
                 <Button
                   onClick={() => onViewAnalysis(match.id)}
                   variant="ghost"
                   size="sm"
-                  className="text-stak-copper hover:bg-stak-copper/10"
+                  className="flex-1 text-stak-copper hover:bg-stak-copper/10"
                 >
                   <Brain className="w-4 h-4 mr-1" />
-                  Details
+                  View Full Analysis
                 </Button>
               )}
             </div>
