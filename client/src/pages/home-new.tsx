@@ -80,67 +80,75 @@ export default function Home() {
           {/* Key Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {/* Total Matches */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-colors">
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <Users className="w-8 h-8 text-stak-copper" />
-                </div>
-                <div className="text-2xl font-bold text-white">{totalMatches}</div>
-                <div className="text-sm text-gray-300">Total Matches</div>
-                {newMatches > 0 && (
-                  <Badge className="mt-2 bg-red-500 text-white text-xs">
-                    +{newMatches} new
-                  </Badge>
-                )}
-              </CardContent>
-            </Card>
+            <Link href="/discover" className="group">
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-all duration-200 group-hover:scale-105 cursor-pointer" data-testid="card-total-matches">
+                <CardContent className="p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Users className="w-8 h-8 text-stak-copper" />
+                  </div>
+                  <div className="text-2xl font-bold text-white">{totalMatches}</div>
+                  <div className="text-sm text-gray-300">Total Matches</div>
+                  {newMatches > 0 && (
+                    <Badge className="mt-2 bg-red-500 text-white text-xs">
+                      +{newMatches} new
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* Active Conversations */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-colors">
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <MessageSquare className="w-8 h-8 text-stak-copper" />
-                </div>
-                <div className="text-2xl font-bold text-white">{uniqueConversations}</div>
-                <div className="text-sm text-gray-300">Conversations</div>
-                {unreadMessages > 0 && (
-                  <Badge className="mt-2 bg-red-500 text-white text-xs">
-                    {unreadMessages} unread
-                  </Badge>
-                )}
-              </CardContent>
-            </Card>
+            <Link href="/messages" className="group">
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-all duration-200 group-hover:scale-105 cursor-pointer" data-testid="card-conversations">
+                <CardContent className="p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <MessageSquare className="w-8 h-8 text-stak-copper" />
+                  </div>
+                  <div className="text-2xl font-bold text-white">{uniqueConversations}</div>
+                  <div className="text-sm text-gray-300">Conversations</div>
+                  {unreadMessages > 0 && (
+                    <Badge className="mt-2 bg-red-500 text-white text-xs">
+                      {unreadMessages} unread
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* Profile Strength */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-colors">
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <Target className="w-8 h-8 text-stak-copper" />
-                </div>
-                <div className="text-2xl font-bold text-white">{profileCompleteness}%</div>
-                <div className="text-sm text-gray-300">Profile Complete</div>
-                {profileCompleteness < 80 && (
-                  <Badge className="mt-2 bg-yellow-500 text-black text-xs">
-                    Improve
-                  </Badge>
-                )}
-              </CardContent>
-            </Card>
+            <Link href="/profile" className="group">
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-all duration-200 group-hover:scale-105 cursor-pointer" data-testid="card-profile-complete">
+                <CardContent className="p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Target className="w-8 h-8 text-stak-copper" />
+                  </div>
+                  <div className="text-2xl font-bold text-white">{profileCompleteness}%</div>
+                  <div className="text-sm text-gray-300">Profile Complete</div>
+                  {profileCompleteness < 80 && (
+                    <Badge className="mt-2 bg-yellow-500 text-black text-xs">
+                      Improve
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* Activity Score */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-colors">
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <Activity className="w-8 h-8 text-stak-copper" />
-                </div>
-                <div className="text-2xl font-bold text-white">{recentActivityScore}</div>
-                <div className="text-sm text-gray-300">Activity Score</div>
-                <Progress 
-                  value={recentActivityScore} 
-                  className="mt-2 h-2" 
-                />
-              </CardContent>
-            </Card>
+            <Link href="/profile" className="group">
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-all duration-200 group-hover:scale-105 cursor-pointer" data-testid="card-activity-score">
+                <CardContent className="p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Activity className="w-8 h-8 text-stak-copper" />
+                  </div>
+                  <div className="text-2xl font-bold text-white">{recentActivityScore}</div>
+                  <div className="text-sm text-gray-300">Activity Score</div>
+                  <Progress 
+                    value={recentActivityScore} 
+                    className="mt-2 h-2" 
+                  />
+                </CardContent>
+              </Card>
+            </Link>
           </div>
 
           {/* Action Items */}
