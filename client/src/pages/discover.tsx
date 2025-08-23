@@ -55,19 +55,23 @@ export default function Discover() {
   };
 
   const handlePass = async (matchId: string) => {
+    console.log('Passing on match:', matchId);
     try {
       await apiRequest(`/api/matches/${matchId}/status`, "POST", { status: "passed" });
+      toast({
+        title: "Match Passed",
+        description: "This match has been removed from your list.",
+      });
       refetch();
     } catch (error) {
+      console.error('Pass error:', error);
       toast({
         title: "Error",
-        description: "Failed to update match status",
+        description: "Failed to pass on this match",
         variant: "destructive",
       });
     }
   };
-
-
 
   const generateMatchesMutation = useMutation({
     mutationFn: async () => {
@@ -286,139 +290,23 @@ export default function Discover() {
               ) : (
                 <div className="space-y-2">
                   {displayMatches.map((match, index) => {
-                    const { matchedUser, matchScore } = match;
+                    console.log(`Rendering match ${index}:`, {
+                      id: match.id,
+                      user: `${match.matchedUser.firstName} ${match.matchedUser.lastName}`,
+                      title: match.matchedUser.title,
+                      company: match.matchedUser.company,
+                      bio: match.matchedUser.bio?.substring(0, 50),
+                      industries: match.matchedUser.industries
+                    });
                     
-                    // Generate engagement tags based on user data
-                    const getEngagementTags = (user: typeof matchedUser) => {
-                      const tags = [];
-                      
-                      // Industry-based tags
-                      if (user.industries?.some(ind => ind.toLowerCase().includes('venture') || ind.toLowerCase().includes('vc'))) {
-                        tags.push('VC');
-                      }
-                      if (user.industries?.some(ind => ind.toLowerCase().includes('invest'))) {
-                        tags.push('Investor');
-                      }
-                      if (user.title?.toLowerCase().includes('founder') || user.title?.toLowerCase().includes('ceo')) {
-                        tags.push('Founder');
-                      }
-                      if (user.title?.toLowerCase().includes('cto') || user.title?.toLowerCase().includes('engineer')) {
-                        tags.push('Tech Leader');
-                      }
-                      if (user.industries?.some(ind => ind.toLowerCase().includes('market') || ind.toLowerCase().includes('sales'))) {
-                        tags.push('GTM Specialist');
-                      }
-                      if (user.industries?.some(ind => ind.toLowerCase().includes('community') || ind.toLowerCase().includes('network'))) {
-                        tags.push('Community Builder');
-                      }
-                      if (user.bio?.toLowerCase().includes('exit') || user.bio?.toLowerCase().includes('acquisition')) {
-                        tags.push('Prior Exits');
-                      }
-                      if (user.industries?.some(ind => ind.toLowerCase().includes('advisor') || ind.toLowerCase().includes('mentor'))) {
-                        tags.push('Advisor');
-                      }
-                      
-                      // Default tags if none found
-                      if (tags.length === 0) {
-                        if (user.industries?.length) {
-                          tags.push(user.industries[0]);
-                        }
-                        if (user.skills?.length) {
-                          tags.push(user.skills[0]);
-                        }
-                      }
-                      
-                      return tags.slice(0, 2); // Limit to 2 tags for compact view
-                    };
-
-                    const getScoreColor = (score: number) => {
-                      if (score >= 90) return "text-green-400 border-green-400";
-                      if (score >= 80) return "text-blue-400 border-blue-400";
-                      if (score >= 70) return "text-yellow-400 border-yellow-400";
-                      return "text-gray-400 border-gray-400";
-                    };
-
-                    const engagementTags = getEngagementTags(matchedUser);
-
                     return (
-                      <Card 
-                        key={match.id} 
-                        className="bg-stak-gray/10 border-stak-gray/30 hover:border-stak-copper/50 transition-all hover:scale-[1.02] cursor-pointer group"
+                      <MatchCard
+                        key={match.id}
+                        match={match}
+                        onConnect={(matchId) => handleConnect(matchId, match.matchedUser)}
+                        onPass={handlePass}
                         data-testid={`match-card-${index}`}
-                        onClick={() => handleConnect(match.id, matchedUser)}
-                      >
-                        <CardContent className="p-3">
-                          {/* Header with avatar, name and score */}
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center space-x-2 flex-1 min-w-0">
-                              <div className="w-8 h-8 bg-stak-copper/20 rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-stak-copper font-semibold text-xs">
-                                  {matchedUser.firstName?.[0] || 'U'}{matchedUser.lastName?.[0] || ''}
-                                </span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-sm font-semibold text-stak-white truncate">
-                                  {matchedUser.firstName || 'Unknown'} {matchedUser.lastName || 'User'}
-                                </h3>
-                              </div>
-                            </div>
-                            <Badge className={`${getScoreColor(matchScore)} bg-transparent text-xs font-bold px-2`} data-testid={`score-${index}`}>
-                              {matchScore}%
-                            </Badge>
-                          </div>
-                          
-                          {/* Title and Company */}
-                          <div className="text-xs text-stak-light-gray mb-2 min-h-[2.5rem]">
-                            {matchedUser.title && (
-                              <div className="font-medium truncate" data-testid={`title-${index}`}>{matchedUser.title}</div>
-                            )}
-                            {matchedUser.company && (
-                              <div className="truncate" data-testid={`company-${index}`}>{matchedUser.company}</div>
-                            )}
-                          </div>
-                          
-                          {/* Engagement Tags */}
-                          <div className="flex flex-wrap gap-1 mb-3 min-h-[1.5rem]">
-                            {engagementTags.map((tag, tagIndex) => (
-                              <Badge 
-                                key={tagIndex} 
-                                variant="outline" 
-                                className="text-xs border-stak-copper/50 text-stak-copper bg-stak-copper/10 px-1.5 py-0 h-5"
-                                data-testid={`tag-${index}-${tagIndex}`}
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              size="sm"
-                              className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium h-7 text-xs"
-                              data-testid={`button-connect-${index}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleConnect(match.id, matchedUser);
-                              }}
-                            >
-                              Connect
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-stak-gray/50 text-stak-light-gray hover:bg-stak-gray/20 h-7 text-xs px-3"
-                              data-testid={`button-pass-${index}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePass(match.id);
-                              }}
-                            >
-                              Pass
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      />
                     );
                   })}
                 </div>

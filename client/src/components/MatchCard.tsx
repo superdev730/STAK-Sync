@@ -68,11 +68,21 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
     }
   };
 
+  // Debug logging
+  console.log('MatchCard rendering:', {
+    matchId: match.id,
+    userName: `${matchedUser.firstName} ${matchedUser.lastName}`,
+    title: matchedUser.title,
+    company: matchedUser.company,
+    bio: matchedUser.bio ? `${matchedUser.bio.substring(0, 50)}...` : 'No bio',
+    industries: matchedUser.industries
+  });
+
   return (
     <Card className="bg-stak-black border border-stak-gray hover:border-stak-copper transition-all duration-300">
       <CardContent className="p-4">
         <div className="flex items-center justify-between gap-4">
-          {/* Avatar and Info - Fixed Width */}
+          {/* Avatar and Info */}
           <div className="flex items-center space-x-3 flex-1 min-w-0">
             <div className="w-12 h-12 bg-stak-copper/20 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-stak-copper font-semibold text-lg">
@@ -80,23 +90,26 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
               </span>
             </div>
             
-            {/* Name, Title, Company, Description - Flexible Width */}
+            {/* Name, Title, Company, Description */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-stak-white truncate mb-0.5">
+              <h3 className="text-lg font-semibold text-stak-white truncate mb-1">
                 {matchedUser.firstName || 'Unknown'} {matchedUser.lastName || 'User'}
               </h3>
               
-              <div className="text-sm text-stak-light-gray mb-1">
-                {matchedUser.title && (
-                  <span className="truncate">{matchedUser.title}</span>
-                )}
-                {matchedUser.company && (
-                  <div className="flex items-center gap-1 text-stak-copper">
-                    <Building className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate font-medium">{matchedUser.company}</span>
-                  </div>
-                )}
-              </div>
+              {/* Title */}
+              {matchedUser.title && (
+                <div className="text-sm text-stak-light-gray mb-1 truncate">
+                  {matchedUser.title}
+                </div>
+              )}
+              
+              {/* Company */}
+              {matchedUser.company && (
+                <div className="flex items-center gap-1 text-stak-copper mb-2">
+                  <Building className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate font-medium text-sm">{matchedUser.company}</span>
+                </div>
+              )}
               
               {/* Description - Max 2 sentences from bio */}
               {matchedUser.bio && (
@@ -107,11 +120,11 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
                 </div>
               )}
               
-              {/* Industries - Moved to bottom */}
+              {/* Industries - At bottom */}
               {matchedUser.industries && matchedUser.industries.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {matchedUser.industries.slice(0, 2).map((industry, index) => (
-                    <Badge key={index} variant="outline" className="text-xs border-stak-copper/50 text-stak-copper">
+                  {matchedUser.industries.slice(0, 3).map((industry, index) => (
+                    <Badge key={index} variant="outline" className="text-xs border-stak-copper/60 text-stak-copper bg-stak-copper/10">
                       {industry}
                     </Badge>
                   ))}
@@ -120,7 +133,7 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
             </div>
           </div>
 
-          {/* Match Score - Fixed Width */}
+          {/* Match Score */}
           <div className="text-right w-16 flex-shrink-0">
             <div className={`text-2xl font-bold ${getScoreColor(matchScore)}`}>
               {matchScore}%
@@ -128,52 +141,38 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
             <p className="text-xs text-stak-light-gray">Sync</p>
           </div>
 
-          {/* Action Buttons - Fixed Width, Pass on left, Connect on right */}
-          <div className="flex gap-2 w-28 flex-shrink-0">
+          {/* Action Buttons - Pass left, Connect right, Mobile-first */}
+          <div className="flex gap-2 w-32 flex-shrink-0">
             <Button
-              onClick={() => onPass(match.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('Pass clicked for:', match.id);
+                onPass(match.id);
+              }}
               variant="outline"
               size="sm"
-              className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500"
+              className="flex-1 border-2 border-red-500 text-red-300 bg-transparent active:bg-red-500/20 font-medium"
+              data-testid={`button-pass-${match.id}`}
             >
               Pass
             </Button>
             
             <Button
-              onClick={() => {
-                console.log('MatchCard Connect clicked:', { 
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('Connect clicked:', { 
                   matchId: match.id, 
-                  matchedUser: `${match.matchedUser.firstName} ${match.matchedUser.lastName}`,
-                  userId: match.matchedUser.id 
+                  matchedUser: `${matchedUser.firstName} ${matchedUser.lastName}`,
+                  userId: matchedUser.id 
                 });
                 onConnect(match.id);
               }}
-              className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
+              className="flex-1 bg-stak-copper border-2 border-stak-copper text-stak-black font-medium active:bg-stak-dark-copper"
               size="sm"
+              data-testid={`button-connect-${match.id}`}
             >
-              <MessageSquare className="w-4 h-4 mr-1" />
               Connect
             </Button>
-            
-            {showDetails ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDetails(false)}
-                className="text-stak-light-gray hover:bg-stak-gray/20 px-2"
-              >
-                <span className="text-xs">−</span>
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDetails(true)}
-                className="text-stak-light-gray hover:bg-stak-gray/20 px-2"
-              >
-                <span className="text-xs">+</span>
-              </Button>
-            )}
           </div>
         </div>
 
