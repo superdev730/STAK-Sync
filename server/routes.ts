@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { AdminSetupService } from "./adminSetup";
+import OpenAI from "openai";
 import { 
   insertMessageSchema, 
   insertMeetupSchema, 
@@ -505,7 +506,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI-powered match search endpoint
+  app.post('/api/matches/ai-search', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { query } = req.body;
 
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get all existing matches for this user
+      const userMatches = await db
+        .select()
+        .from(matches)
+        .where(and(eq(matches.userId, userId), eq(matches.status, 'pending')));
+
+      if (userMatches.length === 0) {
+        return res.json({
+          response: "You don't have any matches yet. Please generate AI matches first using the 'Generate AI Matches' button.",
+          filteredMatches: [],
+          needsClarification: false
+        });
+      }
+
+      // Get the matched users data
+      const matchedUsersData = [];
+      for (const match of userMatches) {
+        const matchedUser = await storage.getUser(match.matchedUserId);
+        if (matchedUser) {
+          matchedUsersData.push({
+            ...match,
+            matchedUser
+          });
+        }
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      // Create a context about all matches for AI analysis
+      const matchContext = matchedUsersData.map(match => {
+        const user = match.matchedUser;
+        return {
+          id: match.id,
+          name: `${user.firstName} ${user.lastName}`,
+          title: user.title || 'N/A',
+          company: user.company || 'N/A',
+          bio: user.bio || 'N/A',
+          industries: user.industries || [],
+          skills: user.skills || [],
+          location: user.location || 'N/A',
+          matchScore: match.matchScore
+        };
+      }).slice(0, 20); // Limit to prevent token overflow
+
+      const systemPrompt = `You are an AI assistant helping with professional networking match filtering. 
+      Analyze the user's search query and determine if you can filter the provided matches or if you need more clarification.
+
+      Current user profile:
+      - Name: ${currentUser.firstName} ${currentUser.lastName}
+      - Title: ${currentUser.title || 'N/A'}
+      - Company: ${currentUser.company || 'N/A'}
+      - Bio: ${currentUser.bio || 'N/A'}
+      - Industries: ${currentUser.industries?.join(', ') || 'N/A'}
+      - Skills: ${currentUser.skills?.join(', ') || 'N/A'}
+      
+      Available matches: ${JSON.stringify(matchContext)}
+      
+      If the query is clear and specific enough, return matching IDs. If you need clarification, ask follow-up questions.
+      
+      Respond with a JSON object containing:
+      - "response": Your message to the user (either filtered results summary or clarifying questions)
+      - "matchIds": Array of match IDs that fit the criteria (empty array if asking for clarification)
+      - "needsClarification": boolean indicating if you need more information`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: query }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      const aiResponse = JSON.parse(completion.choices[0].message.content || '{}');
+      
+      let filteredMatches = [];
+      if (aiResponse.matchIds && aiResponse.matchIds.length > 0) {
+        filteredMatches = matchedUsersData.filter(match => 
+          aiResponse.matchIds.includes(match.id)
+        );
+      }
+
+      res.json({
+        response: aiResponse.response || "I found some matches for you!",
+        filteredMatches,
+        needsClarification: aiResponse.needsClarification || false
+      });
+
+    } catch (error) {
+      console.error("Error in AI search:", error);
+      res.status(500).json({ error: "Failed to perform AI search" });
+    }
+  });
 
   // Matches routes
   app.get('/api/matches', isAuthenticated, async (req: any, res) => {

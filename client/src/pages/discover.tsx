@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Sliders, Brain, Zap, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { RefreshCw, Sliders, Brain, Zap, Users, Search, Sparkles } from "lucide-react";
 import { MatchCard } from "@/components/MatchCard";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +19,11 @@ export default function Discover() {
     corporateInnovation: false,
     angelInvestors: false,
   });
+
+  const [aiSearchQuery, setAiSearchQuery] = useState("");
+  const [aiFilteredMatches, setAiFilteredMatches] = useState<(Match & { matchedUser: User })[]>([]);
+  const [isAiSearching, setIsAiSearching] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string>("");
 
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -88,9 +94,50 @@ export default function Discover() {
     generateMatchesMutation.mutate();
   };
 
+  const aiSearchMutation = useMutation({
+    mutationFn: async (query: string) => {
+      const response = await apiRequest("/api/matches/ai-search", "POST", { query });
+      return response.json();
+    },
+    onSuccess: (data: { filteredMatches?: (Match & { matchedUser: User })[]; response: string; needsClarification: boolean }) => {
+      setAiResponse(data.response);
+      if (data.filteredMatches) {
+        setAiFilteredMatches(data.filteredMatches);
+      }
+      if (!data.needsClarification) {
+        toast({
+          title: "AI Search Complete",
+          description: `Found ${data.filteredMatches?.length || 0} matches`,
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to perform AI search",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsAiSearching(false);
+    },
+  });
 
+  const handleAiSearch = async () => {
+    if (!aiSearchQuery.trim()) return;
+    
+    setIsAiSearching(true);
+    await aiSearchMutation.mutateAsync(aiSearchQuery);
+  };
+
+  const handleClearAiSearch = () => {
+    setAiSearchQuery("");
+    setAiFilteredMatches([]);
+    setAiResponse("");
+  };
 
   const filteredMatches = matches?.filter(match => match.status === "pending") || [];
+  const displayMatches = aiFilteredMatches.length > 0 ? aiFilteredMatches : filteredMatches;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -128,7 +175,7 @@ export default function Discover() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base lg:text-lg font-semibold text-stak-white flex items-center">
                     <Users className="w-4 h-4 mr-2 text-stak-copper" />
-                    Your Matches ({filteredMatches.length})
+                    Your Matches ({displayMatches.length})
                   </CardTitle>
                   <Button 
                     variant="ghost" 
@@ -141,6 +188,58 @@ export default function Discover() {
                   </Button>
                 </div>
               </CardHeader>
+              
+              {/* AI Search Bar */}
+              <div className="px-4 pb-3">
+                <div className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      type="text"
+                      placeholder="Describe who you're looking for... (e.g., VC looking for fintech startups, founder with prior exits)"
+                      value={aiSearchQuery}
+                      onChange={(e) => setAiSearchQuery(e.target.value)}
+                      className="pl-9 pr-3 py-2 border-stak-gray/30 focus:border-stak-copper text-sm"
+                      onKeyPress={(e) => e.key === 'Enter' && handleAiSearch()}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleAiSearch}
+                    disabled={isAiSearching || !aiSearchQuery.trim()}
+                    className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium px-3 py-2"
+                    size="sm"
+                  >
+                    {isAiSearching ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                  </Button>
+                  {(aiFilteredMatches.length > 0 || aiResponse) && (
+                    <Button
+                      onClick={handleClearAiSearch}
+                      variant="outline"
+                      size="sm"
+                      className="border-stak-gray/30 text-stak-light-gray hover:bg-stak-gray/20 px-3 py-2"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                
+                {/* AI Response */}
+                {aiResponse && (
+                  <div className="mt-3 p-3 bg-stak-copper/10 rounded-lg border border-stak-copper/20">
+                    <div className="flex items-start gap-2">
+                      <Brain className="w-4 h-4 text-stak-copper mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-stak-white leading-relaxed">
+                        {aiResponse}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
             <CardContent className="p-3">
               {isLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -164,7 +263,7 @@ export default function Discover() {
                     </div>
                   ))}
                 </div>
-              ) : filteredMatches.length === 0 ? (
+              ) : displayMatches.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-stak-light-gray text-base mb-3">No matches available</div>
                   <Button 
@@ -188,7 +287,7 @@ export default function Discover() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {filteredMatches.map((match, index) => {
+                  {displayMatches.map((match, index) => {
                     const { matchedUser, matchScore } = match;
                     
                     // Generate engagement tags based on user data
