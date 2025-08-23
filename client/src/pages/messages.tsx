@@ -44,13 +44,14 @@ export default function Messages() {
     queryKey: ["/api/matches"],
   });
 
-  // Handle user selection from URL
+  // Handle user selection from URL and auto-select most recent conversation
   useEffect(() => {
     if (userIdFromUrl && matches) {
       // Find the user from matches
       const matchedUser = matches.find(m => m.matchedUser?.id === userIdFromUrl)?.matchedUser;
       if (matchedUser) {
         setSelectedUser(matchedUser);
+        return;
       } else {
         // Try to find user from conversations if not in matches
         const conversationUser = conversations?.find(c => 
@@ -59,10 +60,22 @@ export default function Messages() {
         if (conversationUser) {
           const user = conversationUser.sender.id === userIdFromUrl ? conversationUser.sender : conversationUser.receiver;
           setSelectedUser(user);
+          return;
         }
       }
     }
-  }, [userIdFromUrl, matches, conversations]);
+
+    // Auto-select most recent conversation if no URL param and no conversation selected
+    if (!selectedUser && !userIdFromUrl) {
+      const uniqueConversations = getUniqueConversations();
+      if (uniqueConversations.length > 0) {
+        // Prefer unread messages first, then most recent
+        const unreadConversation = uniqueConversations.find(conv => conv.unreadCount > 0);
+        const conversationToSelect = unreadConversation || uniqueConversations[0];
+        setSelectedUser(conversationToSelect.user as User);
+      }
+    }
+  }, [userIdFromUrl, matches, conversations, selectedUser]);
 
   // Initialize demo messages on first load
   useEffect(() => {
@@ -320,20 +333,23 @@ export default function Messages() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-3 lg:p-6">
-        {/* Header */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4 lg:p-8 mb-4 lg:mb-8 text-center shadow-sm">
-          <h1 className="text-2xl lg:text-4xl font-bold text-black mb-2">Professional Conversations</h1>
-          <p className="text-base lg:text-xl text-gray-600 px-4 lg:px-0 mb-4">Secure messaging platform designed for meaningful business connections</p>
-          
-          {/* Primary New Message Button */}
-          <Button 
-            onClick={() => setShowNewMessageDialog(true)}
-            className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-6 py-2"
-            data-testid="button-new-message"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Start New Conversation
-          </Button>
+        {/* Compact Header */}
+        <div className="bg-white border border-gray-200 rounded-lg p-3 mb-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-bold text-black">Messages</h1>
+              <p className="text-sm text-gray-600">Secure conversations with your network</p>
+            </div>
+            <Button 
+              onClick={() => setShowNewMessageDialog(true)}
+              className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium p-2"
+              size="sm"
+              data-testid="button-new-message"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="sr-only">Start New Conversation</span>
+            </Button>
+          </div>
         </div>
 
         {/* Messages Interface */}
@@ -379,23 +395,12 @@ export default function Messages() {
               </div>
 
               {/* Desktop Grid / Mobile List */}
-              <div className="grid lg:grid-cols-3 lg:h-[700px]">
+              <div className="grid lg:grid-cols-3 lg:h-[calc(100vh-200px)]">
                 {/* Conversations List */}
                 <div className={`border-r border-gray-200 bg-white ${showMobileChat ? 'hidden lg:block' : 'block'}`}>
-                  <div className="p-4 border-b border-gray-200 bg-white">
+                  <div className="p-3 border-b border-gray-200 bg-white">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-black text-lg">Messages</h3>
-                      <div className="flex items-center space-x-2">
-                        <Button 
-                          size="sm"
-                          onClick={() => setShowNewMessageDialog(true)}
-                          className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                          data-testid="button-new-message-sidebar"
-                        >
-                          <Plus className="w-4 h-4 lg:mr-1" />
-                          <span className="hidden lg:inline">New</span>
-                        </Button>
-                      </div>
+                      <h3 className="font-semibold text-black text-base">Conversations</h3>
                     </div>
                   
                   {/* Search Bar */}
@@ -411,17 +416,10 @@ export default function Messages() {
                   </div>
                   
                     <div className="flex items-center justify-between mt-3">
-                      <p className="text-xs lg:text-sm text-gray-600">{filteredConversations.length} conversations</p>
-                      <Button 
-                        variant="ghost"
-                        size="sm"
-                        className="text-gray-500 hover:text-gray-700 lg:inline-flex hidden"
-                      >
-                        <Filter className="w-4 h-4" />
-                      </Button>
+                      <p className="text-xs text-gray-600">{filteredConversations.length} conversations</p>
                     </div>
                   </div>
-                  <div className="overflow-y-auto h-[calc(100vh-350px)] lg:h-[calc(700px-160px)]">
+                  <div className="overflow-y-auto h-[calc(100vh-280px)] lg:h-[calc(100vh-280px)]">
                   {isLoading ? (
                     <div className="space-y-1">
                       {[1, 2, 3].map((i) => (
@@ -525,19 +523,22 @@ export default function Messages() {
                       onSendMessage={handleSendMessage}
                       matchId={matches?.find((m: any) => m.matchedUser?.id === selectedUser.id)?.id}
                     />
+                  ) : !isLoading && filteredConversations.length === 0 ? (
+                    <div className="flex items-center justify-center h-full bg-gray-50">
+                      <div className="text-center">
+                        <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <h3 className="text-base font-semibold text-gray-700 mb-2">No conversations yet</h3>
+                        <p className="text-sm text-gray-500">Start your first conversation to connect with professionals</p>
+                      </div>
+                    </div>
                   ) : (
                     <div className="flex items-center justify-center h-full bg-gray-50">
                       <div className="text-center">
-                        <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-700 mb-2">Select a conversation</h3>
-                        <p className="text-gray-500">Choose a contact to start messaging</p>
-                        <Button 
-                          onClick={() => setShowNewMessageDialog(true)}
-                          className="mt-6 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Start New Conversation
-                        </Button>
+                        <div className="animate-pulse">
+                          <div className="w-12 h-12 bg-gray-300 rounded-full mx-auto mb-3"></div>
+                          <div className="h-4 bg-gray-300 rounded w-32 mx-auto mb-2"></div>
+                          <div className="h-3 bg-gray-300 rounded w-24 mx-auto"></div>
+                        </div>
                       </div>
                     </div>
                   )}
