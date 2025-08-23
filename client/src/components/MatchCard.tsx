@@ -70,193 +70,157 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
 
   return (
     <Card className="bg-stak-black border border-stak-gray hover:border-stak-copper transition-all duration-300">
-      <CardHeader className="pb-3 p-3 lg:p-6">
-        <div className="flex items-start justify-between">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between gap-4">
+          {/* Avatar and Info - Fixed Width */}
           <div className="flex items-center space-x-3 flex-1 min-w-0">
-            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-stak-copper/20 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-stak-copper font-semibold text-sm lg:text-lg">
+            <div className="w-12 h-12 bg-stak-copper/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-stak-copper font-semibold text-lg">
                 {matchedUser.firstName?.[0] || 'U'}{matchedUser.lastName?.[0] || ''}
               </span>
             </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-base lg:text-lg font-semibold text-stak-white truncate">
+            
+            {/* Name and Title - Flexible Width */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold text-stak-white truncate mb-0.5">
                 {matchedUser.firstName || 'Unknown'} {matchedUser.lastName || 'User'}
               </h3>
-              {matchedUser.title && <p className="text-xs lg:text-sm text-stak-light-gray truncate">{matchedUser.title}</p>}
-              {matchedUser.company && (
-                <p className="text-xs lg:text-sm text-stak-light-gray flex items-center truncate">
-                  <Building className="w-3 h-3 mr-1 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-sm text-stak-light-gray">
+                {matchedUser.title && (
+                  <span className="truncate">{matchedUser.title}</span>
+                )}
+                {matchedUser.company && matchedUser.title && (
+                  <span>•</span>
+                )}
+                {matchedUser.company && (
                   <span className="truncate">{matchedUser.company}</span>
-                </p>
+                )}
+              </div>
+              
+              {/* Industries */}
+              {matchedUser.industries && matchedUser.industries.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {matchedUser.industries.slice(0, 2).map((industry, index) => (
+                    <Badge key={index} variant="outline" className="text-xs border-stak-copper/50 text-stak-copper">
+                      {industry}
+                    </Badge>
+                  ))}
+                </div>
               )}
             </div>
           </div>
-          <div className="text-right flex-shrink-0">
-            <div className={`text-xl lg:text-2xl font-bold ${getScoreColor(matchScore)}`}>
+
+          {/* Match Score - Fixed Width */}
+          <div className="text-right w-16 flex-shrink-0">
+            <div className={`text-2xl font-bold ${getScoreColor(matchScore)}`}>
               {matchScore}%
             </div>
-            <p className="text-xs text-stak-light-gray">Match Score</p>
+            <p className="text-xs text-stak-light-gray">Sync</p>
           </div>
-        </div>
-      </CardHeader>
 
-      <CardContent className="space-y-3 lg:space-y-4 p-3 lg:p-6">
-        {/* Location and Industries */}
-        {matchedUser.location && (
-          <div className="flex items-center space-x-4 text-xs lg:text-sm text-stak-light-gray">
-            <div className="flex items-center">
-              <MapPin className="w-3 h-3 mr-1" />
-              <span className="truncate">{matchedUser.location}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Industries and Skills */}
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-1">
-            {matchedUser.industries?.slice(0, window.innerWidth < 640 ? 2 : 3).map((industry, index) => (
-              <Badge key={index} variant="outline" className="text-xs border-stak-copper text-stak-copper">
-                {industry}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        {/* Bio */}
-        {matchedUser.bio && (
-          <div className="bg-stak-gray/30 rounded-lg p-3 border border-stak-gray/50">
-            <p className="text-xs lg:text-sm text-stak-light-gray leading-relaxed line-clamp-2 lg:line-clamp-3">
-              {matchedUser.bio}
-            </p>
-          </div>
-        )}
-
-        {/* AI Insights */}
-        {compatibilityFactors && (
-          <div className="bg-stak-gray/50 rounded-lg p-3 space-y-2">
-            <div className="flex items-center space-x-2 text-stak-copper text-sm font-medium">
-              <Brain className="w-4 h-4" />
-              <span>AI Compatibility Analysis</span>
-            </div>
+          {/* Action Buttons - Fixed Width */}
+          <div className="flex gap-2 w-20 flex-shrink-0">
+            <Button
+              onClick={() => {
+                console.log('MatchCard Connect clicked:', { 
+                  matchId: match.id, 
+                  matchedUser: `${match.matchedUser.firstName} ${match.matchedUser.lastName}`,
+                  userId: match.matchedUser.id 
+                });
+                onConnect(match.id);
+              }}
+              className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
+              size="sm"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </Button>
             
             {showDetails ? (
-              <div className="space-y-2">
-                {Object.entries(compatibilityFactors).map(([factor, score]) => (
-                  <div key={factor} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-stak-light-gray capitalize">
-                        {factor.replace(/([A-Z])/g, ' $1').trim()}
-                      </span>
-                      <span className="text-stak-copper">{score}%</span>
-                    </div>
-                    <Progress value={score} className="h-1" />
-                  </div>
-                ))}
-                
-                {/* Collaboration Potential */}
-                {collaborationPotential && (
-                  <div className="flex items-center space-x-2 mt-3 p-2 bg-stak-black/50 rounded">
-                    {getCollaborationIcon(collaborationPotential)}
-                    <span className="text-sm text-stak-white capitalize">
-                      {collaborationPotential.replace('-', ' ')} Opportunity
-                    </span>
-                  </div>
-                )}
-
-                {/* Mutual Goals */}
-                {mutualGoals && mutualGoals.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs text-stak-copper font-medium mb-1">Shared Interests:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {mutualGoals.slice(0, 3).map((goal, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs bg-stak-copper/20 text-stak-copper">
-                          {goal}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Recommended Topics */}
-                {recommendedTopics && recommendedTopics.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs text-stak-copper font-medium mb-1">Conversation Starters:</p>
-                    <div className="space-y-1">
-                      {recommendedTopics.slice(0, 2).map((topic, index) => (
-                        <p key={index} className="text-xs text-stak-light-gray">• {topic}</p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Meeting Suggestion */}
-                {meetingSuggestions && (
-                  <div className="mt-3 p-2 bg-stak-copper/10 rounded">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <Calendar className="w-3 h-3 text-stak-copper" />
-                      <span className="text-xs text-stak-copper font-medium">
-                        Suggested Meeting: {meetingSuggestions.format} ({meetingSuggestions.duration})
-                      </span>
-                    </div>
-                    {meetingSuggestions.idealLocation && (
-                      <p className="text-xs text-stak-light-gray">
-                        📍 {meetingSuggestions.idealLocation}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDetails(false)}
+                className="text-stak-light-gray hover:bg-stak-gray/20"
+              >
+                <span className="text-xs">−</span>
+              </Button>
             ) : (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDetails(true)}
-                className="text-stak-copper hover:bg-stak-copper/10 w-full"
+                className="text-stak-light-gray hover:bg-stak-gray/20"
               >
-                View AI Analysis
+                <span className="text-xs">+</span>
               </Button>
             )}
           </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex space-x-2 pt-2">
-          <Button
-            onClick={() => {
-              console.log('MatchCard Connect clicked:', { 
-                matchId: match.id, 
-                matchedUser: `${match.matchedUser.firstName} ${match.matchedUser.lastName}`,
-                userId: match.matchedUser.id 
-              });
-              onConnect(match.id);
-            }}
-            className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium text-sm"
-            size={window.innerWidth < 640 ? "sm" : "default"}
-          >
-            <MessageSquare className="w-3 h-3 lg:w-4 lg:h-4 mr-1 lg:mr-2" />
-            <span className="hidden sm:inline">Connect</span>
-            <span className="sm:hidden">✓</span>
-          </Button>
-          <Button
-            onClick={() => onPass(match.id)}
-            variant="outline"
-            className="border-stak-gray text-stak-light-gray hover:bg-stak-gray text-sm px-3 lg:px-4"
-            size={window.innerWidth < 640 ? "sm" : "default"}
-          >
-            <span className="hidden sm:inline">Pass</span>
-            <span className="sm:hidden">✗</span>
-          </Button>
-          {showDetails && onViewAnalysis && (
-            <Button
-              onClick={() => onViewAnalysis(match.id)}
-              variant="ghost"
-              size="sm"
-              className="text-stak-copper px-2 lg:px-3"
-            >
-              <Brain className="w-3 h-3 lg:w-4 lg:h-4" />
-            </Button>
-          )}
         </div>
+
+        {/* Expandable Details */}
+        {showDetails && (
+          <div className="mt-4 pt-4 border-t border-stak-gray/30 space-y-3">
+            {/* Bio */}
+            {matchedUser.bio && (
+              <div className="bg-stak-gray/20 rounded-lg p-3">
+                <p className="text-sm text-stak-light-gray leading-relaxed">
+                  {matchedUser.bio}
+                </p>
+              </div>
+            )}
+            
+            {/* Location */}
+            {matchedUser.location && (
+              <div className="flex items-center text-sm text-stak-light-gray">
+                <MapPin className="w-4 h-4 mr-2 text-stak-copper" />
+                <span>{matchedUser.location}</span>
+              </div>
+            )}
+
+            {/* AI Insights */}
+            {compatibilityFactors && (
+              <div className="bg-stak-copper/10 rounded-lg p-3">
+                <div className="flex items-center space-x-2 text-stak-copper text-sm font-medium mb-2">
+                  <Brain className="w-4 h-4" />
+                  <span>AI Analysis</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {Object.entries(compatibilityFactors).slice(0, 4).map(([factor, score]) => (
+                    <div key={factor} className="flex justify-between">
+                      <span className="text-stak-light-gray capitalize">
+                        {factor.replace(/([A-Z])/g, ' $1').trim().slice(0, 15)}...
+                      </span>
+                      <span className="text-stak-copper font-medium">{score}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <Button
+                onClick={() => onPass(match.id)}
+                variant="outline"
+                size="sm"
+                className="flex-1 border-stak-gray text-stak-light-gray hover:bg-stak-gray/20"
+              >
+                Pass
+              </Button>
+              {onViewAnalysis && (
+                <Button
+                  onClick={() => onViewAnalysis(match.id)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-stak-copper hover:bg-stak-copper/10"
+                >
+                  <Brain className="w-4 h-4 mr-1" />
+                  Details
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
