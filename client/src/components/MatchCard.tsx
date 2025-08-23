@@ -79,11 +79,19 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
   });
 
   return (
-    <Card className="bg-stak-black border border-stak-gray hover:border-stak-copper transition-all duration-300">
+    <Card className="bg-stak-black border border-stak-gray hover:border-stak-copper transition-all duration-300 relative">
       <CardContent className="p-4">
-        <div className="flex items-center justify-between gap-4">
-          {/* Avatar and Info */}
-          <div className="flex items-center space-x-3 flex-1 min-w-0">
+        {/* Sync Score - Top Right Corner */}
+        <div className="absolute top-4 right-4 text-center">
+          <div className="text-2xl font-bold text-white bg-stak-gray/50 rounded-lg px-3 py-1">
+            {matchScore}%
+          </div>
+          <p className="text-xs text-stak-light-gray mt-1">Sync</p>
+        </div>
+
+        <div className="pr-20"> {/* Add right padding to avoid overlap with score */}
+          {/* Avatar and Info Row */}
+          <div className="flex items-start space-x-3 mb-4">
             <div className="w-12 h-12 bg-stak-copper/20 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-stak-copper font-semibold text-lg">
                 {matchedUser.firstName?.[0] || 'U'}{matchedUser.lastName?.[0] || ''}
@@ -113,7 +121,7 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
               
               {/* Description - Max 2 sentences from bio */}
               {matchedUser.bio && (
-                <div className="text-xs text-stak-light-gray leading-relaxed mb-2">
+                <div className="text-xs text-stak-light-gray leading-relaxed mb-3">
                   <span className="line-clamp-2">
                     {matchedUser.bio.split('.').slice(0, 2).join('.').trim()}{matchedUser.bio.split('.').length > 2 ? '.' : ''}
                   </span>
@@ -122,7 +130,7 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
               
               {/* Industries - At bottom */}
               {matchedUser.industries && matchedUser.industries.length > 0 && (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 mb-3">
                   {matchedUser.industries.slice(0, 3).map((industry, index) => (
                     <Badge key={index} variant="outline" className="text-xs border-stak-copper/60 text-stak-copper bg-stak-copper/10">
                       {industry}
@@ -133,16 +141,8 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
             </div>
           </div>
 
-          {/* Match Score */}
-          <div className="text-right w-16 flex-shrink-0">
-            <div className={`text-2xl font-bold ${getScoreColor(matchScore)}`}>
-              {matchScore}%
-            </div>
-            <p className="text-xs text-stak-light-gray">Sync</p>
-          </div>
-
-          {/* Action Buttons - Pass left, Connect right, Mobile-first */}
-          <div className="flex gap-2 w-32 flex-shrink-0">
+          {/* Action Buttons Row - Full width, responsive */}
+          <div className="flex gap-3 w-full">
             <Button
               onClick={(e) => {
                 e.stopPropagation();
@@ -151,7 +151,7 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
               }}
               variant="outline"
               size="sm"
-              className="flex-1 border-2 border-red-500 text-red-300 bg-transparent active:bg-red-500/20 font-medium"
+              className="flex-1 border-2 border-red-500 text-red-300 bg-transparent active:bg-red-500/20 font-medium px-4 py-2"
               data-testid={`button-pass-${match.id}`}
             >
               Pass
@@ -167,7 +167,7 @@ export function MatchCard({ match, onConnect, onPass, onViewAnalysis }: MatchCar
                 });
                 onConnect(match.id);
               }}
-              className="flex-1 bg-stak-copper border-2 border-stak-copper text-stak-black font-medium active:bg-stak-dark-copper"
+              className="flex-1 bg-stak-copper border-2 border-stak-copper text-stak-black font-medium active:bg-stak-dark-copper px-4 py-2"
               size="sm"
               data-testid={`button-connect-${match.id}`}
             >
