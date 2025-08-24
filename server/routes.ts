@@ -4774,6 +4774,11 @@ Keep responses conversational and helpful.`;
     const { query, userContext, conversationId } = req.body;
     const userId = req.user?.claims?.sub;
 
+    // Declare variables outside try block so they're accessible in catch block
+    let currentUser = null;
+    let conversation = null;
+    let userMatches: any[] = [];
+
     try {
       // Validate OpenAI API key first
       if (!process.env.OPENAI_API_KEY) {
@@ -4786,13 +4791,12 @@ Keep responses conversational and helpful.`;
         return res.status(400).json({ error: "Query is required" });
       }
 
-      const currentUser = await storage.getUser(userId);
+      currentUser = await storage.getUser(userId);
       if (!currentUser) {
         return res.status(404).json({ error: "User not found" });
       }
 
       // Get or create conversation history
-      let conversation = null;
       if (conversationId) {
         conversation = await storage.getAIConversation(conversationId);
       }
@@ -4805,7 +4809,7 @@ Keep responses conversational and helpful.`;
       await storage.addAIMessage(conversation.id, "user", query);
 
       // Get comprehensive user data for AI context
-      const userMatches = await storage.getMatches(userId);
+      userMatches = await storage.getMatches(userId);
       const userEvents = await storage.getUserEventRegistrations(userId);
       const userConversations = await storage.getConversations(userId);
       
@@ -4941,13 +4945,21 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
         console.error('OpenAI quota exceeded or rate limited');
         // Provide intelligent fallback response based on user data
         const fallbackResponse = generateFallbackResponse(query, userContext, currentUser, userMatches);
-        await storage.addAIMessage(conversation.id, "assistant", fallbackResponse);
-        return res.json({ 
-          response: fallbackResponse,
-          conversationId: conversation.id,
-          timestamp: new Date().toISOString(),
-          fallback: true
-        });
+        if (conversation) {
+          await storage.addAIMessage(conversation.id, "assistant", fallbackResponse);
+          return res.json({ 
+            response: fallbackResponse,
+            conversationId: conversation.id,
+            timestamp: new Date().toISOString(),
+            fallback: true
+          });
+        } else {
+          return res.json({ 
+            response: fallbackResponse,
+            timestamp: new Date().toISOString(),
+            fallback: true
+          });
+        }
       }
       
       if (error?.message) {
