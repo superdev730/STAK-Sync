@@ -4718,9 +4718,9 @@ Keep responses conversational and helpful.`;
     }
   });
 
-  // AI Assistant - General dashboard helper
+  // AI Assistant - General dashboard helper with conversation history
   app.post("/api/ai-assistant", isAuthenticated, async (req: any, res) => {
-    const { query, userContext } = req.body;
+    const { query, userContext, conversationId } = req.body;
     const userId = req.user?.claims?.sub;
 
     try {
@@ -4729,32 +4729,109 @@ Keep responses conversational and helpful.`;
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Return a helpful response without requiring OpenAI API
-      let aiResponse = "";
+      // Get or create conversation history
+      let conversation = null;
+      if (conversationId) {
+        conversation = await storage.getAIConversation(conversationId);
+      }
       
-      if (query.toLowerCase().includes("what's new") || query.toLowerCase().includes("update")) {
-        if (userContext.newMatches > 0) {
-          aiResponse = `Great news! You have ${userContext.newMatches} new AI-powered matches waiting for you. I recommend checking them out in the Discover section to start building valuable connections.`;
-        } else if (userContext.unreadMessages > 0) {
-          aiResponse = `You have ${userContext.unreadMessages} unread messages. Responding promptly helps build strong professional relationships. Check your Messages section to keep the conversations flowing.`;
-        } else if (userContext.profileCompleteness < 80) {
-          aiResponse = `Your profile is ${userContext.profileCompleteness}% complete. Adding more details like skills and networking goals will help our AI find better matches for you.`;
-        } else {
-          aiResponse = `You're all caught up! Your activity score is ${userContext.recentActivityScore}. Consider exploring the Events section to discover new networking opportunities.`;
-        }
-      } else if (query.toLowerCase().includes("matches") || query.toLowerCase().includes("connect")) {
-        aiResponse = `You have ${userContext.totalMatches} total matches available. Focus on connecting with the most compatible ones first - they're ranked by our AI compatibility algorithm.`;
-      } else if (query.toLowerCase().includes("profile") || query.toLowerCase().includes("improve")) {
-        aiResponse = `Your profile is ${userContext.profileCompleteness}% complete. Adding more professional details, skills, and networking goals will significantly improve your match quality and networking success.`;
-      } else {
-        aiResponse = `Hi ${currentUser.firstName}! I'm here to help with your networking journey. Try asking about "What's new?", finding matches, or improving your profile for personalized advice.`;
+      if (!conversation) {
+        conversation = await storage.createAIConversation(userId, "Dashboard Assistant");
       }
 
-      res.json({ response: aiResponse });
+      // Add user message to conversation
+      await storage.addAIMessage(conversation.id, "user", query);
+
+      // Generate contextual AI response based on query analysis
+      let aiResponse = "";
+      const queryLower = query.toLowerCase();
+      
+      // Enhanced response logic with better query parsing
+      if (queryLower.includes("what's new") || queryLower.includes("update") || queryLower.includes("summary")) {
+        if (userContext.newMatches > 0) {
+          aiResponse = `🎯 You have ${userContext.newMatches} new AI-powered matches! These are professionals our algorithm identified as highly compatible with your goals. I recommend reviewing them in the Discover section - particularly focus on those with 90%+ compatibility scores for the best networking opportunities.`;
+        } else if (userContext.unreadMessages > 0) {
+          aiResponse = `💬 You have ${userContext.unreadMessages} unread messages from your network. Quick responses help build stronger professional relationships. I suggest checking your Messages section and prioritizing responses to new connections or high-value contacts.`;
+        } else if (userContext.profileCompleteness < 80) {
+          aiResponse = `📝 Your profile is ${userContext.profileCompleteness}% complete. To improve match quality, consider adding your networking goals, key skills, and industry focus areas. A complete profile gets 3x more quality matches.`;
+        } else {
+          aiResponse = `✅ You're all caught up! Your activity score is ${userContext.recentActivityScore}. To keep growing your network, try exploring the Events section for upcoming networking opportunities or use the AI search in Discover to find specific types of professionals.`;
+        }
+      } else if (queryLower.includes("match") || queryLower.includes("connect") || queryLower.includes("find") || queryLower.includes("discover")) {
+        const matchAdvice = userContext.totalMatches > 10 ? 
+          "Focus on quality over quantity - reach out to your top 3-5 most compatible matches first." :
+          "You need more matches! Try improving your profile completeness and setting specific networking goals.";
+        aiResponse = `🤝 You have ${userContext.totalMatches} total matches available. ${matchAdvice} Look for professionals with shared industries, complementary expertise, or mutual networking goals for the best connections.`;
+      } else if (queryLower.includes("profile") || queryLower.includes("improve") || queryLower.includes("bio") || queryLower.includes("skills")) {
+        const suggestions = userContext.profileCompleteness < 50 ? 
+          "Start with your bio, title, and company information." :
+          userContext.profileCompleteness < 80 ? 
+          "Add your skills, networking goals, and industry focus areas." :
+          "Consider adding social media links and updating your professional photo.";
+        aiResponse = `🚀 Your profile is ${userContext.profileCompleteness}% complete. ${suggestions} A strong profile is your networking foundation - it's how potential connections evaluate compatibility before reaching out.`;
+      } else if (queryLower.includes("event") || queryLower.includes("meetup") || queryLower.includes("meeting")) {
+        aiResponse = `📅 Events are powerful networking multipliers! Check the Events section for upcoming opportunities. Live events often provide 5-10x more meaningful connections than cold outreach. I can help you prepare talking points or identify key attendees to connect with.`;
+      } else if (queryLower.includes("message") || queryLower.includes("conversation") || queryLower.includes("chat")) {
+        const messageStrategy = userContext.unreadMessages > 5 ? 
+          "Start with the most recent messages and work backwards. Quick acknowledgments are better than delayed perfect responses." :
+          "Focus on personalized messages that reference shared interests or mutual goals.";
+        aiResponse = `💭 ${messageStrategy} Remember: great networking conversations start with genuine interest in the other person's work and clear mutual value propositions.`;
+      } else if (queryLower.includes("help") || queryLower.includes("how") || queryLower.includes("advice")) {
+        aiResponse = `🎯 I'm here to optimize your networking success! I can help with:\n• Finding and connecting with the right people\n• Improving your profile for better matches\n• Messaging strategies and conversation starters\n• Event networking preparation\n• Tracking your networking progress\n\nWhat specific area would you like to focus on?`;
+      } else {
+        // Personalized greeting with actionable suggestions
+        const topPriority = userContext.newMatches > 0 ? "review your new matches" :
+          userContext.unreadMessages > 0 ? "respond to pending messages" :
+          userContext.profileCompleteness < 80 ? "complete your profile" :
+          "explore networking events";
+        
+        aiResponse = `Hi ${currentUser.firstName}! 👋 I'm your AI networking strategist. Based on your current activity, I recommend you ${topPriority} first. I can provide specific guidance on connecting with the right people, crafting compelling messages, or optimizing your profile. What would you like to work on?`;
+      }
+
+      // Add AI response to conversation
+      await storage.addAIMessage(conversation.id, "assistant", aiResponse);
+
+      res.json({ 
+        response: aiResponse,
+        conversationId: conversation.id,
+        timestamp: new Date().toISOString()
+      });
 
     } catch (error: any) {
       console.error("Error with AI assistant:", error);
       res.status(500).json({ error: "AI assistant is currently unavailable" });
+    }
+  });
+
+  // Get AI conversation history
+  app.get("/api/ai-conversations/:conversationId", isAuthenticated, async (req: any, res) => {
+    const { conversationId } = req.params;
+    const userId = req.user?.claims?.sub;
+
+    try {
+      const conversation = await storage.getAIConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      const messages = await storage.getAIMessages(conversationId);
+      res.json({ conversation, messages });
+    } catch (error: any) {
+      console.error("Error fetching AI conversation:", error);
+      res.status(500).json({ error: "Failed to fetch conversation" });
+    }
+  });
+
+  // Get all AI conversations for user
+  app.get("/api/ai-conversations", isAuthenticated, async (req: any, res) => {
+    const userId = req.user?.claims?.sub;
+
+    try {
+      const conversations = await storage.getUserAIConversations(userId);
+      res.json(conversations);
+    } catch (error: any) {
+      console.error("Error fetching AI conversations:", error);
+      res.status(500).json({ error: "Failed to fetch conversations" });
     }
   });
 

@@ -1321,3 +1321,48 @@ export const badgeAchievementsRelations = relations(badgeAchievements, ({ one })
     references: [events.id],
   }),
 }));
+
+// AI Conversation Management Tables
+export const aiConversations = pgTable("ai_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  title: varchar("title").notNull().default("AI Chat"),
+  context: text("context"), // Dashboard, Profile, Events, etc.
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const aiMessages = pgTable("ai_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => aiConversations.id),
+  role: varchar("role").notNull(), // 'user' or 'assistant'
+  content: text("content").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+  metadata: jsonb("metadata"), // Store user context, response time, etc.
+});
+
+// AI conversation relations
+export const aiConversationsRelations = relations(aiConversations, ({ one, many }) => ({
+  user: one(users, {
+    fields: [aiConversations.userId],
+    references: [users.id],
+  }),
+  messages: many(aiMessages),
+}));
+
+export const aiMessagesRelations = relations(aiMessages, ({ one }) => ({
+  conversation: one(aiConversations, {
+    fields: [aiMessages.conversationId],
+    references: [aiConversations.id],
+  }),
+}));
+
+// AI conversation schemas
+export const insertAIConversationSchema = createInsertSchema(aiConversations);
+export const insertAIMessageSchema = createInsertSchema(aiMessages);
+
+export type InsertAIConversation = z.infer<typeof insertAIConversationSchema>;
+export type AIConversation = typeof aiConversations.$inferSelect;
+export type InsertAIMessage = z.infer<typeof insertAIMessageSchema>;
+export type AIMessage = typeof aiMessages.$inferSelect;

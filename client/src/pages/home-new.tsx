@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { 
   Brain, MessageSquare, Calendar, Users, TrendingUp, Award, ExternalLink, 
@@ -13,7 +15,7 @@ import {
   ArrowRight, Star, Shield, Globe, Clock, Lightbulb, TrendingDown,
   UserPlus, Video, MapPin, Smartphone, Monitor, ChevronRight, Activity,
   Eye, Heart, Network, Send, Plus, AlertCircle, Bot, Mic, Settings,
-  BarChart, UserCheck, Rocket, Wand2
+  BarChart, UserCheck, Rocket, Wand2, History, X, Maximize2
 } from "lucide-react";
 import { LiveEventBanner } from "@/components/LiveEventBanner";
 import { useToast } from "@/hooks/use-toast";
@@ -23,9 +25,13 @@ import type { Match, User, Message } from "@shared/schema";
 export default function Home() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [aiInput, setAiInput] = useState("");
   const [aiResponse, setAiResponse] = useState("");
   const [isAiOpen, setIsAiOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<Array<{id: string, role: string, content: string, timestamp: string}>>([]);
 
   // Fetch user's data for dashboard stats
   const { data: matches } = useQuery<(Match & { matchedUser: User })[]>({
@@ -68,11 +74,29 @@ export default function Home() {
   // Activity score
   const recentActivityScore = Math.min(100, (newMatches * 20) + (unreadMessages * 10) + (connectedMatches * 15));
 
-  // AI Assistant Mutation
+  // Fetch AI conversations
+  const { data: aiConversations } = useQuery({
+    queryKey: ["/api/ai-conversations"],
+    enabled: !!user,
+  });
+
+  // Fetch current conversation messages
+  const { data: conversationData } = useQuery({
+    queryKey: ["/api/ai-conversations", currentConversationId],
+    enabled: !!currentConversationId,
+    onSuccess: (data: any) => {
+      if (data?.messages) {
+        setChatMessages(data.messages);
+      }
+    }
+  });
+
+  // AI Assistant Mutation with chat history
   const aiAssistantMutation = useMutation({
     mutationFn: async (query: string) => {
       const response = await apiRequest("/api/ai-assistant", "POST", { 
         query, 
+        conversationId: currentConversationId,
         userContext: {
           totalMatches,
           newMatches,
@@ -89,6 +113,34 @@ export default function Home() {
     onSuccess: (data) => {
       setAiResponse(data.response);
       setIsAiOpen(true);
+      
+      // If chat is open, add messages to chat history
+      if (isChatOpen) {
+        const newUserMessage = {
+          id: Date.now().toString() + '-user',
+          role: 'user', 
+          content: aiInput,
+          timestamp: new Date().toISOString()
+        };
+        const newAiMessage = {
+          id: Date.now().toString() + '-ai',
+          role: 'assistant',
+          content: data.response,
+          timestamp: data.timestamp || new Date().toISOString()
+        };
+        setChatMessages(prev => [...prev, newUserMessage, newAiMessage]);
+        
+        // Update conversation ID for future messages
+        if (data.conversationId) {
+          setCurrentConversationId(data.conversationId);
+        }
+        
+        // Refresh conversations list
+        queryClient.invalidateQueries(["/api/ai-conversations"]);
+        if (currentConversationId) {
+          queryClient.invalidateQueries(["/api/ai-conversations", currentConversationId]);
+        }
+      }
     },
     onError: (error: any) => {
       toast({
@@ -103,6 +155,21 @@ export default function Home() {
     if (!aiInput.trim()) return;
     aiAssistantMutation.mutate(aiInput);
     setAiInput("");
+  };
+
+  const openChatWindow = () => {
+    setIsChatOpen(true);
+    setIsAiOpen(false);
+  };
+
+  const selectConversation = (conversationId: string) => {
+    setCurrentConversationId(conversationId);
+    queryClient.invalidateQueries(["/api/ai-conversations", conversationId]);
+  };
+
+  const startNewChat = () => {
+    setCurrentConversationId(null);
+    setChatMessages([]);
   };
 
   return (
@@ -157,14 +224,25 @@ export default function Home() {
               <div className="mt-4 p-4 bg-white/10 rounded-lg border border-white/20">
                 <div className="flex items-start justify-between mb-2">
                   <h4 className="text-sm font-medium text-stak-copper">AI Response:</h4>
-                  <Button
-                    onClick={() => setIsAiOpen(false)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white/60 hover:text-white p-1 h-auto"
-                  >
-                    ×
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={openChatWindow}
+                      variant="ghost"
+                      size="sm"
+                      className="text-white/60 hover:text-white p-1 h-auto"
+                      title="Open Chat History"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      onClick={() => setIsAiOpen(false)}
+                      variant="ghost"
+                      size="sm"
+                      className="text-white/60 hover:text-white p-1 h-auto"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="text-white text-sm leading-relaxed whitespace-pre-wrap" data-testid="ai-response">
                   {aiResponse}
@@ -173,6 +251,128 @@ export default function Home() {
             )}
           </CardContent>
         </Card>
+
+        {/* AI Chat History Dialog */}
+        <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] p-0">
+            <DialogHeader className="p-6 pb-4">
+              <DialogTitle className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-stak-copper" />
+                STAK Sync AI Assistant - Chat History
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="flex h-[60vh]">
+              {/* Conversations Sidebar */}
+              <div className="w-80 border-r bg-gray-50 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-medium text-gray-900">Conversations</h3>
+                  <Button
+                    onClick={startNewChat}
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    New Chat
+                  </Button>
+                </div>
+                
+                <ScrollArea className="h-full">
+                  <div className="space-y-2">
+                    {aiConversations?.map((conv: any) => (
+                      <Button
+                        key={conv.id}
+                        onClick={() => selectConversation(conv.id)}
+                        variant={currentConversationId === conv.id ? "default" : "ghost"}
+                        className="w-full justify-start text-left p-3 h-auto"
+                      >
+                        <div className="flex items-start gap-2 w-full">
+                          <History className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{conv.title}</div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {new Date(conv.updatedAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                      </Button>
+                    ))}
+                    
+                    {(!aiConversations || aiConversations.length === 0) && (
+                      <div className="text-center py-8 text-gray-500">
+                        <Bot className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm">No conversations yet</p>
+                        <p className="text-xs">Start chatting to build your history</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Chat Messages */}
+              <div className="flex-1 flex flex-col">
+                <ScrollArea className="flex-1 p-4">
+                  <div className="space-y-4">
+                    {chatMessages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                            message.role === 'user'
+                              ? 'bg-stak-copper text-stak-black ml-4'
+                              : 'bg-gray-100 text-gray-900 mr-4'
+                          }`}
+                        >
+                          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                          <div className="text-xs mt-1 opacity-70">
+                            {new Date(message.timestamp).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {chatMessages.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <MessageSquare className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm">Start a conversation</p>
+                        <p className="text-xs">Ask me anything about your networking goals!</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+
+                {/* Chat Input */}
+                <div className="border-t p-4">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Ask me anything about networking, matches, or improving your profile..."
+                      value={aiInput}
+                      onChange={(e) => setAiInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleAiSubmit()}
+                      className="flex-1"
+                      data-testid="chat-input"
+                    />
+                    <Button 
+                      onClick={handleAiSubmit}
+                      disabled={aiAssistantMutation.isPending || !aiInput.trim()}
+                      className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                      data-testid="chat-submit"
+                    >
+                      {aiAssistantMutation.isPending ? (
+                        <div className="w-4 h-4 border-2 border-stak-black border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Priority Actions Grid - Equal Heights */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

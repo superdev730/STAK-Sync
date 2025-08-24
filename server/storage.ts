@@ -20,6 +20,8 @@ import {
   badgeAchievements,
   profileRecommendations,
   profileAssistanceRequests,
+  aiConversations,
+  aiMessages,
   type User,
   type UpsertUser,
   type Match,
@@ -58,6 +60,10 @@ import {
   type InsertUserBadge,
   type BadgeAchievement,
   type InsertBadgeAchievement,
+  type AIConversation,
+  type InsertAIConversation,
+  type AIMessage,
+  type InsertAIMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, ilike, count, lte, isNull } from "drizzle-orm";
@@ -187,6 +193,14 @@ export interface IStorage {
   getBadgeAchievements(userId: string): Promise<(BadgeAchievement & { badge: Badge })[]>;
   updateBadgeProgress(userId: string, badgeId: string, progress: any): Promise<BadgeAchievement>;
   completeBadgeAchievement(achievementId: string): Promise<BadgeAchievement>;
+  
+  // AI Conversation operations
+  createAIConversation(userId: string, title: string, context?: string): Promise<AIConversation>;
+  getAIConversation(conversationId: string): Promise<AIConversation | undefined>;
+  getUserAIConversations(userId: string): Promise<AIConversation[]>;
+  addAIMessage(conversationId: string, role: string, content: string, metadata?: any): Promise<AIMessage>;
+  getAIMessages(conversationId: string): Promise<AIMessage[]>;
+  updateAIConversation(conversationId: string, updates: Partial<AIConversation>): Promise<AIConversation>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1733,6 +1747,77 @@ export class DatabaseStorage implements IStorage {
       .where(eq(badgeAchievements.id, achievementId))
       .returning();
     return completedAchievement;
+  }
+
+  // AI Conversation operations implementation
+  async createAIConversation(userId: string, title: string, context?: string): Promise<AIConversation> {
+    const [conversation] = await db
+      .insert(aiConversations)
+      .values({
+        userId,
+        title,
+        context: context || "Dashboard",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return conversation;
+  }
+
+  async getAIConversation(conversationId: string): Promise<AIConversation | undefined> {
+    const [conversation] = await db
+      .select()
+      .from(aiConversations)
+      .where(eq(aiConversations.id, conversationId));
+    return conversation;
+  }
+
+  async getUserAIConversations(userId: string): Promise<AIConversation[]> {
+    const conversations = await db
+      .select()
+      .from(aiConversations)
+      .where(and(eq(aiConversations.userId, userId), eq(aiConversations.isActive, true)))
+      .orderBy(desc(aiConversations.updatedAt));
+    return conversations;
+  }
+
+  async addAIMessage(conversationId: string, role: string, content: string, metadata?: any): Promise<AIMessage> {
+    // Update conversation's updatedAt timestamp
+    await db
+      .update(aiConversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(aiConversations.id, conversationId));
+
+    const [message] = await db
+      .insert(aiMessages)
+      .values({
+        conversationId,
+        role,
+        content,
+        metadata,
+        timestamp: new Date(),
+      })
+      .returning();
+    return message;
+  }
+
+  async getAIMessages(conversationId: string): Promise<AIMessage[]> {
+    const messages = await db
+      .select()
+      .from(aiMessages)
+      .where(eq(aiMessages.conversationId, conversationId))
+      .orderBy(aiMessages.timestamp);
+    return messages;
+  }
+
+  async updateAIConversation(conversationId: string, updates: Partial<AIConversation>): Promise<AIConversation> {
+    const [conversation] = await db
+      .update(aiConversations)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(aiConversations.id, conversationId))
+      .returning();
+    return conversation;
   }
 }
 
