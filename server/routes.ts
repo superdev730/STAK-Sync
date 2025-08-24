@@ -4718,6 +4718,63 @@ Keep responses conversational and helpful.`;
     }
   });
 
+  // AI Assistant - General dashboard helper
+  app.post("/api/ai-assistant", isAuthenticated, async (req: any, res) => {
+    const { query, userContext } = req.body;
+    const userId = req.user?.claims?.sub;
+
+    try {
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: 'AI service not configured' });
+      }
+
+      const openai = await import('openai');
+      const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+
+      const prompt = `You are the STAK Sync AI Assistant, helping users with their professional networking needs. 
+      
+User Context:
+- Name: ${currentUser.firstName} ${currentUser.lastName}
+- Title: ${currentUser.title || 'Professional'}
+- Company: ${currentUser.company || 'N/A'}
+- Total Matches: ${userContext.totalMatches || 0}
+- New Matches: ${userContext.newMatches || 0}
+- Unread Messages: ${userContext.unreadMessages || 0}  
+- Profile Completeness: ${userContext.profileCompleteness || 0}%
+- Activity Score: ${userContext.recentActivityScore || 0}
+
+User Question: "${query}"
+
+Provide a helpful, concise response (2-3 sentences max) that:
+- Addresses their specific question
+- Offers actionable advice for networking success
+- References their current stats when relevant
+- Maintains a professional but friendly tone
+- Focuses on immediate next steps they can take
+
+If they ask "What's new?" or similar, summarize their current status and suggest priority actions.`;
+
+      const response = await client.chat.completions.create({
+        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 200,
+        temperature: 0.7,
+      });
+
+      const aiResponse = response.choices[0].message.content;
+      res.json({ response: aiResponse });
+
+    } catch (error) {
+      console.error("Error with AI assistant:", error);
+      res.status(500).json({ error: "AI assistant is currently unavailable" });
+    }
+  });
+
   // AI Enhancement API routes
   app.post('/api/ai/enhance', isAuthenticated, async (req: any, res) => {
     try {
