@@ -189,31 +189,34 @@ export default function Home() {
 
         {/* AI Assistant Toolbar */}
         <Card className="mb-8 bg-gradient-to-r from-stak-black to-gray-900 border-stak-copper/30">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Bot className="w-6 h-6 text-stak-copper" />
-                <h3 className="text-lg font-semibold text-white">STAK Sync AI Assistant</h3>
-              </div>
-              <div className="flex-1 flex space-x-3">
+          <CardContent className="p-4 sm:p-6">
+            {/* Header - Always visible */}
+            <div className="flex items-center space-x-2 mb-4 sm:mb-0">
+              <Bot className="w-6 h-6 text-stak-copper" />
+              <h3 className="text-lg font-semibold text-white">STAK Sync AI Assistant</h3>
+            </div>
+            
+            {/* Input Section - Full width on mobile, inline on desktop */}
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+              <div className="flex-1 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
                 <Input
                   placeholder="Ask me anything... 'What's new?', 'Find me matches', 'Improve my profile'"
                   value={aiInput}
                   onChange={(e) => setAiInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleAiSubmit()}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 sm:h-10 text-base sm:text-sm px-4 py-3 sm:py-2"
                   data-testid="ai-input"
                 />
                 <Button 
                   onClick={handleAiSubmit}
                   disabled={aiAssistantMutation.isPending || !aiInput.trim()}
-                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black h-12 sm:h-10 px-6 sm:px-4 text-base sm:text-sm font-medium"
                   data-testid="ai-submit"
                 >
                   {aiAssistantMutation.isPending ? (
-                    <div className="w-4 h-4 border-2 border-stak-black border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 sm:w-4 sm:h-4 border-2 border-stak-black border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <Send className="w-4 h-4" />
+                    <Send className="w-5 h-5 sm:w-4 sm:h-4" />
                   )}
                 </Button>
               </div>
