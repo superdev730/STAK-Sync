@@ -4724,6 +4724,17 @@ Keep responses conversational and helpful.`;
     const userId = req.user?.claims?.sub;
 
     try {
+      // Validate OpenAI API key first
+      if (!process.env.OPENAI_API_KEY) {
+        console.error('OPENAI_API_KEY not configured');
+        return res.status(500).json({ error: "AI service not configured" });
+      }
+
+      // Validate request data
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ error: "Query is required" });
+      }
+
       const currentUser = await storage.getUser(userId);
       if (!currentUser) {
         return res.status(404).json({ error: "User not found" });
@@ -4747,7 +4758,7 @@ Keep responses conversational and helpful.`;
       const userEvents = await storage.getUserEventRegistrations(userId);
       const userConversations = await storage.getConversations(userId);
       
-      // Initialize OpenAI client
+      // Initialize OpenAI client with validation
       const openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
       });
@@ -4863,6 +4874,27 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
 
     } catch (error: any) {
       console.error("Error with AI assistant:", error);
+      
+      // Provide more specific error messages
+      if (error?.code === 'invalid_api_key') {
+        console.error('OpenAI API key is invalid or expired');
+        return res.status(500).json({ error: "AI service configuration error" });
+      }
+      
+      if (error?.status === 401) {
+        console.error('OpenAI authentication failed');
+        return res.status(500).json({ error: "AI service authentication failed" });
+      }
+      
+      if (error?.status === 429) {
+        console.error('OpenAI rate limit exceeded');
+        return res.status(500).json({ error: "AI service temporarily unavailable - please try again in a moment" });
+      }
+      
+      if (error?.message) {
+        console.error('AI assistant error message:', error.message);
+      }
+      
       res.status(500).json({ error: "AI assistant is currently unavailable" });
     }
   });
