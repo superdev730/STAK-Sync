@@ -4718,6 +4718,57 @@ Keep responses conversational and helpful.`;
     }
   });
 
+  // Fallback response generator for when OpenAI is unavailable
+  function generateFallbackResponse(query: string, userContext: any, currentUser: any, userMatches: any[]) {
+    const queryLower = query.toLowerCase();
+    const conciergeGreeting = `Hello ${currentUser.firstName}! I'm your STAK Sync Networking Concierge.`;
+    
+    if (queryLower.includes("what's new") || queryLower.includes("whats new") || queryLower.includes("update") || queryLower.includes("summary") || queryLower.includes("status")) {
+      let newsItems = [];
+      
+      if (userContext.newMatches > 0) {
+        const topMatches = userMatches.slice(0, 3);
+        let matchSummary = `🎯 **${userContext.newMatches} Fresh Syncs Available**\n`;
+        topMatches.forEach((match, i) => {
+          matchSummary += `• **${match.matchedUser.firstName} ${match.matchedUser.lastName}** — ${match.matchedUser.title || 'Professional'} at ${match.matchedUser.company || 'their company'}\n`;
+        });
+        newsItems.push(matchSummary);
+      }
+      
+      if (userContext.unreadMessages > 0) {
+        newsItems.push(`📬 **${userContext.unreadMessages} conversations waiting** — respond promptly to strengthen relationships`);
+      }
+      
+      const profileStrength = userContext.profileCompleteness;
+      if (profileStrength < 90) {
+        newsItems.push(`⚡ **Profile ${profileStrength}% complete** — add more details for better matches`);
+      }
+      
+      return newsItems.length > 0 ? newsItems.join("\n\n") + "\n\n**What would you like to focus on first?**" : 
+        `${conciergeGreeting}\n\n**Your network status:** ${userContext.totalMatches} total matches, profile ${profileStrength}% complete.\n\n**Ready to make valuable connections?**`;
+    } 
+    
+    if (queryLower.includes("match") || queryLower.includes("connect") || queryLower.includes("intro") || queryLower.includes("find") || queryLower.includes("discover")) {
+      if (userContext.totalMatches > 0) {
+        const topMatch = userMatches[0];
+        return `**Your top sync: ${topMatch.matchedUser.firstName} ${topMatch.matchedUser.lastName}**\n• ${topMatch.matchedUser.title || 'Professional'} at ${topMatch.matchedUser.company || 'their company'}\n• Based in ${topMatch.matchedUser.location || 'their location'}\n\n**Ready to send an introduction message?**`;
+      } else {
+        return `**Let's build your network!** Complete your profile with networking goals and industry focus to find quality matches.\n\n**Need help with your profile?**`;
+      }
+    }
+    
+    if (queryLower.includes("profile") || queryLower.includes("improve") || queryLower.includes("bio") || queryLower.includes("optimize")) {
+      const missing = userContext.profileCompleteness < 50 ? 
+        "bio, title, company" : 
+        userContext.profileCompleteness < 80 ? 
+        "networking goals, skills, industry focus" : 
+        "social links, recent achievements";
+      return `**Profile optimization:** ${userContext.profileCompleteness}% complete\n• Missing: ${missing}\n• Impact: Complete profiles get 3x more quality matches\n\n**Ready to enhance your profile?**`;
+    }
+    
+    return `${conciergeGreeting}\n\n**I can help you with:**\n• Finding and connecting with quality matches\n• Optimizing your profile for better networking\n• Navigating STAK events and opportunities\n• Building networking momentum\n\n**What's your networking priority today?**\n\n*Note: Full AI capabilities will return once OpenAI quota is restored.*`;
+  }
+
   // AI Assistant - General dashboard helper with conversation history
   app.post("/api/ai-assistant", isAuthenticated, async (req: any, res) => {
     const { query, userContext, conversationId } = req.body;
@@ -4875,20 +4926,28 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
     } catch (error: any) {
       console.error("Error with AI assistant:", error);
       
-      // Provide more specific error messages
+      // Provide more specific error messages with fallback responses
       if (error?.code === 'invalid_api_key') {
         console.error('OpenAI API key is invalid or expired');
-        return res.status(500).json({ error: "AI service configuration error" });
+        return res.status(500).json({ error: "AI service configuration error - please check your OpenAI API key" });
       }
       
       if (error?.status === 401) {
         console.error('OpenAI authentication failed');
-        return res.status(500).json({ error: "AI service authentication failed" });
+        return res.status(500).json({ error: "AI service authentication failed - please verify your OpenAI API key" });
       }
       
-      if (error?.status === 429) {
-        console.error('OpenAI rate limit exceeded');
-        return res.status(500).json({ error: "AI service temporarily unavailable - please try again in a moment" });
+      if (error?.code === 'insufficient_quota' || error?.status === 429) {
+        console.error('OpenAI quota exceeded or rate limited');
+        // Provide intelligent fallback response based on user data
+        const fallbackResponse = generateFallbackResponse(query, userContext, currentUser, userMatches);
+        await storage.addAIMessage(conversation.id, "assistant", fallbackResponse);
+        return res.json({ 
+          response: fallbackResponse,
+          conversationId: conversation.id,
+          timestamp: new Date().toISOString(),
+          fallback: true
+        });
       }
       
       if (error?.message) {
