@@ -4742,138 +4742,115 @@ Keep responses conversational and helpful.`;
       // Add user message to conversation
       await storage.addAIMessage(conversation.id, "user", query);
 
-      // Get user's matches for better recommendations
+      // Get comprehensive user data for AI context
       const userMatches = await storage.getMatches(userId);
       const userEvents = await storage.getUserEventRegistrations(userId);
+      const recentMessages = await storage.getRecentConversations(userId, 5);
       
-      // STAK Sync Networking Concierge - Generate intelligent, actionable responses
-      let aiResponse = "";
-      const queryLower = query.toLowerCase();
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
       
-      // Core identity and tone: professional, direct, encouraging, brief
-      const conciergeGreeting = `I'm **STAK Sync**, your Networking Concierge for the STAK ecosystem.`;
+      // Build comprehensive context for AI
+      const userProfile = {
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        title: currentUser.title,
+        company: currentUser.company,
+        bio: currentUser.bio,
+        location: currentUser.location,
+        industries: currentUser.industries,
+        skills: currentUser.skills,
+        networkingGoal: currentUser.networkingGoal,
+        profileCompleteness: userContext.profileCompleteness,
+        syncScore: currentUser.syncScore
+      };
       
-      // Debug logging for query parsing
-      console.log(`AI Query received: "${query}" -> "${queryLower}"`);
+      const networkingData = {
+        totalMatches: userContext.totalMatches,
+        newMatches: userContext.newMatches,
+        unreadMessages: userContext.unreadMessages,
+        recentActivityScore: userContext.recentActivityScore,
+        topMatches: userMatches.slice(0, 5).map(match => ({
+          name: `${match.matchedUser.firstName} ${match.matchedUser.lastName}`,
+          title: match.matchedUser.title,
+          company: match.matchedUser.company,
+          industries: match.matchedUser.industries,
+          networkingGoal: match.matchedUser.networkingGoal,
+          compatibilityScore: match.compatibilityScore,
+          location: match.matchedUser.location
+        })),
+        upcomingEvents: userEvents.slice(0, 3).map(reg => ({
+          title: reg.event.title,
+          date: reg.event.startDate,
+          location: reg.event.location,
+          type: reg.event.eventType
+        })),
+        recentConversations: recentMessages.slice(0, 3).map(conv => ({
+          participant: conv.participant ? `${conv.participant.firstName} ${conv.participant.lastName}` : 'Unknown',
+          lastMessage: conv.lastMessage || 'No messages yet',
+          updatedAt: conv.updatedAt
+        }))
+      };
+      
+      console.log(`AI Query received: "${query}"`);
       console.log(`User context:`, { newMatches: userContext.newMatches, totalMatches: userContext.totalMatches, unreadMessages: userContext.unreadMessages });
       
-      if (queryLower.includes("what's new") || queryLower.includes("whats new") || queryLower.includes("update") || queryLower.includes("summary") || queryLower.includes("status")) {
-        // Comprehensive "What's New" Intelligence Hub
-        let newsItems = [];
-        
-        // 1. NEW MATCHES & CONNECTIONS
-        if (userContext.newMatches > 0) {
-          const topMatches = userMatches.slice(0, 3);
-          let matchSummary = `🎯 **${userContext.newMatches} Fresh Syncs** (${userContext.totalMatches} total available)\n`;
-          topMatches.forEach((match, i) => {
-            const compatibilityScore = Math.floor(Math.random() * 20) + 80;
-            const reason1 = match.matchedUser.industries?.[0] || "shared focus";
-            const reason2 = match.matchedUser.networkingGoal ? "aligned goals" : "complementary skills";
-            matchSummary += `• **${match.matchedUser.firstName} ${match.matchedUser.lastName}** — ${reason1}, ${reason2} (${compatibilityScore}%)\n`;
-          });
-          newsItems.push(matchSummary);
-        }
+      // Create comprehensive system prompt for STAK Sync Networking Concierge
+      const systemPrompt = `You are the STAK Sync Networking Concierge, an AI assistant for the STAK ecosystem - a premium professional networking platform. Your personality is professional, direct, encouraging, and brief.
 
-        // 2. STAK ECOSYSTEM UPDATES
-        const stakUpdates = [
-          "🏢 **STAK Spaces:** New coworking partnerships in Austin & Denver launching next month",
-          "🎤 **Programming:** 'Founder-VC Speed Dating' series starts Feb 15th — early access for members",
-          "📊 **Platform:** New AI matching algorithm went live — 40% better compatibility accuracy",
-          "🤝 **Success Stories:** 12 new partnerships formed through STAK connections this week"
-        ];
-        const randomUpdate = stakUpdates[Math.floor(Math.random() * stakUpdates.length)];
-        newsItems.push(randomUpdate);
+CORE IDENTITY:
+- You help members maximize their networking ROI within the STAK ecosystem  
+- You provide actionable, specific recommendations based on their real data
+- You focus on 4 outcomes: actionable intros, event navigation, STAK utilization, and momentum building
+- You speak professionally but conversationally, like a trusted networking strategist
 
-        // 3. PERSONALIZED INSIGHTS
-        const profileStrength = userContext.profileCompleteness;
-        if (profileStrength < 90) {
-          newsItems.push(`⚡ **Your Profile Power:** ${profileStrength}% complete — add industry keywords for 3x more targeted matches`);
-        } else {
-          newsItems.push(`🔥 **Your Network Momentum:** Profile optimized, ${userContext.recentActivityScore} activity score — you're in the top 20% of active members`);
-        }
+STAK ECOSYSTEM CONTEXT:
+- STAK Sync is a premium networking platform for VCs, founders, and industry leaders
+- Members use AI-powered matching to find high-quality professional connections
+- The platform includes STAK Spaces (coworking), Programming (events), and digital networking tools
+- Success is measured by quality connections, not quantity - "Get in Sync, Cut the Noise"
+- Sync Score is a member's networking effectiveness rating
+- The platform emphasizes luxury real estate aesthetic and premium experience
 
-        // 4. TRENDING OPPORTUNITIES
-        const trendingOpps = [
-          "🔥 **Trending:** PropTech founders are 5x more active this week — perfect timing for real estate connections",
-          "💡 **Hot Topic:** AI/ML expertise is the #1 requested skill in VC conversations right now",
-          "🌐 **Geographic Trend:** Remote-first startups seeing 300% more cross-country connections",
-          "💰 **Funding Alert:** Series A rounds up 25% this month — great time for growth-stage networking"
-        ];
-        newsItems.push(trendingOpps[Math.floor(Math.random() * trendingOpps.length)]);
+RESPONSE GUIDELINES:
+- Always reference their actual data when making recommendations
+- Provide specific, actionable next steps
+- Use professional networking language but stay approachable
+- Focus on mutual value and strategic networking
+- Include clear explainable reasons for match recommendations
+- End with a specific question or call-to-action
+- Use emojis sparingly and only when they enhance clarity
 
-        // 5. ACTIONABLE INTELLIGENCE
-        if (userContext.unreadMessages > 0) {
-          newsItems.push(`📬 **Action Needed:** ${userContext.unreadMessages} conversations waiting — quick replies = stronger relationships`);
-        } else if (userEvents && userEvents.length > 0) {
-          newsItems.push(`📅 **Event Prep:** Your next STAK event is "${userEvents[0].event.title}" — I can identify high-value attendees`);
-        } else {
-          newsItems.push(`🎯 **Strategic Move:** Consider joining tonight's virtual networking mixer — 50+ active members expected`);
-        }
+CURRENT USER DATA:
+Profile: ${JSON.stringify(userProfile, null, 2)}
+Networking Data: ${JSON.stringify(networkingData, null, 2)}
 
-        // 6. WEEKLY ECOSYSTEM INSIGHT
-        const ecosystemInsights = [
-          "📈 **Ecosystem Pulse:** FinTech connections up 60% — regulatory changes driving innovation partnerships",
-          "🚀 **Startup Spotlight:** B2B SaaS founders averaging 40% more introductions than other verticals",
-          "🏆 **Success Metric:** Members with complete profiles get 8x more quality conversations",
-          "🎯 **Network Effect:** STAK members report 2.3x faster deal flow vs traditional networking"
-        ];
-        newsItems.push(ecosystemInsights[Math.floor(Math.random() * ecosystemInsights.length)]);
+Respond as the STAK Sync Networking Concierge, providing personalized, actionable advice based on their specific situation and query.`;
 
-        // Compile the comprehensive update
-        aiResponse = newsItems.join("\n\n") + "\n\n**Ready to capitalize on what's happening?** What interests you most?";
-      } else if (queryLower.includes("match") || queryLower.includes("connect") || queryLower.includes("intro") || queryLower.includes("find") || queryLower.includes("discover")) {
-        // Explainable matching with clear reasons
-        if (userContext.totalMatches > 0) {
-          const topMatch = userMatches[0];
-          if (topMatch) {
-            const reasons = [
-              topMatch.matchedUser.company ? `works at ${topMatch.matchedUser.company}` : "industry expertise",
-              topMatch.matchedUser.location ? `based in ${topMatch.matchedUser.location}` : "shared geography",
-              topMatch.matchedUser.networkingGoal || "aligned networking goals"
-            ];
-            aiResponse = `**Your best sync:** **${topMatch.matchedUser.firstName} ${topMatch.matchedUser.lastName}**\n• Why now: ${reasons[0]}; ${reasons[1]}\n• Value: ${reasons[2]}\n\nSend intro message or schedule 15-min chat?`;
-          } else {
-            aiResponse = `**Expand your network:** ${userContext.totalMatches} matches available.\n• Focus on top 5 most compatible\n• Look for shared interests + complementary skills\n\nStart with quality over quantity?`;
-          }
-        } else {
-          aiResponse = `**Let's find your people:** Zero matches suggests we need more profile data.\n• Add your networking goals\n• Specify your industry focus\n• Include key skills and interests\n\nEnhance profile for better matching?`;
-        }
-      } else if (queryLower.includes("event") || queryLower.includes("meetup") || queryLower.includes("meeting") || queryLower.includes("calendar")) {
-        // Event Navigation format
-        if (userEvents && userEvents.length > 0) {
-          const nextEvent = userEvents[0];
-          aiResponse = `**Event Navigation:** Your next event is "${nextEvent.event.title}"\n• Prep: Review attendees for target intros\n• During: Selective Sync mode (5-10 curated matches)\n• After: Auto-debrief + follow-up drafts\n\nSet up your networking strategy now?`;
-        } else {
-          aiResponse = `**Event opportunity:** STAK events = 5-10x more valuable connections than cold outreach.\n• Live events with Selective Sync matching\n• Curated intro suggestions\n• Built-in follow-up automation\n\nExplore upcoming events?`;
-        }
-      } else if (queryLower.includes("message") || queryLower.includes("conversation") || queryLower.includes("chat") || queryLower.includes("follow") || queryLower.includes("reply")) {
-        // Warm Intro Draft assistance
-        if (userContext.unreadMessages > 0) {
-          aiResponse = `**Message momentum:** ${userContext.unreadMessages} conversations waiting.\n• Quick wins: respond to warm leads first\n• I can draft personalized replies\n• Focus on mutual value + clear next steps\n\nDraft your top 3 responses?`;
-        } else {
-          aiResponse = `**Conversation starters:** Great networking messages have 3 elements:\n• Context (how you're connected)\n• Value (what's in it for them)\n• Clear next step (15-min call, intro, etc.)\n\nNeed help crafting a specific message?`;
-        }
-      } else if (queryLower.includes("profile") || queryLower.includes("improve") || queryLower.includes("bio") || queryLower.includes("optimize")) {
-        const missing = userContext.profileCompleteness < 50 ? 
-          "bio, title, company" :
-          userContext.profileCompleteness < 80 ? 
-          "networking goals, skills, industry focus" :
-          "social links, recent achievements";
-        aiResponse = `**Profile optimization:** ${userContext.profileCompleteness}% complete\n• Missing: ${missing}\n• Impact: Complete profiles get 3x more quality matches\n• Time needed: 5 minutes\n\nBoost your visibility now?`;
-      } else if (queryLower.includes("help") || queryLower.includes("how") || queryLower.includes("guide") || queryLower.includes("what")) {
-        aiResponse = `${conciergeGreeting} I make your time more valuable by:\n\n**Core outcomes:**\n• Actionable intros (warm, relevant connections)\n• Event navigation (maximize networking ROI)\n• STAK utilization (spaces, programming, tools)\n• Momentum (draft messages, schedule, follow-up)\n\nWhat's your immediate networking goal?`;
-      } else {
-        // Personalized action-oriented greeting
-        const topAction = userContext.newMatches > 0 ? 
-          `connect with ${userContext.newMatches} new matches` :
-          userContext.unreadMessages > 0 ? 
-          `respond to ${userContext.unreadMessages} pending messages` :
-          userContext.profileCompleteness < 80 ? 
-          "complete your profile for better matches" :
-          "explore networking events for new connections";
-        
-        aiResponse = `${conciergeGreeting}\n\n**Your networking priority:** ${topAction}\n\nReady to make valuable connections, ${currentUser.firstName}?`;
-      }
+      // Get conversation history for context
+      const conversationHistory = await storage.getAIMessages(conversation.id);
+      const recentChatHistory = conversationHistory.slice(-5); // Last 5 messages for context
+      
+      // Build messages array for OpenAI
+      const messages = [
+        { role: "system", content: systemPrompt },
+        ...recentChatHistory.map(msg => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content
+        })),
+        { role: "user", content: query }
+      ];
+
+      // Call OpenAI API
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        messages: messages,
+        max_tokens: 800,
+        temperature: 0.7,
+      });
+
+      const aiResponse = completion.choices[0]?.message?.content || "I apologize, but I'm having trouble generating a response right now. Please try again.";
 
       // Add AI response to conversation
       await storage.addAIMessage(conversation.id, "assistant", aiResponse);
