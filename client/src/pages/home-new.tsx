@@ -344,9 +344,9 @@ export default function Home() {
                   </div>
                 </ScrollArea>
 
-                {/* Chat Input */}
-                <div className="border-t p-4">
-                  <div className="flex gap-2">
+                {/* Chat Input - positioned to flow with conversation */}
+                <div className="border-t bg-white p-4 mt-auto">
+                  <div className="flex gap-2 items-end">
                     <Input
                       placeholder="Ask me anything about networking, matches, or improving your profile..."
                       value={aiInput}

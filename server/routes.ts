@@ -4753,7 +4753,11 @@ Keep responses conversational and helpful.`;
       // Core identity and tone: professional, direct, encouraging, brief
       const conciergeGreeting = `I'm **STAK Sync**, your Networking Concierge for the STAK ecosystem.`;
       
-      if (queryLower.includes("what's new") || queryLower.includes("update") || queryLower.includes("summary") || queryLower.includes("status")) {
+      // Debug logging for query parsing
+      console.log(`AI Query received: "${query}" -> "${queryLower}"`);
+      console.log(`User context:`, { newMatches: userContext.newMatches, totalMatches: userContext.totalMatches, unreadMessages: userContext.unreadMessages });
+      
+      if (queryLower.includes("what's new") || queryLower.includes("whats new") || queryLower.includes("update") || queryLower.includes("summary") || queryLower.includes("status")) {
         // Quick Match Pack format
         if (userContext.newMatches > 0) {
           const topMatches = userMatches.slice(0, 3);
