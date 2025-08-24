@@ -4745,7 +4745,7 @@ Keep responses conversational and helpful.`;
       // Get comprehensive user data for AI context
       const userMatches = await storage.getMatches(userId);
       const userEvents = await storage.getUserEventRegistrations(userId);
-      const recentMessages = await storage.getRecentConversations(userId, 5);
+      const userConversations = await storage.getConversations(userId);
       
       // Initialize OpenAI client
       const openai = new OpenAI({
@@ -4786,7 +4786,7 @@ Keep responses conversational and helpful.`;
           location: reg.event.location,
           type: reg.event.eventType
         })),
-        recentConversations: recentMessages.slice(0, 3).map(conv => ({
+        recentConversations: userConversations.slice(0, 3).map(conv => ({
           participant: conv.participant ? `${conv.participant.firstName} ${conv.participant.lastName}` : 'Unknown',
           lastMessage: conv.lastMessage || 'No messages yet',
           updatedAt: conv.updatedAt
