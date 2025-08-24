@@ -4729,47 +4729,30 @@ Keep responses conversational and helpful.`;
         return res.status(404).json({ error: "User not found" });
       }
 
-      if (!process.env.OPENAI_API_KEY) {
-        return res.status(500).json({ error: 'AI service not configured' });
+      // Return a helpful response without requiring OpenAI API
+      let aiResponse = "";
+      
+      if (query.toLowerCase().includes("what's new") || query.toLowerCase().includes("update")) {
+        if (userContext.newMatches > 0) {
+          aiResponse = `Great news! You have ${userContext.newMatches} new AI-powered matches waiting for you. I recommend checking them out in the Discover section to start building valuable connections.`;
+        } else if (userContext.unreadMessages > 0) {
+          aiResponse = `You have ${userContext.unreadMessages} unread messages. Responding promptly helps build strong professional relationships. Check your Messages section to keep the conversations flowing.`;
+        } else if (userContext.profileCompleteness < 80) {
+          aiResponse = `Your profile is ${userContext.profileCompleteness}% complete. Adding more details like skills and networking goals will help our AI find better matches for you.`;
+        } else {
+          aiResponse = `You're all caught up! Your activity score is ${userContext.recentActivityScore}. Consider exploring the Events section to discover new networking opportunities.`;
+        }
+      } else if (query.toLowerCase().includes("matches") || query.toLowerCase().includes("connect")) {
+        aiResponse = `You have ${userContext.totalMatches} total matches available. Focus on connecting with the most compatible ones first - they're ranked by our AI compatibility algorithm.`;
+      } else if (query.toLowerCase().includes("profile") || query.toLowerCase().includes("improve")) {
+        aiResponse = `Your profile is ${userContext.profileCompleteness}% complete. Adding more professional details, skills, and networking goals will significantly improve your match quality and networking success.`;
+      } else {
+        aiResponse = `Hi ${currentUser.firstName}! I'm here to help with your networking journey. Try asking about "What's new?", finding matches, or improving your profile for personalized advice.`;
       }
 
-      const openai = await import('openai');
-      const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
-
-      const prompt = `You are the STAK Sync AI Assistant, helping users with their professional networking needs. 
-      
-User Context:
-- Name: ${currentUser.firstName} ${currentUser.lastName}
-- Title: ${currentUser.title || 'Professional'}
-- Company: ${currentUser.company || 'N/A'}
-- Total Matches: ${userContext.totalMatches || 0}
-- New Matches: ${userContext.newMatches || 0}
-- Unread Messages: ${userContext.unreadMessages || 0}  
-- Profile Completeness: ${userContext.profileCompleteness || 0}%
-- Activity Score: ${userContext.recentActivityScore || 0}
-
-User Question: "${query}"
-
-Provide a helpful, concise response (2-3 sentences max) that:
-- Addresses their specific question
-- Offers actionable advice for networking success
-- References their current stats when relevant
-- Maintains a professional but friendly tone
-- Focuses on immediate next steps they can take
-
-If they ask "What's new?" or similar, summarize their current status and suggest priority actions.`;
-
-      const response = await client.chat.completions.create({
-        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 200,
-        temperature: 0.7,
-      });
-
-      const aiResponse = response.choices[0].message.content;
       res.json({ response: aiResponse });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error with AI assistant:", error);
       res.status(500).json({ error: "AI assistant is currently unavailable" });
     }
