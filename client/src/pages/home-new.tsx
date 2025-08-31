@@ -251,50 +251,139 @@ export default function Home() {
                   {aiResponse?.response || aiResponse}
                 </div>
                 
-                {/* Contact Listings with LIVE Tags */}
+                {/* Enhanced Contact Listings with All Metrics */}
                 {aiResponse?.hasContacts && aiResponse?.contacts && aiResponse.contacts.length > 0 && (
-                  <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
-                    <h4 className="text-sm font-semibold text-stak-copper mb-3 flex items-center gap-2">
+                  <div className="mt-4 p-4 bg-white/5 rounded-lg border border-white/10">
+                    <h4 className="text-sm font-semibold text-stak-copper mb-4 flex items-center gap-2">
                       <Users className="w-4 h-4" />
-                      Recommended Connections
+                      Recommended Connections ({aiResponse.contacts.length})
                     </h4>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {aiResponse.contacts.map((contact: any, index: number) => (
-                        <div key={contact.id || index} className="bg-white/10 rounded-md p-3 hover:bg-white/15 transition-colors">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h5 className="font-medium text-white text-sm">{contact.name}</h5>
-                                {contact.isLive && (
-                                  <Badge className="bg-red-500 text-white text-xs animate-pulse px-2 py-1">
-                                    <div className="w-2 h-2 bg-white rounded-full mr-1" />
-                                    LIVE
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-gray-300">{contact.title}</p>
-                              {contact.company && (
-                                <p className="text-xs text-gray-400">{contact.company}</p>
+                        <div key={contact.id || index} className="bg-white/10 rounded-lg p-4 hover:bg-white/15 transition-all duration-200 border border-white/5 hover:border-stak-copper/30">
+                          {/* Header with Name and Status Badges */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h5 className="font-semibold text-white text-base">{contact.name}</h5>
+                              
+                              {/* Connection Status */}
+                              {contact.isConnected ? (
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Connected
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
+                                  <UserPlus className="w-3 h-3 mr-1" />
+                                  Not Connected
+                                </Badge>
                               )}
-                              {contact.reason && (
-                                <p className="text-xs text-gray-400 mt-1">{contact.reason}</p>
+                              
+                              {/* Live Status */}
+                              {contact.isLive && (
+                                <Badge className="bg-red-500 text-white text-xs animate-pulse">
+                                  <div className="w-2 h-2 bg-white rounded-full mr-1" />
+                                  LIVE NOW
+                                </Badge>
                               )}
                             </div>
-                            <div className="flex flex-col items-end gap-1">
-                              {contact.compatibilityScore && (
-                                <div className="text-xs text-stak-copper font-medium">
-                                  {contact.compatibilityScore}% match
-                                </div>
-                              )}
+                            
+                            {/* Match Score */}
+                            {contact.compatibilityScore && (
+                              <div className="text-right">
+                                <div className="text-lg font-bold text-stak-copper">{contact.compatibilityScore}%</div>
+                                <div className="text-xs text-gray-400">match</div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Professional Info */}
+                          <div className="mb-3">
+                            <p className="text-sm text-gray-300 font-medium">{contact.title}</p>
+                            {contact.company && (
+                              <p className="text-sm text-gray-400">{contact.company}</p>
+                            )}
+                          </div>
+                          
+                          {/* Event Attendance Tags */}
+                          {contact.upcomingEvents && contact.upcomingEvents.length > 0 && (
+                            <div className="mb-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Calendar className="w-4 h-4 text-orange-400" />
+                                <span className="text-xs font-medium text-orange-400">Attending Events:</span>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {contact.upcomingEvents.map((event: any, idx: number) => (
+                                  <Badge key={idx} className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs">
+                                    <MapPin className="w-3 h-3 mr-1" />
+                                    {event.event.title}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Match Reason */}
+                          {contact.reason && (
+                            <div className="mb-4 p-2 bg-white/5 rounded border-l-2 border-stak-copper/50">
+                              <p className="text-xs text-gray-300 italic">"{contact.reason}"</p>
+                            </div>
+                          )}
+                          
+                          {/* Action Buttons - Prioritized */}
+                          <div className="flex flex-wrap gap-2">
+                            {/* Priority 1: Live Event Connection */}
+                            {contact.isLive && (
                               <Button
                                 size="sm"
-                                className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black text-xs px-3 py-1 h-7"
-                                onClick={() => window.location.href = `/messages?userId=${contact.id}`}
-                                data-testid={`connect-${contact.id}`}
+                                className="bg-red-500 hover:bg-red-600 text-white font-medium flex items-center gap-1"
+                                onClick={() => window.location.href = `/events/live`}
+                                data-testid={`join-live-${contact.id}`}
                               >
-                                Connect
+                                <Zap className="w-3 h-3" />
+                                Join Live Event
                               </Button>
-                            </div>
+                            )}
+                            
+                            {/* Priority 2: Upcoming Event Connection */}
+                            {contact.upcomingEvents && contact.upcomingEvents.length > 0 && (
+                              <Button
+                                size="sm"
+                                className="bg-orange-500 hover:bg-orange-600 text-white font-medium flex items-center gap-1"
+                                onClick={() => window.location.href = `/events/${contact.upcomingEvents[0].event.id}`}
+                                data-testid={`event-connect-${contact.id}`}
+                              >
+                                <Calendar className="w-3 h-3" />
+                                Meet at {contact.upcomingEvents[0].event.title}
+                              </Button>
+                            )}
+                            
+                            {/* Priority 3: Direct Connection */}
+                            <Button
+                              size="sm"
+                              variant={contact.isLive || (contact.upcomingEvents && contact.upcomingEvents.length > 0) ? "outline" : "default"}
+                              className={contact.isLive || (contact.upcomingEvents && contact.upcomingEvents.length > 0) ? 
+                                "border-white/20 text-white hover:bg-white/10" : 
+                                "bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
+                              }
+                              onClick={() => window.location.href = `/messages?userId=${contact.id}`}
+                              data-testid={`direct-connect-${contact.id}`}
+                            >
+                              <MessageSquare className="w-3 h-3 mr-1" />
+                              {contact.isConnected ? 'Message' : 'Connect'}
+                            </Button>
+                            
+                            {/* View Profile */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-gray-400 hover:text-white hover:bg-white/10"
+                              onClick={() => window.location.href = `/profile/${contact.id}`}
+                              data-testid={`profile-${contact.id}`}
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              View Profile
+                            </Button>
                           </div>
                         </div>
                       ))}

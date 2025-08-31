@@ -4948,18 +4948,43 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
       // Parse AI response to check if it's JSON (networking intent) or plain text
       let responseData = { response: aiResponse, hasContacts: false, contacts: [] };
       try {
-        const parsed = JSON.parse(aiResponse);
+        // Strip markdown code blocks if present
+        let cleanResponse = aiResponse;
+        if (aiResponse.includes('```json')) {
+          cleanResponse = aiResponse.replace(/```json\n/g, '').replace(/\n```/g, '').replace(/```/g, '');
+        }
+        
+        const parsed = JSON.parse(cleanResponse);
         if (parsed.hasContacts && parsed.contacts) {
-          // Process contacts to add live status
+          // Process contacts to add live status and connection status
+          const processedContacts = await Promise.all(parsed.contacts.map(async (contact: any) => {
+            // Check if users are already connected
+            const existingMatch = await storage.getMatches(userId);
+            const isConnected = existingMatch.some((match: any) => 
+              match.matchedUserId === contact.id && match.status === 'connected'
+            );
+            
+            // Check if contact is attending upcoming events
+            const contactEvents = await storage.getUserEventRegistrations(contact.id);
+            const upcomingEvents = contactEvents.filter((reg: any) => 
+              new Date(reg.event.startDate) > new Date()
+            );
+            
+            return {
+              ...contact,
+              isLive: liveEventMembers.some((member: any) => member.userId === contact.id),
+              isConnected,
+              upcomingEvents: upcomingEvents.slice(0, 2) // Show up to 2 upcoming events
+            };
+          }));
+          
           responseData = {
             ...parsed,
-            contacts: parsed.contacts.map((contact: any) => ({
-              ...contact,
-              isLive: liveEventMembers.some((member: any) => member.userId === contact.id)
-            }))
+            contacts: processedContacts
           };
         }
-      } catch {
+      } catch (error) {
+        console.log('Failed to parse AI response as JSON:', error);
         // Not JSON, keep as plain text response
         responseData = { response: aiResponse, hasContacts: false, contacts: [] };
       }
