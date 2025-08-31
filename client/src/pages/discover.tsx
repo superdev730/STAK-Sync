@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, Sliders, Brain, Zap, Users, Search, Sparkles } from "lucide-react";
 import { MatchCard } from "@/components/MatchCard";
+import { ConnectionModal } from "@/components/ConnectionModal";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -24,6 +25,8 @@ export default function Discover() {
   const [aiFilteredMatches, setAiFilteredMatches] = useState<(Match & { matchedUser: User })[]>([]);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiResponse, setAiResponse] = useState<string>("");
+  const [connectionModalOpen, setConnectionModalOpen] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<(Match & { matchedUser: User }) | null>(null);
 
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -33,22 +36,17 @@ export default function Discover() {
   });
 
   const handleConnect = async (matchId: string, matchedUser: User) => {
-    console.log('Connecting to user:', { matchId, matchedUser: `${matchedUser.firstName} ${matchedUser.lastName}`, userId: matchedUser.id });
-    try {
-      await apiRequest(`/api/matches/${matchId}/status`, "POST", { status: "connected" });
-      toast({
-        title: "Connection Sent!",
-        description: "Your connection request has been sent successfully.",
-      });
-      refetch();
-      // Navigate to messages with the connected user
-      console.log('Navigating to messages with userId:', matchedUser.id);
-      setLocation(`/messages?userId=${matchedUser.id}`);
-    } catch (error) {
-      console.error('Connection error:', error);
+    console.log('Opening connection modal for:', { matchId, matchedUser: `${matchedUser.firstName} ${matchedUser.lastName}`, userId: matchedUser.id });
+    
+    // Find the full match object
+    const fullMatch = displayMatches.find(match => match.id === matchId);
+    if (fullMatch) {
+      setSelectedMatch(fullMatch);
+      setConnectionModalOpen(true);
+    } else {
       toast({
         title: "Error",
-        description: "Failed to send connection request",
+        description: "Could not find match details",
         variant: "destructive",
       });
     }
@@ -138,6 +136,15 @@ export default function Discover() {
     setAiSearchQuery("");
     setAiFilteredMatches([]);
     setAiResponse("");
+  };
+
+  const handleConnectionSent = () => {
+    // Refresh matches after connection is sent
+    refetch();
+    toast({
+      title: "Success!",
+      description: "Your connection request has been sent successfully.",
+    });
   };
 
   const filteredMatches = matches?.filter(match => match.status === "pending") || [];
@@ -302,7 +309,10 @@ export default function Discover() {
                     return (
                       <MatchCard
                         key={match.id}
-                        match={match}
+                        match={{
+                          ...match,
+                          aiAnalysis: typeof match.aiAnalysis === 'string' ? match.aiAnalysis : undefined
+                        }}
                         onConnect={(matchId) => handleConnect(matchId, match.matchedUser)}
                         onPass={handlePass}
                         data-testid={`match-card-${index}`}
@@ -363,6 +373,19 @@ export default function Discover() {
           </div>
         </div>
       </div>
+      
+      {/* Connection Modal */}
+      {selectedMatch && (
+        <ConnectionModal
+          isOpen={connectionModalOpen}
+          onClose={() => {
+            setConnectionModalOpen(false);
+            setSelectedMatch(null);
+          }}
+          match={selectedMatch}
+          onConnectionSent={handleConnectionSent}
+        />
+      )}
     </div>
   );
 }

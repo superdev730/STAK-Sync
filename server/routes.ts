@@ -618,6 +618,231 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI-powered connection message generation
+  app.post('/api/ai/connection-message', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { matchId, targetUserId, matchData } = req.body;
+
+      if (!matchId || !targetUserId || !matchData) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const currentUser = await storage.getUser(userId);
+      const targetUser = await storage.getUser(targetUserId);
+
+      if (!currentUser || !targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      // Check if profile needs enhancement
+      const currentUserFields = [
+        currentUser.bio, currentUser.industries, currentUser.skills, 
+        currentUser.networkingGoals, currentUser.title, currentUser.company
+      ];
+      const filledFields = currentUserFields.filter(field => field && (
+        typeof field === 'string' ? field.trim().length > 0 : 
+        Array.isArray(field) ? field.length > 0 : false
+      )).length;
+      
+      const profileCompleteness = filledFields / currentUserFields.length;
+      const needsProfileEnhancement = profileCompleteness < 0.6;
+
+      if (needsProfileEnhancement) {
+        // Generate profile enhancement questions
+        const questionPrompt = `You are helping a user improve their professional profile to make better connections.
+
+Current user: ${currentUser.firstName} ${currentUser.lastName}
+Current title: ${currentUser.title || 'Not specified'}
+Current company: ${currentUser.company || 'Not specified'}
+Current bio: ${currentUser.bio || 'Not specified'}
+Current industries: ${currentUser.industries?.join(', ') || 'Not specified'}
+Current skills: ${currentUser.skills?.join(', ') || 'Not specified'}
+Current networking goals: ${currentUser.networkingGoals?.join(', ') || 'Not specified'}
+
+Target connection: ${targetUser.firstName} ${targetUser.lastName}
+Target title: ${targetUser.title || 'Not specified'}
+Target company: ${targetUser.company || 'Not specified'}
+Target bio: ${targetUser.bio || 'Not specified'}
+Target industries: ${targetUser.industries?.join(', ') || 'Not specified'}
+
+Generate 2-3 strategic questions to help the user build a stronger profile for connecting with this person. Focus on missing information that would create meaningful connection points.
+
+Respond with JSON:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "question": "What specific expertise or experience do you have that would be valuable to share?",
+      "field": "skills",
+      "suggestion": "e.g., AI/ML, fundraising, product development"
+    }
+  ]
+}`;
+
+        const questionCompletion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [{ role: "user", content: questionPrompt }],
+          response_format: { type: "json_object" }
+        });
+
+        const questionResponse = JSON.parse(questionCompletion.choices[0].message.content || '{}');
+        
+        return res.json({
+          needsProfileEnhancement: true,
+          questions: questionResponse.questions || []
+        });
+      }
+
+      // Generate connection message
+      const messagePrompt = `You are an expert networking assistant. Create a personalized, professional connection message.
+
+Current user: ${currentUser.firstName} ${currentUser.lastName}
+Title: ${currentUser.title || 'Professional'}
+Company: ${currentUser.company || 'N/A'}
+Bio: ${currentUser.bio || 'N/A'}
+Industries: ${currentUser.industries?.join(', ') || 'N/A'}
+Skills: ${currentUser.skills?.join(', ') || 'N/A'}
+Networking Goals: ${currentUser.networkingGoals?.join(', ') || 'N/A'}
+
+Target connection: ${targetUser.firstName} ${targetUser.lastName}
+Title: ${targetUser.title || 'Professional'}
+Company: ${targetUser.company || 'N/A'}
+Bio: ${targetUser.bio || 'N/A'}
+Industries: ${targetUser.industries?.join(', ') || 'N/A'}
+
+Match insights:
+- Compatibility Score: ${matchData.matchScore}%
+- Recommended Topics: ${matchData.recommendedTopics?.join(', ') || 'N/A'}
+- Mutual Goals: ${matchData.mutualGoals?.join(', ') || 'N/A'}
+- Collaboration Potential: ${matchData.collaborationPotential || 'N/A'}
+
+Create a warm, professional message (150-300 words) that:
+1. References specific commonalities or mutual interests
+2. Mentions why this connection would be valuable for both parties
+3. Suggests a specific next step (call, coffee, event meeting)
+4. Feels personal, not templated
+
+Make it conversational and genuine.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: messagePrompt }]
+      });
+
+      const message = completion.choices[0].message.content || `Hi ${targetUser.firstName},\n\nI came across your profile and was impressed by your work at ${targetUser.company}. I'd love to connect and explore potential collaboration opportunities.\n\nBest regards,\n${currentUser.firstName}`;
+
+      res.json({
+        message,
+        needsProfileEnhancement: false
+      });
+
+    } catch (error) {
+      console.error("Error generating connection message:", error);
+      res.status(500).json({ error: "Failed to generate connection message" });
+    }
+  });
+
+  // AI-powered connection enhancement with profile building
+  app.post('/api/ai/enhance-connection', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { matchId, targetUserId, profileAnswers, matchData } = req.body;
+
+      if (!matchId || !targetUserId || !profileAnswers || !matchData) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const currentUser = await storage.getUser(userId);
+      const targetUser = await storage.getUser(targetUserId);
+
+      if (!currentUser || !targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Update user profile with new information
+      const profileUpdates: any = {};
+      
+      for (const [field, answer] of Object.entries(profileAnswers)) {
+        if (answer && typeof answer === 'string' && answer.trim().length > 0) {
+          if (field === 'skills' || field === 'industries' || field === 'networkingGoals') {
+            // Convert comma-separated values to arrays
+            profileUpdates[field] = answer.split(',').map(item => item.trim()).filter(item => item.length > 0);
+          } else {
+            profileUpdates[field] = answer.trim();
+          }
+        }
+      }
+
+      // Update user profile
+      if (Object.keys(profileUpdates).length > 0) {
+        await storage.updateUser(userId, profileUpdates);
+      }
+
+      // Generate enhanced connection message
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      const enhancedUser = { ...currentUser, ...profileUpdates };
+
+      const messagePrompt = `You are an expert networking assistant. Create a highly personalized connection message using the user's newly provided information.
+
+Current user: ${enhancedUser.firstName} ${enhancedUser.lastName}
+Title: ${enhancedUser.title || 'Professional'}
+Company: ${enhancedUser.company || 'N/A'}
+Bio: ${enhancedUser.bio || 'N/A'}
+Industries: ${Array.isArray(enhancedUser.industries) ? enhancedUser.industries.join(', ') : enhancedUser.industries || 'N/A'}
+Skills: ${Array.isArray(enhancedUser.skills) ? enhancedUser.skills.join(', ') : enhancedUser.skills || 'N/A'}
+Networking Goals: ${Array.isArray(enhancedUser.networkingGoals) ? enhancedUser.networkingGoals.join(', ') : enhancedUser.networkingGoals || 'N/A'}
+
+Target connection: ${targetUser.firstName} ${targetUser.lastName}
+Title: ${targetUser.title || 'Professional'}
+Company: ${targetUser.company || 'N/A'}
+Bio: ${targetUser.bio || 'N/A'}
+Industries: ${targetUser.industries?.join(', ') || 'N/A'}
+
+Match insights:
+- Compatibility Score: ${matchData.matchScore}%
+- Recommended Topics: ${matchData.recommendedTopics?.join(', ') || 'N/A'}
+- Mutual Goals: ${matchData.mutualGoals?.join(', ') || 'N/A'}
+- Collaboration Potential: ${matchData.collaborationPotential || 'N/A'}
+
+New profile information provided:
+${Object.entries(profileAnswers).map(([field, answer]) => `- ${field}: ${answer}`).join('\n')}
+
+Create a highly personalized, professional message (150-300 words) that:
+1. References the most relevant new information shared
+2. Highlights specific connection points with the target person
+3. Demonstrates clear value proposition for both parties
+4. Suggests a concrete next step
+5. Feels authentic and relationship-focused
+
+Make this message stand out by being genuinely thoughtful and specific.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: messagePrompt }]
+      });
+
+      const message = completion.choices[0].message.content || `Hi ${targetUser.firstName},\n\nI came across your profile and was impressed by your work at ${targetUser.company}. Based on our shared interests, I'd love to connect and explore potential collaboration opportunities.\n\nBest regards,\n${enhancedUser.firstName}`;
+
+      res.json({
+        message,
+        profileUpdates: Object.keys(profileUpdates).length > 0 ? profileUpdates : null
+      });
+
+    } catch (error) {
+      console.error("Error enhancing connection:", error);
+      res.status(500).json({ error: "Failed to enhance connection" });
+    }
+  });
+
   // Matches routes
   app.get('/api/matches', isAuthenticated, async (req: any, res) => {
     try {

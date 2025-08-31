@@ -83,13 +83,15 @@ export default function Home() {
   // Fetch current conversation messages
   const { data: conversationData } = useQuery({
     queryKey: ["/api/ai-conversations", currentConversationId],
-    enabled: !!currentConversationId,
-    onSuccess: (data: any) => {
-      if (data?.messages) {
-        setChatMessages(data.messages);
-      }
-    }
+    enabled: !!currentConversationId
   });
+
+  // Handle conversation data changes
+  useEffect(() => {
+    if (conversationData?.messages) {
+      setChatMessages(conversationData.messages);
+    }
+  }, [conversationData]);
 
   // AI Assistant Mutation with chat history
   const aiAssistantMutation = useMutation({
@@ -136,9 +138,9 @@ export default function Home() {
         }
         
         // Refresh conversations list
-        queryClient.invalidateQueries(["/api/ai-conversations"]);
+        queryClient.invalidateQueries({ queryKey: ["/api/ai-conversations"] });
         if (currentConversationId) {
-          queryClient.invalidateQueries(["/api/ai-conversations", currentConversationId]);
+          queryClient.invalidateQueries({ queryKey: ["/api/ai-conversations", currentConversationId] });
         }
       }
     },
@@ -164,7 +166,7 @@ export default function Home() {
 
   const selectConversation = (conversationId: string) => {
     setCurrentConversationId(conversationId);
-    queryClient.invalidateQueries(["/api/ai-conversations", conversationId]);
+    queryClient.invalidateQueries({ queryKey: ["/api/ai-conversations", conversationId] });
   };
 
   const startNewChat = () => {
@@ -423,7 +425,7 @@ export default function Home() {
                 
                 <ScrollArea className="h-full">
                   <div className="space-y-2">
-                    {aiConversations?.map((conv: any) => (
+                    {(aiConversations as any[])?.map((conv: any) => (
                       <Button
                         key={conv.id}
                         onClick={() => selectConversation(conv.id)}
@@ -442,7 +444,7 @@ export default function Home() {
                       </Button>
                     ))}
                     
-                    {(!aiConversations || aiConversations.length === 0) && (
+                    {(!aiConversations || (aiConversations as any[])?.length === 0) && (
                       <div className="text-center py-8 text-gray-500">
                         <Bot className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                         <p className="text-sm">No conversations yet</p>
