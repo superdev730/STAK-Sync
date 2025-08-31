@@ -27,7 +27,7 @@ export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [aiInput, setAiInput] = useState("");
-  const [aiResponse, setAiResponse] = useState("");
+  const [aiResponse, setAiResponse] = useState<any>(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
@@ -111,7 +111,7 @@ export default function Home() {
       return response.json();
     },
     onSuccess: (data) => {
-      setAiResponse(data.response);
+      setAiResponse(data);
       setIsAiOpen(true);
       
       // If chat is open, add messages to chat history
@@ -248,8 +248,59 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="text-white text-sm leading-relaxed whitespace-pre-wrap" data-testid="ai-response">
-                  {aiResponse}
+                  {aiResponse?.response || aiResponse}
                 </div>
+                
+                {/* Contact Listings with LIVE Tags */}
+                {aiResponse?.hasContacts && aiResponse?.contacts && aiResponse.contacts.length > 0 && (
+                  <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
+                    <h4 className="text-sm font-semibold text-stak-copper mb-3 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Recommended Connections
+                    </h4>
+                    <div className="space-y-2">
+                      {aiResponse.contacts.map((contact: any, index: number) => (
+                        <div key={contact.id || index} className="bg-white/10 rounded-md p-3 hover:bg-white/15 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h5 className="font-medium text-white text-sm">{contact.name}</h5>
+                                {contact.isLive && (
+                                  <Badge className="bg-red-500 text-white text-xs animate-pulse px-2 py-1">
+                                    <div className="w-2 h-2 bg-white rounded-full mr-1" />
+                                    LIVE
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-300">{contact.title}</p>
+                              {contact.company && (
+                                <p className="text-xs text-gray-400">{contact.company}</p>
+                              )}
+                              {contact.reason && (
+                                <p className="text-xs text-gray-400 mt-1">{contact.reason}</p>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              {contact.compatibilityScore && (
+                                <div className="text-xs text-stak-copper font-medium">
+                                  {contact.compatibilityScore}% match
+                                </div>
+                              )}
+                              <Button
+                                size="sm"
+                                className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black text-xs px-3 py-1 h-7"
+                                onClick={() => window.location.href = `/messages?userId=${contact.id}`}
+                                data-testid={`connect-${contact.id}`}
+                              >
+                                Connect
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

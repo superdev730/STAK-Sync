@@ -162,6 +162,11 @@ export interface IStorage {
     proximityMutualOnly?: boolean;
     bluetoothDeviceId?: string;
   }): Promise<User>;
+
+  // Live event operations
+  getLiveEventToday(): Promise<Event | undefined>;
+  getEventLiveAttendees(eventId: string): Promise<User[]>;
+  getLiveEventMembers(eventId: string): Promise<User[]>;
   getNearbyMatches(userId: string, options: {
     minMatchScore: number;
     maxDistance: number;
@@ -1818,6 +1823,38 @@ export class DatabaseStorage implements IStorage {
       .where(eq(aiConversations.id, conversationId))
       .returning();
     return conversation;
+  }
+
+  // Live event operations
+  async getLiveEventToday(): Promise<Event | undefined> {
+    const today = new Date();
+    const [event] = await db
+      .select()
+      .from(events)
+      .where(
+        and(
+          lte(events.startDate, today),
+          sql`${events.endDate} >= ${today}`
+        )
+      )
+      .limit(1);
+    return event;
+  }
+
+  async getEventLiveAttendees(eventId: string): Promise<User[]> {
+    const attendees = await db
+      .select({ user: users })
+      .from(eventRegistrations)
+      .innerJoin(users, eq(eventRegistrations.userId, users.id))
+      .where(eq(eventRegistrations.eventId, eventId));
+    
+    return attendees.map(a => a.user);
+  }
+
+  async getLiveEventMembers(eventId: string): Promise<User[]> {
+    // For now, return all registered attendees - in the future this could be filtered
+    // to only include users actively present (e.g., checked in, active in rooms, etc.)
+    return this.getEventLiveAttendees(eventId);
   }
 }
 

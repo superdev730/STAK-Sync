@@ -4862,6 +4862,19 @@ Keep responses conversational and helpful.`;
       console.log(`AI Query received: "${query}"`);
       console.log(`User context:`, { newMatches: userContext.newMatches, totalMatches: userContext.totalMatches, unreadMessages: userContext.unreadMessages });
       
+      // Get current live event to check member presence
+      let liveEvent = null;
+      let liveEventMembers = [];
+      try {
+        liveEvent = await storage.getLiveEventToday();
+        if (liveEvent) {
+          liveEventMembers = await storage.getLiveEventMembers(liveEvent.id);
+        }
+      } catch (e) {
+        // Live event data is optional - continue without it
+        console.log('No live event found or error fetching event data');
+      }
+
       // Create comprehensive system prompt for STAK Sync Networking Concierge
       const systemPrompt = `You are the STAK Sync Networking Concierge, an AI assistant for the STAK ecosystem - a premium professional networking platform. Your personality is professional, direct, encouraging, and brief.
 
@@ -4879,18 +4892,32 @@ STAK ECOSYSTEM CONTEXT:
 - Sync Score is a member's networking effectiveness rating
 - The platform emphasizes luxury real estate aesthetic and premium experience
 
-RESPONSE GUIDELINES:
+RESPONSE FORMAT:
+- If the user's query is about networking, connecting, finding people, or discovering matches, structure your response as a JSON with:
+  {
+    "response": "Brief 2-3 sentence text explanation",
+    "hasContacts": true,
+    "contacts": [
+      {
+        "id": "user_id",
+        "name": "Full Name",
+        "title": "Title",
+        "company": "Company Name",
+        "compatibilityScore": number,
+        "isLive": boolean,
+        "reason": "Brief reason for the match"
+      }
+    ]
+  }
+- For all other queries, respond with plain text (no JSON)
+- Keep text responses brief and actionable
 - Always reference their actual data when making recommendations
-- Provide specific, actionable next steps
-- Use professional networking language but stay approachable
 - Focus on mutual value and strategic networking
-- Include clear explainable reasons for match recommendations
-- End with a specific question or call-to-action
-- Use emojis sparingly and only when they enhance clarity
 
 CURRENT USER DATA:
 Profile: ${JSON.stringify(userProfile, null, 2)}
 Networking Data: ${JSON.stringify(networkingData, null, 2)}
+${liveEvent ? `\nLive Event: ${liveEvent.title} is currently active with ${liveEventMembers.length} members present.` : ''}
 
 Respond as the STAK Sync Networking Concierge, providing personalized, actionable advice based on their specific situation and query.`;
 
@@ -4918,11 +4945,30 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
 
       const aiResponse = completion.choices[0]?.message?.content || "I apologize, but I'm having trouble generating a response right now. Please try again.";
 
-      // Add AI response to conversation
-      await storage.addAIMessage(conversation.id, "assistant", aiResponse);
+      // Parse AI response to check if it's JSON (networking intent) or plain text
+      let responseData = { response: aiResponse, hasContacts: false, contacts: [] };
+      try {
+        const parsed = JSON.parse(aiResponse);
+        if (parsed.hasContacts && parsed.contacts) {
+          // Process contacts to add live status
+          responseData = {
+            ...parsed,
+            contacts: parsed.contacts.map((contact: any) => ({
+              ...contact,
+              isLive: liveEventMembers.some((member: any) => member.userId === contact.id)
+            }))
+          };
+        }
+      } catch {
+        // Not JSON, keep as plain text response
+        responseData = { response: aiResponse, hasContacts: false, contacts: [] };
+      }
+
+      // Add AI response to conversation (store the text part)
+      await storage.addAIMessage(conversation.id, "assistant", responseData.response);
 
       res.json({ 
-        response: aiResponse,
+        ...responseData,
         conversationId: conversation.id,
         timestamp: new Date().toISOString()
       });
