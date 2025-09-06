@@ -7377,10 +7377,10 @@ OUTPUT_SCHEMA:
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { memberGoals, memberTags, candidateMembers } = req.body;
+      const { memberProfile, candidateIndex } = req.body;
 
-      if (!memberGoals || !memberTags || !candidateMembers) {
-        return res.status(400).json({ error: 'Member goals, tags, and candidate list are required' });
+      if (!memberProfile || !candidateIndex) {
+        return res.status(400).json({ error: 'Member profile and candidate index are required' });
       }
 
       const openai = new OpenAI({
@@ -7395,18 +7395,17 @@ Rules:
 - Include overlap_tags for transparency.
 - Output exactly in JSON schema.
 
-Expected JSON format:
-{
-  "matches": [
-    {
-      "candidate_id": "",
-      "match_score": 0.95,
-      "reason": "Brief explanation ≤140 chars why this is valuable",
-      "overlap_tags": ["shared_industry1", "shared_topic2"],
-      "complementary_fit": "funding_seeker+investor | buyer+seller | etc"
-    }
-  ]
-}`;
+MEMBER_PROFILE:
+{member_profile_json}
+
+CANDIDATE_INDEX:
+[{member_id, role, company, industries, goals, tags}, ...]
+
+OUTPUT_SCHEMA:
+[
+  {"member_id": "", "reason": "", "overlap_tags": []},
+  ...
+]`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -7414,11 +7413,11 @@ Expected JSON format:
           { role: 'system', content: matchmakerPrompt },
           { 
             role: 'user', 
-            content: `Member Goals: ${JSON.stringify(memberGoals)}
-Member Tags: ${JSON.stringify(memberTags)}
-Candidate Members: ${JSON.stringify(candidateMembers)}
+            content: `MEMBER_PROFILE:
+${JSON.stringify(memberProfile)}
 
-Rank the top 5 matches and explain why each is valuable.`
+CANDIDATE_INDEX:
+${JSON.stringify(candidateIndex)}`
           }
         ],
         response_format: { type: "json_object" },
@@ -7426,7 +7425,7 @@ Rank the top 5 matches and explain why each is valuable.`
         max_tokens: 1000
       });
 
-      const matches = JSON.parse(response.choices[0].message.content || '{"matches": []}');
+      const matches = JSON.parse(response.choices[0].message.content || '[]');
       
       res.json(matches);
     } catch (error) {
