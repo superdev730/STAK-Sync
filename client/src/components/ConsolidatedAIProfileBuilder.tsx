@@ -303,7 +303,27 @@ export default function ConsolidatedAIProfileBuilder({
                     </div>
                   </div>
                   <Button
-                    onClick={() => window.open('/api/linkedin/auth', '_blank', 'width=600,height=700')}
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/linkedin/auth');
+                        const data = await response.json();
+                        if (data.authUrl) {
+                          window.open(data.authUrl, 'linkedin-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+                        } else {
+                          toast({
+                            title: "LinkedIn Setup Required",
+                            description: "LinkedIn OAuth is not properly configured. Please contact support.",
+                            variant: "destructive",
+                          });
+                        }
+                      } catch (error) {
+                        toast({
+                          title: "Connection Error",
+                          description: "Failed to initiate LinkedIn connection. Please try again.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                     data-testid="button-connect-linkedin"
                   >
