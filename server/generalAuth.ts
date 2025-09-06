@@ -4,6 +4,7 @@ import { sendWelcomeEmail } from './welcomeEmailService';
 import { getSession } from './replitAuth';
 import passport from 'passport';
 import type { Express } from 'express';
+import { EnrichmentService } from './enrichmentService';
 
 export interface SignupData {
   email: string;
@@ -107,6 +108,49 @@ export function setupGeneralAuth(app: Express) {
         console.error('Welcome email failed:', emailError);
         // Don't fail the signup if email fails
       });
+
+      // Store initial profile metadata for seed values (db provenance)
+      const { db } = await import('./db');
+      const { profileMetadata, eq } = await import('@shared/schema');
+      
+      try {
+        // Mark basic fields as database seed values
+        const seedFields = [
+          { field: 'firstName', value: firstName },
+          { field: 'lastName', value: lastName },
+          { field: 'email', value: email }
+        ];
+
+        for (const { field, value } of seedFields) {
+          await db.insert(profileMetadata).values({
+            userId: newUser.id,
+            fieldName: field,
+            provenance: 'db',
+            confidence: '1.0',
+            sources: []
+          }).onConflictDoUpdate({
+            target: [profileMetadata.userId, profileMetadata.fieldName],
+            set: {
+              provenance: 'db',
+              confidence: '1.0',
+              updatedAt: new Date()
+            }
+          });
+        }
+
+        console.log('📊 Profile metadata initialized for seed values');
+      } catch (metadataError) {
+        console.error('Profile metadata initialization failed:', metadataError);
+        // Don't fail signup if metadata fails
+      }
+
+      // Queue profile enrichment (don't wait for completion)
+      EnrichmentService.queueEnrichment(newUser.id, 'initial').catch(enrichmentError => {
+        console.error('Profile enrichment queueing failed:', enrichmentError);
+        // Don't fail the signup if enrichment fails
+      });
+
+      console.log('🚀 Profile enrichment queued for user:', newUser.id);
 
       // Create session (log user in automatically)
       req.login({ 
