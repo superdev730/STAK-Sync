@@ -252,7 +252,7 @@ export default function ProfilePhotoCropper({ isOpen, onClose, onSuccess }: Prof
                 <Button 
                   onClick={handleUpload}
                   disabled={isUploading}
-                  className="flex-1 bg-stak-forest hover:bg-stak-forest/90"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-lg"
                 >
                   {isUploading ? (
                     <>
