@@ -119,17 +119,6 @@ export default function Profile() {
     return field || '';
   };
 
-  // Debug profile data
-  console.log('🔍 PROFILE DEBUG: Profile data', {
-    profile,
-    profileLoading,
-    isOwnProfile,
-    firstName: getProfileValue(profile?.firstName),
-    lastName: getProfileValue(profile?.lastName),
-    websiteUrls: profile?.websiteUrls,
-    websiteUrlsType: typeof profile?.websiteUrls,
-    websiteUrlsArray: Array.isArray(profile?.websiteUrls)
-  });
   
   // State for consolidated AI profile builder and photo cropper
   const [showAIBuilder, setShowAIBuilder] = useState(false);
@@ -141,7 +130,6 @@ export default function Profile() {
   // Helper to refresh profile data after AI builder updates
   const handleProfileUpdate = () => {
     try {
-      console.log('🔍 PROFILE DEBUG: Refreshing profile data');
       queryClient.invalidateQueries({ queryKey: userId ? ["/api/profile", userId] : ["/api/me"] });
     } catch (error) {
       console.error('🚨 PROFILE ERROR: Failed to refresh profile data', error);
@@ -152,8 +140,6 @@ export default function Profile() {
   // Fixed update profile mutation with proper error handling
   const updateProfileMutation = useMutation({
     mutationFn: async (updates: Partial<User>) => {
-      console.log('=== PROFILE UPDATE ATTEMPT ===');
-      console.log('Updates:', updates);
       
       try {
         const response = await fetch('/api/profile', {
@@ -258,11 +244,10 @@ export default function Profile() {
               <div className="flex flex-col items-center">
                 {profile?.profileImageUrl ? (
                   <img
-                    src={profile.profileImageUrl}
+                    src={getProfileValue(profile?.profileImageUrl)}
                     alt="Profile"
                     className="rounded-full w-24 h-24 object-cover border"
                     onError={(e) => {
-                      console.log('🔍 PROFILE DEBUG: Image load error', e);
                       e.currentTarget.style.display = 'none';
                     }}
                   />
@@ -294,13 +279,12 @@ export default function Profile() {
                           try {
                             const [firstName, ...lastNameParts] = e.target.value.split(' ');
                             const lastName = lastNameParts.join(' ');
-                            console.log('🔍 PROFILE DEBUG: Updating name', { firstName, lastName });
                             updateProfile({ 
                               firstName: firstName || null, 
                               lastName: lastName || null
                             });
                           } catch (error) {
-                            console.error('🚨 PROFILE ERROR: Name update failed', error);
+                            console.error('Profile ERROR: Name update failed', error);
                           }
                         }}
                         className="text-3xl font-bold border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
@@ -555,7 +539,7 @@ export default function Profile() {
                     GitHub
                   </a>
                 )}
-                {Array.isArray(profile?.websiteUrls) && profile.websiteUrls.map((url, index) => (
+                {Array.isArray(getProfileValue(profile?.websiteUrls)) && getProfileValue(profile?.websiteUrls).map((url: string, index: number) => (
                   <a 
                     key={index}
                     href={url} 
@@ -568,7 +552,7 @@ export default function Profile() {
                   </a>
                 ))}
                 
-                {!getProfileValue(profile?.linkedinUrl) && !getProfileValue(profile?.twitterUrl) && !getProfileValue(profile?.githubUrl) && (!Array.isArray(profile?.websiteUrls) || profile.websiteUrls.length === 0) && (
+                {!getProfileValue(profile?.linkedinUrl) && !getProfileValue(profile?.twitterUrl) && !getProfileValue(profile?.githubUrl) && (!Array.isArray(getProfileValue(profile?.websiteUrls)) || getProfileValue(profile?.websiteUrls).length === 0) && (
                   <p className="text-gray-500 text-sm">No social links added</p>
                 )}
               </CardContent>

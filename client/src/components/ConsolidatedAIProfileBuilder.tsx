@@ -52,6 +52,14 @@ export default function ConsolidatedAIProfileBuilder({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Helper to extract values from profile objects
+  const getProfileValue = (field: any) => {
+    if (typeof field === 'object' && field?.value !== undefined) {
+      return field.value;
+    }
+    return field || '';
+  };
+  
   const [activeTab, setActiveTab] = useState<'sources' | 'preview' | 'edit'>('sources');
   const [socialSources, setSocialSources] = useState<SocialSource[]>([]);
   const [newSocialUrl, setNewSocialUrl] = useState('');
@@ -64,35 +72,36 @@ export default function ConsolidatedAIProfileBuilder({
   useEffect(() => {
     if (profile && isOpen) {
       const sources: SocialSource[] = [];
-      if (profile.linkedinUrl) {
+      if (getProfileValue(profile.linkedinUrl)) {
         sources.push({
           platform: 'LinkedIn',
-          url: profile.linkedinUrl,
+          url: getProfileValue(profile.linkedinUrl),
           isValid: true,
           isAnalyzing: false,
           hasData: true
         });
       }
-      if (profile.twitterUrl) {
+      if (getProfileValue(profile.twitterUrl)) {
         sources.push({
           platform: 'Twitter', 
-          url: profile.twitterUrl,
+          url: getProfileValue(profile.twitterUrl),
           isValid: true,
           isAnalyzing: false,
           hasData: true
         });
       }
-      if (profile.githubUrl) {
+      if (getProfileValue(profile.githubUrl)) {
         sources.push({
           platform: 'GitHub',
-          url: profile.githubUrl,
+          url: getProfileValue(profile.githubUrl),
           isValid: true,
           isAnalyzing: false,
           hasData: true
         });
       }
-      if (profile.websiteUrls?.length) {
-        profile.websiteUrls.forEach(url => {
+      const websiteUrls = getProfileValue(profile.websiteUrls);
+      if (Array.isArray(websiteUrls) && websiteUrls.length) {
+        websiteUrls.forEach((url: string) => {
           sources.push({
             platform: 'Website',
             url: url,
@@ -115,11 +124,11 @@ export default function ConsolidatedAIProfileBuilder({
         socialSources: cleanSources,
         additionalContext: prompt,
         currentProfile: {
-          firstName: profile?.firstName || null,
-          lastName: profile?.lastName || null,
+          firstName: getProfileValue(profile?.firstName) || null,
+          lastName: getProfileValue(profile?.lastName) || null,
           email: profile?.email || null,
-          company: profile?.company || null,
-          title: profile?.title || null
+          company: getProfileValue(profile?.company) || null,
+          title: getProfileValue(profile?.title) || null
         }
       });
       return response.json();
@@ -127,7 +136,7 @@ export default function ConsolidatedAIProfileBuilder({
     onSuccess: (data) => {
       if (data.profile) {
         // Store networking goal suggestions if provided
-        if (data.profile.networkingGoalSuggestions) {
+        if (data.profile && data.profile.networkingGoalSuggestions) {
           setNetworkingGoalSuggestions(data.profile.networkingGoalSuggestions);
         }
         
