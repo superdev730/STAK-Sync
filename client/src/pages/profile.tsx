@@ -323,28 +323,26 @@ export default function Profile() {
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
               
               {/* Profile Photo */}
-              <div className="relative group">
-                <div className="w-24 h-24 border-4 border-white shadow-lg rounded-full overflow-hidden">
-                  {profile?.profileImageUrl ? (
-                    <img 
-                      src={profile.profileImageUrl} 
-                      alt={`${profile?.firstName} ${profile?.lastName}`}
-                      className="rounded-full w-24 h-24 object-cover" 
-                    />
-                  ) : (
-                    <div className="w-24 h-24 bg-stak-copper text-white rounded-full flex items-center justify-center text-2xl font-semibold">
-                      {(profile?.firstName?.[0] || 'U')}{(profile?.lastName?.[0] || 'N')}
-                    </div>
-                  )}
-                </div>
+              <div className="flex flex-col items-center">
+                {profile?.profileImageUrl ? (
+                  <img
+                    src={profile.profileImageUrl}
+                    alt="Profile"
+                    className="rounded-full w-24 h-24 object-cover border"
+                  />
+                ) : (
+                  <div className="rounded-full w-24 h-24 flex items-center justify-center bg-orange-400 text-white text-xl font-bold">
+                    {(profile?.firstName?.[0] || 'U')}{(profile?.lastName?.[0] || 'N')}
+                  </div>
+                )}
                 
                 {isOwnProfile && (
                   <button
                     onClick={() => setShowPhotoCropper(true)}
-                    className="absolute bottom-0 right-0 bg-stak-copper text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                    className="mt-2 text-sm text-blue-600"
                     data-testid="button-edit-photo"
                   >
-                    <Camera className="h-4 w-4" />
+                    Edit Photo
                   </button>
                 )}
               </div>
