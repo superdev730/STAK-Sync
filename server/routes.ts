@@ -33,8 +33,13 @@ import {
   billingAccounts,
   invoices,
   invoiceLineItems,
+  profileMetadata,
+  profileEnrichment,
+  profileVersions,
   type EventAttendeeGoal,
-  type InsertEventAttendeeGoal
+  type InsertEventAttendeeGoal,
+  type ProfileMetadata,
+  type ProfileEnrichment
 } from "@shared/schema";
 import { csvImportService } from "./csvImportService";
 import { db } from "./db";
@@ -602,6 +607,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('AI suggestions error:', error);
       res.status(500).json({ error: 'Failed to generate suggestions' });
+    }
+  });
+
+  // Enhanced /api/me endpoint for zero-friction onboarding with merged profile data and provenance
+  app.get('/api/me', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      // Get user profile data
+      const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!user.length) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Get profile metadata for provenance/confidence information
+      const metadata = await db.select().from(profileMetadata).where(eq(profileMetadata.userId, userId));
+      
+      // Get latest enrichment data
+      const enrichments = await db.select()
+        .from(profileEnrichment)
+        .where(eq(profileEnrichment.userId, userId))
+        .orderBy(desc(profileEnrichment.createdAt))
+        .limit(1);
+
+      const userProfile = user[0];
+      const { password: _, ...profileWithoutPassword } = userProfile;
+
+      // Build metadata map for easy lookup
+      const metadataMap = new Map<string, ProfileMetadata>();
+      metadata.forEach(meta => {
+        metadataMap.set(meta.fieldName, meta);
+      });
+
+      // Helper function to get field metadata with defaults
+      const getFieldMeta = (fieldName: string, value: any) => {
+        const meta = metadataMap.get(fieldName);
+        if (!meta && value) {
+          // If we have a value but no metadata, assume it's user-entered
+          return {
+            provenance: 'user' as const,
+            confidence: 1.0,
+            sources: []
+          };
+        }
+        return meta ? {
+          provenance: meta.provenance,
+          confidence: parseFloat(meta.confidence?.toString() || '1.0'),
+          sources: meta.sources || []
+        } : {
+          provenance: null,
+          confidence: 0,
+          sources: []
+        };
+      };
+
+      // Build enhanced profile with metadata
+      const enhancedProfile = {
+        // Basic user data
+        id: userProfile.id,
+        email: userProfile.email,
+        emailVerified: userProfile.emailVerified,
+        
+        // Core profile fields with metadata
+        firstName: {
+          value: userProfile.firstName,
+          ...getFieldMeta('firstName', userProfile.firstName)
+        },
+        lastName: {
+          value: userProfile.lastName,
+          ...getFieldMeta('lastName', userProfile.lastName)
+        },
+        title: {
+          value: userProfile.title,
+          ...getFieldMeta('title', userProfile.title)
+        },
+        company: {
+          value: userProfile.company,
+          ...getFieldMeta('company', userProfile.company)
+        },
+        location: {
+          value: userProfile.location,
+          ...getFieldMeta('location', userProfile.location)
+        },
+        bio: {
+          value: userProfile.bio,
+          ...getFieldMeta('bio', userProfile.bio)
+        },
+        profileImageUrl: {
+          value: userProfile.profileImageUrl,
+          ...getFieldMeta('profileImageUrl', userProfile.profileImageUrl)
+        },
+        linkedinUrl: {
+          value: userProfile.linkedinUrl,
+          ...getFieldMeta('linkedinUrl', userProfile.linkedinUrl)
+        },
+        twitterUrl: {
+          value: userProfile.twitterUrl,
+          ...getFieldMeta('twitterUrl', userProfile.twitterUrl)
+        },
+        githubUrl: {
+          value: userProfile.githubUrl,
+          ...getFieldMeta('githubUrl', userProfile.githubUrl)
+        },
+        websiteUrls: {
+          value: userProfile.websiteUrls,
+          ...getFieldMeta('websiteUrls', userProfile.websiteUrls)
+        },
+        networkingGoal: {
+          value: userProfile.networkingGoal,
+          ...getFieldMeta('networkingGoal', userProfile.networkingGoal)
+        },
+        skills: {
+          value: userProfile.skills,
+          ...getFieldMeta('skills', userProfile.skills)
+        },
+        industries: {
+          value: userProfile.industries,
+          ...getFieldMeta('industries', userProfile.industries)
+        },
+        
+        // Additional enrichment information
+        lastEnrichment: enrichments[0] || null,
+        
+        // Profile completeness score
+        completeness: {
+          score: 0, // Will be calculated
+          missingFields: [] as string[]
+        }
+      };
+
+      // Calculate profile completeness
+      const requiredFields = [
+        'firstName', 'lastName', 'title', 'company', 'location', 'bio', 'networkingGoal'
+      ];
+      
+      const completedFields = requiredFields.filter(field => {
+        const fieldData = (enhancedProfile as any)[field];
+        return fieldData?.value && fieldData.value.toString().trim().length > 0;
+      });
+
+      const missingFields = requiredFields.filter(field => {
+        const fieldData = (enhancedProfile as any)[field];
+        return !fieldData?.value || fieldData.value.toString().trim().length === 0;
+      });
+
+      enhancedProfile.completeness = {
+        score: Math.round((completedFields.length / requiredFields.length) * 100),
+        missingFields
+      };
+
+      res.json(enhancedProfile);
+
+    } catch (error) {
+      console.error("Error fetching enhanced profile:", error);
+      res.status(500).json({ message: "Failed to fetch profile" });
     }
   });
 
