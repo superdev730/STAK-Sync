@@ -235,6 +235,45 @@ export const profileEnrichmentRuns = pgTable("profile_enrichment_runs", {
   statusIndex: index("profile_enrichment_runs_status_idx").on(table.status),
 }));
 
+// Crowdsourced facts for Intel Collector system
+export const crowdsourcedFacts = pgTable("crowdsourced_facts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subjectUserId: varchar("subject_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  contributorUserId: varchar("contributor_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  factText: text("fact_text").notNull(), // The insight/accomplishment shared
+  factType: varchar("fact_type").notNull(), // "accomplishment", "strength", "personality", "project", "fact"
+  isVoiceNote: boolean("is_voice_note").default(false),
+  voiceNoteUrl: text("voice_note_url"), // If submitted as voice note
+  verificationStatus: varchar("verification_status").default("pending"), // "pending", "verified", "flagged"
+  moderationNotes: text("moderation_notes"),
+  visibility: varchar("visibility").default("visible"), // "visible", "hidden", "deleted"
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  subjectIndex: index("crowdsourced_facts_subject_idx").on(table.subjectUserId),
+  contributorIndex: index("crowdsourced_facts_contributor_idx").on(table.contributorUserId),
+  statusIndex: index("crowdsourced_facts_status_idx").on(table.verificationStatus),
+}));
+
+// Contributor rewards system for Intel Collector
+export const contributorRewards = pgTable("contributor_rewards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  totalPoints: integer("total_points").default(0),
+  totalContributions: integer("total_contributions").default(0),
+  currentStreak: integer("current_streak").default(0), // Days with contributions
+  longestStreak: integer("longest_streak").default(0),
+  lastContributionAt: timestamp("last_contribution_at"),
+  rewardsEarned: jsonb("rewards_earned").default('[]'), // Array of earned perks/rewards
+  tier: varchar("tier").default("bronze"), // "bronze", "silver", "gold", "platinum"
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIndex: index("contributor_rewards_user_idx").on(table.userId),
+  pointsIndex: index("contributor_rewards_points_idx").on(table.totalPoints),
+  tierIndex: index("contributor_rewards_tier_idx").on(table.tier),
+}));
+
 // Invite system for easy user onboarding
 export const invites = pgTable("invites", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1529,3 +1568,21 @@ export type ProfileFact = typeof profileFacts.$inferSelect;
 export type InsertProfileFact = z.infer<typeof insertProfileFactSchema>;
 export type ProfileEnrichmentRun = typeof profileEnrichmentRuns.$inferSelect;
 export type InsertProfileEnrichmentRun = z.infer<typeof insertProfileEnrichmentRunSchema>;
+
+// Crowdsourced facts schemas
+export const insertCrowdsourcedFactSchema = createInsertSchema(crowdsourcedFacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertContributorRewardSchema = createInsertSchema(contributorRewards).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CrowdsourcedFact = typeof crowdsourcedFacts.$inferSelect;
+export type InsertCrowdsourcedFact = z.infer<typeof insertCrowdsourcedFactSchema>;
+export type ContributorReward = typeof contributorRewards.$inferSelect;
+export type InsertContributorReward = z.infer<typeof insertContributorRewardSchema>;
