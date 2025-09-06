@@ -93,6 +93,23 @@ Rules:
 - Output exactly the JSON schema below and nothing else.
 `;
 
+// Enhanced user connection matcher with structured input
+export const USER_CONNECTION_MATCHER = (payload: {
+  me: any, // normalized profile JSON for the current member
+  candidates: Array<{member_id: string, company?: string, headline?: string, industries?: string[], skills_keywords?: string[], interests_topics?: string[]}>
+}) => `
+ME:
+${JSON.stringify(payload.me, null, 2)}
+
+CANDIDATE_MEMBER_INDEX:
+${JSON.stringify(payload.candidates, null, 2)}
+
+OUTPUT_SCHEMA:
+[
+  {"member_id": null, "reason": "", "overlap_tags": []}
+]
+`;
+
 // System connection matcher for generating targeted connection recommendations
 export const SYSTEM_CONNECTION_MATCHER = `
 You are a connection matchmaker. 
@@ -560,36 +577,42 @@ Rules:
   }
 
   /**
-   * Generate connection targets using AI-powered matching
+   * Generate connection targets using enhanced AI-powered matching
    */
   private async generateConnectionTargets(profile: ProfileOutput, input: BuilderInput) {
-    console.log('🔗 Generating connection targets...');
+    console.log('🔗 Generating connection targets with enhanced matcher...');
     
     try {
       // Get candidate members from STAK database (mock for now)
-      const candidateMembers = await this.getCandidateMembersForMatching(profile, input);
+      const rawCandidates = await this.getCandidateMembersForMatching(profile, input);
       
-      if (candidateMembers.length === 0) {
+      if (rawCandidates.length === 0) {
         console.log('No candidate members found for connection matching');
         return;
       }
 
+      // Transform candidates to match the expected structure
+      const structuredCandidates = rawCandidates.map(candidate => ({
+        member_id: candidate.member_id,
+        company: candidate.company,
+        headline: `${candidate.title} at ${candidate.company}`,
+        industries: candidate.industries,
+        skills_keywords: candidate.skills,
+        interests_topics: candidate.interests
+      }));
+
       const systemPrompt = SYSTEM_CONNECTION_MATCHER;
-      
-      const userPrompt = `CURRENT_MEMBER_PROFILE:
-${JSON.stringify({
-  person: profile.person,
-  interests: profile.person.interests_topics,
-  skills: profile.person.skills_keywords,
-  industries: profile.person.industries,
-  goals: profile.stak_recos.goal_suggestions
-}, null, 2)}
-
-CANDIDATE_MEMBER_INDEX:
-${JSON.stringify(candidateMembers, null, 2)}
-
-EVENT_CONTEXT:
-${JSON.stringify(input.event_context || { event_id: 'networking_event', event_topics: ['business', 'technology'] }, null, 2)}`;
+      const userPrompt = USER_CONNECTION_MATCHER({
+        me: {
+          person: profile.person,
+          industries: profile.person.industries,
+          skills_keywords: profile.person.skills_keywords,
+          interests_topics: profile.person.interests_topics,
+          goals: profile.stak_recos.goal_suggestions,
+          mission: profile.stak_recos.mission_pack
+        },
+        candidates: structuredCandidates
+      });
 
       const response = await this.openai.chat.completions.create({
         model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
@@ -604,15 +627,21 @@ ${JSON.stringify(input.event_context || { event_id: 'networking_event', event_to
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
       
-      if (result.connection_targets && Array.isArray(result.connection_targets)) {
-        profile.stak_recos.connection_targets = result.connection_targets;
-        console.log(`✅ Generated ${result.connection_targets.length} connection targets`);
-      } else if (result && Array.isArray(result)) {
-        // Handle case where AI returns direct array
-        profile.stak_recos.connection_targets = result;
+      if (Array.isArray(result)) {
+        // Handle direct array response
+        profile.stak_recos.connection_targets = result.slice(0, 5); // Limit to 5 as per spec
         console.log(`✅ Generated ${result.length} connection targets`);
+      } else if (result.connection_targets && Array.isArray(result.connection_targets)) {
+        profile.stak_recos.connection_targets = result.connection_targets.slice(0, 5);
+        console.log(`✅ Generated ${result.connection_targets.length} connection targets`);
       } else {
-        console.warn('⚠️ AI connection matching returned unexpected format');
+        console.warn('⚠️ AI connection matching returned unexpected format, trying to parse...');
+        // Try to extract from various possible structures
+        const targets = result.targets || result.matches || [];
+        if (Array.isArray(targets)) {
+          profile.stak_recos.connection_targets = targets.slice(0, 5);
+          console.log(`✅ Generated ${targets.length} connection targets (parsed)`);
+        }
       }
 
     } catch (error) {
@@ -693,17 +722,16 @@ ${JSON.stringify(potentialSponsors, null, 2)}`;
    * TODO: Replace with actual STAK member database query
    */
   private async getCandidateMembersForMatching(profile: ProfileOutput, input: BuilderInput) {
-    // Mock candidate members for demonstration
-    // In production, this would query the STAK member database
+    // Enhanced mock candidate members with more diversity for better matching
     const mockCandidates = [
       {
         member_id: "member_001",
         name: "Alex Thompson",
         title: "VP of Engineering",
         company: "TechCorp",
-        industries: ["technology", "artificial intelligence"],
-        skills: ["machine learning", "team leadership", "product development"],
-        interests: ["startup scaling", "technical mentorship"],
+        industries: ["technology", "artificial_intelligence"],
+        skills: ["machine_learning", "team_leadership", "product_development"],
+        interests: ["startup_scaling", "technical_mentorship"],
         location: "San Francisco",
         networking_goals: ["Looking for technical co-founders", "Seeking AI startup investments"]
       },
@@ -712,9 +740,9 @@ ${JSON.stringify(potentialSponsors, null, 2)}`;
         name: "Maria Rodriguez",
         title: "Managing Partner",
         company: "Venture Dynamics",
-        industries: ["venture capital", "fintech"],
-        skills: ["due diligence", "portfolio management", "strategic partnerships"],
-        interests: ["fintech innovation", "diverse founding teams"],
+        industries: ["venture_capital", "fintech"],
+        skills: ["due_diligence", "portfolio_management", "strategic_partnerships"],
+        interests: ["fintech_innovation", "diverse_founding_teams"],
         location: "New York",
         networking_goals: ["Sourcing Series A opportunities", "Building LP relationships"]
       },
@@ -723,31 +751,78 @@ ${JSON.stringify(potentialSponsors, null, 2)}`;
         name: "David Kim",
         title: "Chief Marketing Officer", 
         company: "Growth Labs",
-        industries: ["marketing", "e-commerce"],
-        skills: ["digital marketing", "brand strategy", "growth hacking"],
-        interests: ["consumer behavior", "marketing automation"],
+        industries: ["marketing", "e_commerce"],
+        skills: ["digital_marketing", "brand_strategy", "growth_hacking"],
+        interests: ["consumer_behavior", "marketing_automation"],
         location: "Los Angeles",
         networking_goals: ["Seeking board positions", "Looking for marketing partnerships"]
+      },
+      {
+        member_id: "member_004",
+        name: "Sarah Chen",
+        title: "Founder & CEO",
+        company: "HealthTech Innovations",
+        industries: ["healthcare", "artificial_intelligence"],
+        skills: ["healthcare_regulation", "ai_development", "fundraising"],
+        interests: ["digital_health", "regulatory_compliance"],
+        location: "Boston",
+        networking_goals: ["Seeking Series B funding", "Looking for healthcare industry partnerships"]
+      },
+      {
+        member_id: "member_005",
+        name: "Michael Johnson",
+        title: "CTO",
+        company: "CloudScale Systems",
+        industries: ["cloud_computing", "enterprise_software"],
+        skills: ["cloud_architecture", "scalable_systems", "team_building"],
+        interests: ["distributed_systems", "engineering_leadership"],
+        location: "Seattle",
+        networking_goals: ["Exploring CTO advisory roles", "Seeking technical partnerships"]
       }
     ];
 
-    // Filter candidates based on profile context
-    const relevantCandidates = mockCandidates.filter(candidate => {
-      const hasIndustryOverlap = candidate.industries.some(industry => 
+    // Enhanced filtering with better scoring
+    const scoredCandidates = mockCandidates.map(candidate => {
+      let score = 0;
+      
+      // Industry overlap (highest priority)
+      const industryOverlap = candidate.industries.filter(industry => 
         profile.person.industries.includes(industry)
-      );
-      const hasSkillsOverlap = candidate.skills.some(skill =>
+      ).length;
+      score += industryOverlap * 3;
+      
+      // Skills overlap 
+      const skillsOverlap = candidate.skills.filter(skill =>
         profile.person.skills_keywords.some(userSkill => 
           userSkill.toLowerCase().includes(skill.toLowerCase()) ||
           skill.toLowerCase().includes(userSkill.toLowerCase())
         )
-      );
+      ).length;
+      score += skillsOverlap * 2;
       
-      return hasIndustryOverlap || hasSkillsOverlap || 
-             candidate.company !== profile.person.current_role.company.value;
+      // Interests overlap
+      const interestsOverlap = candidate.interests.filter(interest =>
+        profile.person.interests_topics.some(userInterest =>
+          userInterest.toLowerCase().includes(interest.toLowerCase()) ||
+          interest.toLowerCase().includes(userInterest.toLowerCase())
+        )
+      ).length;
+      score += interestsOverlap * 1;
+      
+      // Penalize same company (but don't exclude completely)
+      if (candidate.company === profile.person.current_role.company.value) {
+        score -= 5;
+      }
+      
+      return { ...candidate, match_score: score };
     });
 
-    return relevantCandidates.slice(0, 10); // Limit to top 10 candidates
+    // Sort by score and return top candidates
+    const sortedCandidates = scoredCandidates
+      .filter(candidate => candidate.match_score > 0 || mockCandidates.length <= 3) // Keep some even with low scores if we don't have many
+      .sort((a, b) => b.match_score - a.match_score);
+
+    return sortedCandidates.slice(0, 8); // Return top 8 candidates for matching
   }
 
   /**
