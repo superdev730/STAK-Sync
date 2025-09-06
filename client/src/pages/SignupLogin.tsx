@@ -74,8 +74,25 @@ export default function SignupLogin() {
   const signupMutation = useMutation({
     mutationFn: async (data: SignupForm) => {
       setAuthError(null);
-      console.log('Signup attempt with data:', { email: data.email, firstName: data.firstName, lastName: data.lastName });
-      return apiRequest("/api/auth/signup", "POST", data);
+      console.log('🔍 SIGNUPLOGIN DEBUG: Starting signup process', { 
+        email: data.email, 
+        firstName: data.firstName, 
+        lastName: data.lastName,
+        endpoint: "/api/auth/signup"
+      });
+      
+      try {
+        const result = await apiRequest("/api/auth/signup", "POST", data);
+        console.log('🔍 SIGNUPLOGIN DEBUG: Success response', result);
+        return result;
+      } catch (error) {
+        console.log('🔍 SIGNUPLOGIN DEBUG: API request failed', {
+          error,
+          errorMessage: error?.message,
+          errorType: typeof error
+        });
+        throw error;
+      }
     },
     onSuccess: () => {
       setAuthError(null);
@@ -87,24 +104,36 @@ export default function SignupLogin() {
       window.location.href = "/";
     },
     onError: (error: any) => {
-      console.error('Signup error details:', error);
+      console.error('🔍 SIGNUPLOGIN DEBUG: Signup error caught', {
+        error,
+        errorMessage: error?.message,
+        errorSuggestion: error?.suggestion,
+        errorAction: error?.action,
+        fullError: JSON.stringify(error, null, 2)
+      });
+      
       let errorMessage = "Failed to create account. Please try again.";
       
       // Handle structured error responses from server
       if (error.suggestion) {
         errorMessage = `${error.message || error.error}. ${error.suggestion}`;
       } else if (error.message) {
+        console.log('🔍 SIGNUPLOGIN DEBUG: Processing error message', error.message);
+        
         if (error.message.includes("already exists")) {
           errorMessage = "An account with this email already exists. Please try signing in instead, or use the 'Forgot Password' option if you can't remember your password.";
         } else if (error.message.includes("invalid email") || error.message.includes("email address")) {
           errorMessage = "Please enter a valid email address (like name@example.com)";
         } else if (error.message.includes("password")) {
           errorMessage = "Password must be at least 8 characters long";
+        } else if (error.message.includes("pattern")) {
+          errorMessage = "Please check your email format. It should look like name@example.com";
         } else {
           errorMessage = error.message;
         }
       }
       
+      console.log('🔍 SIGNUPLOGIN DEBUG: Final error message to user', errorMessage);
       setAuthError(errorMessage);
       toast({
         title: "Signup failed",
@@ -217,7 +246,11 @@ export default function SignupLogin() {
             {/* General Auth Forms */}
             {isSignup ? (
               <Form {...signupForm}>
-                <form onSubmit={signupForm.handleSubmit(onSignup)} className="space-y-4">
+                <form onSubmit={signupForm.handleSubmit((data) => {
+                  console.log('🔍 SIGNUPLOGIN DEBUG: Form submit triggered', data);
+                  console.log('🔍 SIGNUPLOGIN DEBUG: Form errors', signupForm.formState.errors);
+                  onSignup(data);
+                })} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={signupForm.control}

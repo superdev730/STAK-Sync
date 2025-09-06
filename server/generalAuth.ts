@@ -53,8 +53,18 @@ export function setupGeneralAuth(app: Express) {
   
   // General signup endpoint
   app.post('/api/auth/signup', async (req, res) => {
+    console.log('🔍 BACKEND DEBUG: /api/auth/signup endpoint hit');
+    console.log('🔍 BACKEND DEBUG: Request body:', req.body);
+    console.log('🔍 BACKEND DEBUG: Request headers:', req.headers);
+    
     try {
       const { email, password, firstName, lastName } = req.body as SignupData;
+      console.log('🔍 BACKEND DEBUG: Extracted data types:', {
+        email: typeof email,
+        password: typeof password,
+        firstName: typeof firstName,
+        lastName: typeof lastName
+      });
       
       // Validate input
       if (!email || !password || !firstName || !lastName) {
@@ -119,7 +129,11 @@ export function setupGeneralAuth(app: Express) {
       });
       
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error('🔍 BACKEND DEBUG: Signup error details:', error);
+      console.error('🔍 BACKEND DEBUG: Error type:', typeof error);
+      console.error('🔍 BACKEND DEBUG: Error message:', error?.message);
+      console.error('🔍 BACKEND DEBUG: Error stack:', error?.stack);
+      
       res.status(500).json({ 
         error: 'We had trouble creating your account. Please check your information and try again. If the problem continues, please contact support.' 
       });

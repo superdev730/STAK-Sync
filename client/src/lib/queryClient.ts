@@ -4,7 +4,9 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     try {
       const errorData = await res.json();
-      console.log('Server error response:', errorData);
+      console.log('🔍 API DEBUG: Server error response:', errorData);
+      console.log('🔍 API DEBUG: Response status:', res.status);
+      console.log('🔍 API DEBUG: Response status text:', res.statusText);
       
       // Extract the most helpful error message
       const errorMessage = errorData.error || errorData.message || errorData.details;
