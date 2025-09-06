@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
+import { Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Schema for signup form
 const signupSchema = z.object({
@@ -32,6 +34,8 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function SignupLogin() {
   const [isSignup, setIsSignup] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -62,9 +66,12 @@ export default function SignupLogin() {
 
   const signupMutation = useMutation({
     mutationFn: async (data: SignupForm) => {
+      setAuthError(null);
+      console.log('Signup attempt with data:', { email: data.email, firstName: data.firstName, lastName: data.lastName });
       return apiRequest("/api/auth/signup", "POST", data);
     },
     onSuccess: () => {
+      setAuthError(null);
       toast({
         title: "Account created successfully!",
         description: "Welcome to STAK Sync. You're now logged in.",
@@ -73,9 +80,12 @@ export default function SignupLogin() {
       window.location.href = "/";
     },
     onError: (error: any) => {
+      console.error('Signup error details:', error);
+      const errorMessage = error.message || "Failed to create account";
+      setAuthError(errorMessage);
       toast({
         title: "Signup failed",
-        description: error.message || "Failed to create account",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -83,9 +93,12 @@ export default function SignupLogin() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginForm) => {
+      setAuthError(null);
+      console.log('Login attempt with email:', data.email);
       return apiRequest("/api/auth/login", "POST", data);
     },
     onSuccess: () => {
+      setAuthError(null);
       toast({
         title: "Welcome back!",
         description: "You're now logged in to STAK Sync.",
@@ -94,9 +107,23 @@ export default function SignupLogin() {
       window.location.href = "/";
     },
     onError: (error: any) => {
+      console.error('Login error details:', error);
+      let errorMessage = "Invalid email or password";
+      
+      if (error.message) {
+        if (error.message.includes('Email and password are required')) {
+          errorMessage = "Please fill in both email and password fields";
+        } else if (error.message.includes('Invalid email or password')) {
+          errorMessage = "The email or password you entered is incorrect. Please check your credentials and try again.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setAuthError(errorMessage);
       toast({
         title: "Login failed",
-        description: error.message || "Invalid email or password",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -132,6 +159,16 @@ export default function SignupLogin() {
           </CardHeader>
           
           <CardContent className="space-y-6">
+            {/* Error Display */}
+            {authError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription data-testid="error-message">
+                  {authError}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {/* Replit OAuth Option */}
             <Button 
               data-testid="button-replit-auth"
@@ -218,12 +255,28 @@ export default function SignupLogin() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <FormControl>
-                          <Input 
-                            data-testid="input-password"
-                            type="password" 
-                            placeholder="At least 8 characters" 
-                            {...field} 
-                          />
+                          <div className="relative">
+                            <Input 
+                              data-testid="input-password"
+                              type={showPassword ? "text" : "password"}
+                              placeholder="At least 8 characters" 
+                              {...field} 
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => setShowPassword(!showPassword)}
+                              data-testid="button-toggle-password"
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -269,12 +322,28 @@ export default function SignupLogin() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <FormControl>
-                          <Input 
-                            data-testid="input-password"
-                            type="password" 
-                            placeholder="Enter your password" 
-                            {...field} 
-                          />
+                          <div className="relative">
+                            <Input 
+                              data-testid="input-password"
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Enter your password" 
+                              {...field} 
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => setShowPassword(!showPassword)}
+                              data-testid="button-toggle-password"
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

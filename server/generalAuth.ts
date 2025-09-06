@@ -100,26 +100,48 @@ export function setupGeneralAuth(app: Express) {
     try {
       const { email, password } = req.body as LoginData;
       
+      console.log('Login attempt:', { email, hasPassword: !!password });
+      
       // Validate input
       if (!email || !password) {
+        console.log('Missing email or password');
         return res.status(400).json({ 
           error: 'Email and password are required' 
         });
       }
       
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        console.log('Invalid email format:', email);
+        return res.status(400).json({ 
+          error: 'Please enter a valid email address' 
+        });
+      }
+      
       // Find user by email
       const user = await storage.getUserByEmail(email);
-      if (!user || !user.password) {
+      console.log('User lookup result:', { found: !!user, hasPassword: !!user?.password });
+      
+      if (!user) {
         return res.status(401).json({ 
-          error: 'Invalid email or password' 
+          error: 'No account found with this email address. Please check your email or create a new account.' 
+        });
+      }
+      
+      if (!user.password) {
+        return res.status(401).json({ 
+          error: 'This account was created with Replit authentication. Please use "Continue with Replit" to sign in.' 
         });
       }
       
       // Verify password
       const isPasswordValid = await verifyPassword(password, user.password);
+      console.log('Password verification result:', isPasswordValid);
+      
       if (!isPasswordValid) {
         return res.status(401).json({ 
-          error: 'Invalid email or password' 
+          error: 'Incorrect password. Please check your password and try again.' 
         });
       }
       
