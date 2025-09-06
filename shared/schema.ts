@@ -37,6 +37,21 @@ export const badgeTierEnum = pgEnum("badge_tier", ["bronze", "silver", "gold", "
 // Profile field provenance enum for zero-friction onboarding
 export const provenanceEnum = pgEnum("provenance", ["db", "enrichment", "user"]);
 
+// Fact-based profile system enums
+export const factTypeEnum = pgEnum("fact_type", [
+  "role", "project", "investment", "round", "metric", "award", "press", 
+  "publication", "patent", "talk", "grant", "acquisition"
+]);
+
+export const sourceTypeEnum = pgEnum("source_type", [
+  "first_party", "press_release", "reputable_media", "official_filings", 
+  "3p_official", "social", "other"
+]);
+
+export const enrichmentStatusEnum = pgEnum("enrichment_status", [
+  "pending", "running", "completed", "failed"
+]);
+
 // Session storage table.
 export const sessions = pgTable(
   "sessions",
@@ -176,6 +191,49 @@ export const profileAssistanceRequests = pgTable("profile_assistance_requests", 
   sentAt: timestamp("sent_at").defaultNow(),
   respondedAt: timestamp("responded_at"),
 });
+
+// Fact-based profile system tables
+export const profileFacts = pgTable("profile_facts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  factType: factTypeEnum("fact_type").notNull(),
+  title: varchar("title", { length: 500 }).notNull(), // e.g., "Series A led by X at $18M"
+  description: text("description"), // ≤ 280 chars, objective, no adjectives
+  org: varchar("org", { length: 200 }), // company/organization
+  role: varchar("role", { length: 200 }), // if applicable
+  valueNumber: decimal("value_number", { precision: 15, scale: 2 }), // amount, count, etc.
+  valueCurrency: varchar("value_currency", { length: 3 }), // USD, EUR, etc.
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  location: varchar("location", { length: 200 }),
+  sourceUrls: jsonb("source_urls").notNull(), // 1-3 source URLs
+  evidenceQuote: text("evidence_quote").notNull(), // short snippet ≤200 chars
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).notNull(), // 0.0 to 1.0
+  sourceType: sourceTypeEnum("source_type").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userFactIndex: index("profile_facts_user_id_idx").on(table.userId),
+  factTypeIndex: index("profile_facts_fact_type_idx").on(table.factType),
+  confidenceIndex: index("profile_facts_confidence_idx").on(table.confidence),
+}));
+
+export const profileEnrichmentRuns = pgTable("profile_enrichment_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: enrichmentStatusEnum("status").notNull().default("pending"),
+  startedAt: timestamp("started_at").defaultNow(),
+  finishedAt: timestamp("finished_at"),
+  errorMessage: text("error_message"),
+  factsFound: integer("facts_found").default(0),
+  sourcesProcessed: integer("sources_processed").default(0),
+  rawHarvestData: jsonb("raw_harvest_data"), // Store raw data for debugging
+  normalizedClaims: jsonb("normalized_claims"), // Pre-LLM processed claims
+  verifiedFacts: jsonb("verified_facts"), // Post-verification results
+}, (table) => ({
+  userRunsIndex: index("profile_enrichment_runs_user_id_idx").on(table.userId),
+  statusIndex: index("profile_enrichment_runs_status_idx").on(table.status),
+}));
 
 // Invite system for easy user onboarding
 export const invites = pgTable("invites", {
@@ -1454,3 +1512,20 @@ export type InsertProfileEnrichment = z.infer<typeof insertProfileEnrichmentSche
 export type ProfileEnrichment = typeof profileEnrichment.$inferSelect;
 export type InsertProfileVersions = z.infer<typeof insertProfileVersionsSchema>;
 export type ProfileVersions = typeof profileVersions.$inferSelect;
+
+// Fact-based profile schemas
+export const insertProfileFactSchema = createInsertSchema(profileFacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProfileEnrichmentRunSchema = createInsertSchema(profileEnrichmentRuns).omit({
+  id: true,
+  startedAt: true,
+});
+
+export type ProfileFact = typeof profileFacts.$inferSelect;
+export type InsertProfileFact = z.infer<typeof insertProfileFactSchema>;
+export type ProfileEnrichmentRun = typeof profileEnrichmentRuns.$inferSelect;
+export type InsertProfileEnrichmentRun = z.infer<typeof insertProfileEnrichmentRunSchema>;

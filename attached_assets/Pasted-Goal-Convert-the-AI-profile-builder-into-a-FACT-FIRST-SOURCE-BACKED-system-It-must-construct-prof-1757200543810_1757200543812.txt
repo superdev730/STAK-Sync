@@ -1,0 +1,177 @@
+Goal: Convert the AI profile builder into a FACT-FIRST, SOURCE-BACKED system. It must construct profiles from material facts (projects, investments, roles, dates, metrics, awards), verified by reputable third-party sources (press, filings, reputable media, official company pages). No fluffy adjectives or unverifiable claims.
+
+Compliance:
+- Use only public, ToS-compliant sources. Do NOT scrape LinkedIn HTML. LinkedIn data only via official OAuth scopes with member consent. 
+- Always store provenance (source URLs), evidence quotes/snippets, and confidence scores.
+
+Deliverables:
+1) ENRICHMENT PIPELINE (server)
+2) FACT MODEL + MERGE LOGIC (DB)
+3) LLM PROMPTS (system + verifier)
+4) UI SURFACE FOR CITATIONS (client)
+5) TESTS + ACCEPTANCE CRITERIA
+
+--------------------------------
+1) ENRICHMENT PIPELINE (server)
+--------------------------------
+Implement a new “fact harvest” pipeline that runs post-signup and on manual refresh.
+
+Allowed deterministic fetchers (run in parallel):
+- Company website: OpenGraph, schema.org/Organization, /about, /press, /news, /blog (tag to “first_party”).
+- Press releases: /press or newsroom pages; PRNewswire, BusinessWire, GlobeNewswire (tag to “press_release”).
+- Reputable media: Forbes, TechCrunch, WSJ, FT, CNBC, Bloomberg, Reuters, The Verge, Wired, etc. (tag “reputable_media”).
+- Official filings & public records when applicable: SEC (EDGAR), EU filings, grants databases (tag “official_filings”).
+- Product docs & conference sites (agenda/speakers pages), university bios (tag “3p_official”).
+- Social (only where public and relevant): GitHub (stars, repos, topics), X/Twitter (bio keywords). Tag accordingly.
+
+Search orchestration:
+- Use Perplexity to get top 10 candidate URLs per user with queries like:
+  • "FIRST LAST" "COMPANY" 
+  • "FIRST LAST" bio 
+  • "FIRST LAST" interview OR keynote 
+  • "COMPANY" press release 
+  • "COMPANY" funding round amount date
+- De-duplicate and classify URLs by domain and type.
+- Fetch pages and extract structured candidates: {claim_text, numeric_metrics, dates, roles, project_names, organizations, locations, urls, snippet}.
+
+Claim normalizer (pre-LLM):
+- Collapse near-duplicates, standardize dates (ISO), coerce numbers (ints/floats), map currencies (USD/EUR), and annotate claim_type (role, project, round, award, patent, speaking, publication).
+
+LLM calls:
+- 1) “Fact Extractor” to produce only verifiable claims with evidence.
+- 2) “Fact Verifier” to drop anything lacking sufficient evidence or with conflicting sources.
+- 3) “Summary Composer” to build tight, citation-rich profile sections (still non-fluffy).
+
+Persistence:
+- Save raw harvest, normalized claims, verified facts, and the final composed sections.
+- Never overwrite user-entered fields; always store provenance + confidence.
+- Drop any claim with confidence < 0.5 or without at least one source_url.
+
+--------------------------------
+2) FACT MODEL + MERGE LOGIC (DB)
+--------------------------------
+Add tables/columns:
+
+profiles
+- first_name, last_name, email
+- headline {value, provenance, confidence, sources jsonb[]}
+- current_title {value, provenance, confidence, sources[]}
+- current_company {value, provenance, confidence, sources[]}
+- location {value, provenance, confidence, sources[]}
+- links jsonb {website, github, x, linkedin, company} (+ provenance/confidence/sources)
+- industries text[]
+- skills_keywords text[]
+- interests_topics text[]
+- bio {value, provenance, confidence, sources[]}
+
+profile_facts (NEW)
+- id, user_id
+- fact_type enum('role','project','investment','round','metric','award','press','publication','patent','talk','grant','acquisition')
+- title string (e.g., “Series A led by X at $18M”)
+- description text (≤ 280 chars, objective, no adjectives)
+- org string (company/org)
+- role string (if applicable)
+- value_number numeric (e.g., amount, count)
+- value_currency enum or null
+- start_date date null, end_date date null
+- location string null
+- source_urls jsonb[] (1–3)
+- evidence_quote text (short snippet)
+- confidence float (0–1)
+- source_type enum('first_party','press_release','reputable_media','official_filings','3p_official','social','other')
+
+profile_enrichment_runs
+- id, user_id, started_at, finished_at, status, error
+
+Merge precedence for display:
+user > db_seed > verified_fact-derived fields (highest confidence) > general enrichment
+Any displayed figure must have at least one source URL and evidence_quote.
+
+--------------------------------
+3) LLM PROMPTS (system + verifier)
+--------------------------------
+System: FACT EXTRACTOR
+“You are STAK Sync’s Fact Extractor. Output ONLY objective, verifiable facts about a person’s professional work. Prefer third-party and official sources. NO adjectives, NO unverifiable claims, NO speculation.
+For every fact:
+- Provide 1–3 source_urls to authoritative pages.
+- Include a short evidence_quote copied verbatim (≤200 chars).
+- Assign confidence (0–1) reflecting source quality and agreement.
+- Normalize dates to YYYY-MM-DD; use value_number/value_currency for amounts and counts.
+- Categorize fact_type correctly.
+If a potential claim lacks a credible source, DO NOT include it.”
+
+System: FACT VERIFIER
+“You are a verifier. Given candidate facts, remove any that:
+- lack source_urls,
+- rely on low-credibility domains,
+- have internal conflicts (dates/amounts disagree) without clear resolution,
+- are descriptors without measurable content.
+Re-score confidence based on source mix:
+official_filings > reputable_media > press_release > first_party > 3p_official > social.”
+
+System: SUMMARY COMPOSER
+“You are a composer. Build concise, sectioned profile copy from verified facts only.
+Rules:
+- Keep sentences concrete and short.
+- Attach inline citation markers [1], [2] matching source_urls per section.
+- Never use adjectives like ‘world-class’ or ‘leading’.
+- Prefer bullets for Projects, Investments, Awards with metrics.
+- No claim may appear without at least one source.”
+
+User prompt template (for extractor & verifier):
+“INPUT:
+- PERSON: {first, last, email, domain/company?}
+- CANDIDATE_URLS: [...]
+- HARVESTED_SNIPPETS: [...]
+OUTPUT_SCHEMA (array of facts):
+[{
+  "fact_type": "project|investment|round|metric|award|press|publication|patent|role|talk|grant|acquisition",
+  "title": "",
+  "description": "",
+  "org": "",
+  "role": "",
+  "value_number": null,
+  "value_currency": null,
+  "start_date": null,
+  "end_date": null,
+  "location": null,
+  "source_urls": [],
+  "evidence_quote": "",
+  "confidence": 0.0,
+  "source_type": ""
+}]”
+
+--------------------------------
+4) UI SURFACE FOR CITATIONS (client)
+--------------------------------
+Profile page changes:
+- Add “Credibility panel” per section with numbered citations. Hover shows domain + evidence_quote.
+- Facts list component: Each bullet shows metric/date and a superscript citation [n].
+- Badge by source mix: e.g., “Verified by filings & media” or “Press-release only”.
+- Toggle “Show facts only” (hides any field lacking sources).
+- Editable overrides still allowed; when user edits, provenance=user and confidence=1.0.
+
+--------------------------------
+5) TESTS + ACCEPTANCE CRITERIA
+--------------------------------
+Unit/integration tests:
+- Fact without source_urls is rejected.
+- Conflicting amounts across sources -> lower confidence or drop; never silently merge.
+- Currency normalized; dates ISO-formatted.
+- Press-release-only facts exist but flagged lower confidence than reputable media/filings.
+- UI refuses to render a metric without at least one source link.
+
+Acceptance Criteria (must pass):
+1) The profile builder outputs sections comprised of measurable, verifiable facts with 1–3 citations each. No adjectives.
+2) Every displayed metric/date/amount includes an evidence_quote and source link.
+3) The system rejects claims without sources or with conflicting data unless resolved.
+4) The UI clearly shows citations and lets users inspect sources quickly.
+5) No LinkedIn scraping; LinkedIn data only via OAuth with consent (if configured). App works fully without LinkedIn.
+
+Implementation notes:
+- Add a “minimum_fact_confidence” env (default 0.6).
+- Maintain a domain trust list with weights: official_filings(1.0), reputable_media(0.9), press_release(0.75), first_party(0.7), 3p_official(0.7), social(0.5).
+- Store final composed profile text alongside a facts array so we can re-compose when facts change.
+- Add /api/profile/facts [GET] and /api/profile/facts:refresh [POST].
+
+Please implement the above, migrate the DB, wire the pipeline to run post-signup and on-demand, and upgrade the UI to display citations and evidence quotes inline with each fact.
