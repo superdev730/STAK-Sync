@@ -53,7 +53,79 @@ interface BuilderInput {
   linkedin_url?: string;
   social_urls?: string[];
   manual_context?: string;
+  event_context?: {
+    event_id: string;
+    event_topics: string[];
+  };
 }
+
+// Enhanced user profile normalizer with structured input
+export const USER_PROFILE_NORMALIZER = (payload: {
+  email: string,
+  first_name: string,
+  last_name: string,
+  email_domain?: string,
+  company_guess?: string,
+  company_site?: string | null,
+  opengraph?: any,
+  gravatar?: { avatar_url?: string | null, name?: string | null } | null,
+  search_snippets: Array<{url: string, title?: string, snippet?: string}>,
+  vendor_enrichment?: any, // Clearbit / PDL / FullContact (optional)
+  event_context: { event_id: string, event_topics: string[] }
+}) => `
+KNOWN_INPUT:
+${JSON.stringify({
+  email: payload.email,
+  first_name: payload.first_name,
+  last_name: payload.last_name
+}, null, 2)}
+
+DETERMINISTIC_SIGNALS:
+${JSON.stringify({
+  email_domain: payload.email_domain || null,
+  company_guess: payload.company_guess || null,
+  company_site: payload.company_site || null,
+  opengraph: payload.opengraph || {},
+  gravatar: payload.gravatar || {},
+  search_snippets: payload.search_snippets || [],
+  vendor_enrichment: payload.vendor_enrichment || {}
+}, null, 2)}
+
+EVENT_CONTEXT:
+${JSON.stringify(payload.event_context, null, 2)}
+
+OUTPUT_SCHEMA:
+{
+  "person": {
+    "name": {"value": null, "confidence": 0, "source_urls": []},
+    "email": {"value": null, "confidence": 1, "source_urls": []},
+    "avatar_url": {"value": null, "confidence": 0, "source_urls": []},
+    "headline": {"value": null, "confidence": 0, "source_urls": []},
+    "current_role": {
+      "title": {"value": null, "confidence": 0, "source_urls": []},
+      "company": {"value": null, "confidence": 0, "source_urls": []}
+    },
+    "geo": {"value": null, "confidence": 0, "source_urls": []},
+    "links": {
+      "website": null, "github": null, "x": null, "linkedin": null, "company": null
+    },
+    "industries": [],
+    "skills_keywords": [],
+    "interests_topics": [],
+    "bio": {"value": null, "confidence": 0, "source_urls": []}
+  },
+  "stak_recos": {
+    "goal_suggestions": ["", "", ""],
+    "mission_pack": ["", "", "", "", ""],
+    "connection_targets": [
+      {"member_id": null, "reason": "", "overlap_tags": []}
+    ],
+    "sponsor_targets": [
+      {"sponsor_id": null, "reason": "", "overlap_tags": []}
+    ]
+  }
+}
+`;
 
 export class SimplifiedProfileBuilder {
   private openai: OpenAI;
@@ -198,12 +270,12 @@ export class SimplifiedProfileBuilder {
   }
 
   /**
-   * Phase 3: AI Profile Normalization using STAK System Prompt
+   * Phase 3: Enhanced AI Profile Normalization using structured input
    */
   private async generateAIEnhancements(profile: ProfileOutput, input: BuilderInput) {
-    console.log('🧠 Normalizing profile with STAK AI system...');
+    console.log('🧠 Normalizing profile with enhanced STAK AI system...');
     
-    const rawData = this.buildRawDataForNormalizer(profile, input);
+    const normalizerPayload = await this.buildNormalizerPayload(profile, input);
     
     const systemPrompt = `You are STAK Sync's Profile Normalizer.
 
@@ -218,44 +290,7 @@ Hard rules:
 - If conflicting facts appear, pick the one with the strongest source and explain briefly in the "reason" of stak_recos items where relevant.
 - Never scrape or rely on non-public or ToS-violating sources (e.g., LinkedIn HTML). Use vendor APIs or public pages only.`;
 
-    const userPrompt = `Normalize this raw profile data into the STAK schema:
-
-RAW DATA:
-${rawData}
-
-OUTPUT_SCHEMA:
-{
-  "person": {
-    "name": {"value": null, "confidence": 0, "source_urls": []},
-    "email": {"value": null, "confidence": 1, "source_urls": []},
-    "avatar_url": {"value": null, "confidence": 0, "source_urls": []},
-    "headline": {"value": null, "confidence": 0, "source_urls": []},
-    "current_role": {
-      "title": {"value": null, "confidence": 0, "source_urls": []},
-      "company": {"value": null, "confidence": 0, "source_urls": []}
-    },
-    "geo": {"value": null, "confidence": 0, "source_urls": []},
-    "links": {
-      "website": null, "github": null, "x": null, "linkedin": null, "company": null
-    },
-    "industries": [],
-    "skills_keywords": [],
-    "interests_topics": [],
-    "bio": {"value": null, "confidence": 0, "source_urls": []}
-  },
-  "stak_recos": {
-    "goal_suggestions": ["", "", ""],
-    "mission_pack": ["", "", "", "", ""],
-    "connection_targets": [
-      {"member_id": null, "reason": "", "overlap_tags": []}
-    ],
-    "sponsor_targets": [
-      {"sponsor_id": null, "reason": "", "overlap_tags": []}
-    ]
-  }
-}
-
-Return ONLY the normalized JSON.`;
+    const userPrompt = USER_PROFILE_NORMALIZER(normalizerPayload);
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -468,32 +503,90 @@ Return ONLY the normalized JSON.`;
     }
   }
 
-  private buildRawDataForNormalizer(profile: ProfileOutput, input: BuilderInput): string {
-    const rawData = {
-      input_provided: {
-        email: input.email || null,
-        linkedin_url: input.linkedin_url || null,
-        social_urls: input.social_urls || [],
-        manual_context: input.manual_context || null
-      },
-      extracted_data: {
-        person: profile.person,
-        sources_analyzed: []
+  /**
+   * Build enhanced payload for the USER_PROFILE_NORMALIZER
+   */
+  private async buildNormalizerPayload(profile: ProfileOutput, input: BuilderInput) {
+    // Extract name from profile or input
+    const extractName = (profile: ProfileOutput, input: BuilderInput) => {
+      if (profile.person.name.value) {
+        const parts = profile.person.name.value.split(' ');
+        return {
+          first_name: parts[0] || '',
+          last_name: parts.slice(1).join(' ') || ''
+        };
+      }
+      // Try to extract from email
+      if (input.email) {
+        const emailUser = input.email.split('@')[0];
+        const parts = emailUser.split(/[._-]/);
+        return {
+          first_name: parts[0] || '',
+          last_name: parts[1] || ''
+        };
+      }
+      return { first_name: '', last_name: '' };
+    };
+
+    const names = extractName(profile, input);
+    const emailDomain = input.email?.split('@')[1];
+
+    // Build search snippets from gathered data
+    const searchSnippets: Array<{url: string, title?: string, snippet?: string}> = [];
+    
+    // Add social media data as search snippets
+    input.social_urls?.forEach(url => {
+      const platform = this.detectPlatformFromUrl(url);
+      searchSnippets.push({
+        url,
+        title: `${platform} Profile`,
+        snippet: `Profile found on ${platform}`
+      });
+    });
+
+    // Simulate gravatar check (basic implementation)
+    const gravatar = await this.checkGravatar(input.email);
+
+    const payload = {
+      email: input.email || '',
+      first_name: names.first_name,
+      last_name: names.last_name,
+      email_domain: emailDomain,
+      company_guess: profile.person.current_role.company.value,
+      company_site: profile.person.links.website,
+      opengraph: {}, // Would be populated with actual OpenGraph data
+      gravatar,
+      search_snippets: searchSnippets,
+      vendor_enrichment: {}, // Placeholder for Clearbit/PDL/FullContact data
+      event_context: input.event_context || {
+        event_id: 'default_event',
+        event_topics: ['networking', 'business']
       }
     };
 
-    // Add any sources that were successfully analyzed
-    if (input.social_urls?.length) {
-      input.social_urls.forEach(url => {
-        rawData.extracted_data.sources_analyzed.push({
-          url,
-          platform: this.detectPlatformFromUrl(url),
-          status: 'analyzed'
-        });
-      });
-    }
+    return payload;
+  }
 
-    return JSON.stringify(rawData, null, 2);
+  /**
+   * Simple gravatar check implementation
+   */
+  private async checkGravatar(email?: string): Promise<{avatar_url?: string | null, name?: string | null} | null> {
+    if (!email) return null;
+    
+    try {
+      // Basic implementation - in production you'd use actual Gravatar API
+      const crypto = await import('crypto');
+      const hash = crypto.createHash('md5').update(email.toLowerCase().trim()).digest('hex');
+      const gravatarUrl = `https://www.gravatar.com/avatar/${hash}?d=404`;
+      
+      // Check if gravatar exists (simplified)
+      return {
+        avatar_url: gravatarUrl,
+        name: null
+      };
+    } catch (error) {
+      return null;
+    }
   }
 
   private detectPlatformFromUrl(url: string): string {
