@@ -156,8 +156,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files
   app.use('/uploads', express.static('uploads'));
 
-  // Profile avatar upload route with Multer
-  app.post('/api/profile/avatar/upload', isAuthenticatedGeneral, upload.single('avatar'), async (req: any, res) => {
+  // Profile photo upload route with Multer
+  app.post('/api/profile/photo', isAuthenticatedGeneral, upload.single('photo'), async (req: any, res) => {
     try {
       // Check if file was uploaded
       if (!req.file) {

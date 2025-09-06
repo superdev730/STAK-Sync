@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import OnboardingWizard from "@/components/OnboardingWizard";
+import ProfilePhotoCropper from "@/components/ProfilePhotoCropper";
 import { apiRequest } from "@/lib/queryClient";
 import { 
   User,
@@ -84,6 +85,7 @@ export default function Profile() {
   const [editingBio, setEditingBio] = useState<string | undefined>(undefined);
   const [editingGoal, setEditingGoal] = useState<string | undefined>(undefined);
   const [networkingGoalSuggestions, setNetworkingGoalSuggestions] = useState<string[]>([]);
+  const [showPhotoCropper, setShowPhotoCropper] = useState(false);
 
   // Profile data query
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
@@ -213,106 +215,17 @@ export default function Profile() {
     },
   });
 
-  // Photo upload mutation
-  const uploadPhotoMutation = useMutation({
-    mutationFn: async (base64Image: string) => {
-      // Fixed: apiRequest expects (url, method, data) not (method, url, data)
-      const response = await apiRequest("/api/profile", "PUT", { profileImageUrl: base64Image });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-      toast({
-        title: "Photo Updated",
-        description: "Your profile photo has been updated successfully.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Upload Failed",
-        description: "Failed to update photo. Please try a smaller image.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const compressImage = (file: File, maxSizeMB: number = 1.8): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-
-      img.onload = () => {
-        // Calculate new dimensions to keep aspect ratio
-        const maxWidth = 800;
-        const maxHeight = 800;
-        let { width, height } = img;
-
-        if (width > height) {
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height;
-            height = maxHeight;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        // Draw and compress
-        ctx?.drawImage(img, 0, 0, width, height);
-        
-        // Start with high quality and reduce until file size is acceptable
-        let quality = 0.9;
-        const tryCompress = () => {
-          const dataUrl = canvas.toDataURL('image/jpeg', quality);
-          const sizeInMB = (dataUrl.length * 0.75) / (1024 * 1024); // Rough base64 to bytes conversion
-          
-          if (sizeInMB <= maxSizeMB || quality <= 0.1) {
-            resolve(dataUrl);
-          } else {
-            quality -= 0.1;
-            tryCompress();
-          }
-        };
-        
-        tryCompress();
-      };
-
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      // Show loading state
-      toast({
-        title: "Processing Image",
-        description: "Compressing and uploading your photo...",
-      });
-
-      // Compress image automatically
-      const compressedBase64 = await compressImage(file);
-      
-      // Upload compressed image
-      uploadPhotoMutation.mutate(compressedBase64);
-      
-    } catch (error) {
-      console.error('Image compression failed:', error);
-      toast({
-        title: "Upload Failed",
-        description: "Failed to process image. Please try a different photo.",
-        variant: "destructive"
-      });
-    }
+  // Handle photo upload success from cropper
+  const handlePhotoUploadSuccess = (imageUrl: string) => {
+    // Update profile with new image URL and invalidate cache
+    queryClient.setQueryData(
+      userId ? ["/api/profile", userId] : ["/api/profile"],
+      (oldData: UserProfile | undefined) => ({
+        ...oldData,
+        profileImageUrl: imageUrl
+      })
+    );
+    queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
   };
 
   const addSocialSource = () => {
@@ -422,26 +335,16 @@ export default function Profile() {
                 </Avatar>
                 
                 {isOwnProfile && (
-                  <>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                      id="photo-upload"
-                      data-testid="input-photo-upload"
-                    />
-                    <label
-                      htmlFor="photo-upload"
-                      className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full cursor-pointer"
-                      data-testid="button-edit-photo"
-                    >
-                      <div className="text-center text-white">
-                        <Camera className="h-8 w-8 mx-auto mb-1" />
-                        <div className="text-xs font-medium">Change Photo</div>
-                      </div>
-                    </label>
-                  </>
+                  <button
+                    onClick={() => setShowPhotoCropper(true)}
+                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full cursor-pointer"
+                    data-testid="button-edit-photo"
+                  >
+                    <div className="text-center text-white">
+                      <Camera className="h-8 w-8 mx-auto mb-1" />
+                      <div className="text-xs font-medium">Change Photo</div>
+                    </div>
+                  </button>
                 )}
               </div>
 
@@ -867,6 +770,13 @@ export default function Profile() {
           isOpen={showOnboarding}
           onClose={handleOnboardingComplete}
           profile={profile}
+        />
+
+        {/* Profile Photo Cropper */}
+        <ProfilePhotoCropper
+          isOpen={showPhotoCropper}
+          onClose={() => setShowPhotoCropper(false)}
+          onSuccess={handlePhotoUploadSuccess}
         />
       </div>
     </div>
