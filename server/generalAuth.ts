@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { storage } from './storage';
+import { sendWelcomeEmail } from './welcomeEmailService';
 import type { Express } from 'express';
 
 export interface SignupData {
@@ -69,6 +70,16 @@ export function setupGeneralAuth(app: Express) {
         lastName
       });
       
+      // Send welcome email (don't wait for it to complete)
+      sendWelcomeEmail({
+        firstName,
+        lastName,
+        email
+      }).catch(emailError => {
+        console.error('Welcome email failed:', emailError);
+        // Don't fail the signup if email fails
+      });
+
       // Create session (log user in automatically)
       req.login({ 
         id: newUser.id, 
@@ -85,7 +96,7 @@ export function setupGeneralAuth(app: Express) {
         res.status(201).json({ 
           success: true,
           user: userWithoutPassword,
-          message: 'Account created successfully'
+          message: 'Account created successfully! Check your email for next steps.'
         });
       });
       
