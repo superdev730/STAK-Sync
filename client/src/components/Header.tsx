@@ -75,7 +75,7 @@ export default function Header() {
               </div>
             </Link>
             <Button asChild className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium text-sm sm:text-base px-3 sm:px-4">
-              <a href="/api/login">Sign In</a>
+              <a href="/login">Sign In</a>
             </Button>
           </div>
         </div>

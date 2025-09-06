@@ -14,7 +14,7 @@ export default function Landing() {
               <h1 className="text-2xl font-bold text-stak-white">STAK Sync</h1>
             </div>
             <Button asChild className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium">
-              <a href="/api/login">Sign In</a>
+              <a href="/login">Sign In</a>
             </Button>
           </div>
         </div>
@@ -132,7 +132,7 @@ export default function Landing() {
             Your membership is your key to extraordinary connections. Let us help you discover the relationships that will define your next chapter.
           </p>
           <Button asChild size="lg" className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-8 py-4">
-            <a href="/api/login">Activate Sync</a>
+            <a href="/login">Activate Sync</a>
           </Button>
         </div>
       </section>
