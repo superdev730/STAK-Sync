@@ -153,6 +153,31 @@ Rules:
 - Output EXACT JSON (array of sponsor_targets).
 `;
 
+// Enhanced user connection summarizer with structured input
+export const USER_CONNECTION_SUMMARY = (payload: {
+  me: any,
+  interactions: {
+    sync_sessions: Array<{member_id: string, notes?: string}>,
+    qr_scans: Array<{location: string, timestamp: string}>,
+    chat_snippets: Array<{member_id: string, text: string}>
+  }
+}) => `
+ME:
+${JSON.stringify(payload.me, null, 2)}
+
+INTERACTIONS:
+${JSON.stringify(payload.interactions, null, 2)}
+
+OUTPUT_SCHEMA:
+{
+  "people_met": [
+    {"member_id": "", "summary_note": "", "suggested_followup": ""}
+  ],
+  "highlights": ["", "", "", "", ""],
+  "next_steps": ["", "", ""]
+}
+`;
+
 // System connection summarizer for post-event follow-ups
 export const SYSTEM_CONNECTION_SUMMARY = `
 You are a post-event summarizer.

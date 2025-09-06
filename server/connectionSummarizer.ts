@@ -1,5 +1,6 @@
 import OpenAI from "openai";
-import { SYSTEM_CONNECTION_SUMMARY } from "./simplifiedProfileBuilder";
+import { SYSTEM_CONNECTION_SUMMARY, USER_CONNECTION_SUMMARY } from "./simplifiedProfileBuilder";
+import { storage } from "./storage";
 
 // Types for interaction logs
 interface SyncSession {
@@ -71,8 +72,8 @@ export class ConnectionSummarizer {
       // Prepare structured interaction data for AI analysis
       const structuredData = this.structureInteractionData(interactionLogs);
       
-      // Generate summary using AI
-      const aiSummary = await this.generateAISummary(structuredData);
+      // Generate summary using AI with user context
+      const aiSummary = await this.generateAISummary(structuredData, userId);
       
       return {
         ...aiSummary,
@@ -165,22 +166,31 @@ export class ConnectionSummarizer {
   }
 
   /**
-   * Generate AI-powered summary from structured interaction data
+   * Generate AI-powered summary using enhanced structured approach
    */
-  private async generateAISummary(interactionData: any[]): Promise<Omit<ConnectionSummary, 'event_id' | 'user_id' | 'generated_at'>> {
-    console.log('🤖 Generating AI summary from interaction data...');
+  private async generateAISummary(interactionData: any[], userId: string): Promise<Omit<ConnectionSummary, 'event_id' | 'user_id' | 'generated_at'>> {
+    console.log('🤖 Generating AI summary with enhanced structured approach...');
+
+    // Get current user's profile for context
+    const currentUser = await storage.getUser(userId);
+    
+    // Transform interaction data to match the structured format
+    const structuredInteractions = this.transformToStructuredFormat(interactionData);
 
     const systemPrompt = SYSTEM_CONNECTION_SUMMARY;
-    
-    const userPrompt = `EVENT_INTERACTION_LOGS:
-${JSON.stringify({
-  sync_sessions: interactionData.filter(i => i.interaction_types.includes('sync_session')),
-  qr_scans: interactionData.filter(i => i.interaction_types.includes('qr_scan')),
-  chat_snippets: interactionData.filter(i => i.interaction_types.includes('chat'))
-}, null, 2)}
-
-MEMBER_INTERACTIONS_SUMMARY:
-${JSON.stringify(interactionData, null, 2)}`;
+    const userPrompt = USER_CONNECTION_SUMMARY({
+      me: {
+        name: `${currentUser?.firstName} ${currentUser?.lastName}`,
+        title: currentUser?.title,
+        company: currentUser?.company,
+        industries: currentUser?.industries || [],
+        skills: currentUser?.skills || [],
+        networking_goal: currentUser?.networkingGoal,
+        goals: currentUser?.goalAnalysis || [],
+        personality: currentUser?.personalityProfile
+      },
+      interactions: structuredInteractions
+    });
 
     const response = await this.openai.chat.completions.create({
       model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
@@ -211,6 +221,38 @@ ${JSON.stringify(interactionData, null, 2)}`;
       people_met: peopleMet,
       highlights,
       next_steps: nextSteps
+    };
+  }
+
+  /**
+   * Transform internal interaction data to structured format for USER_CONNECTION_SUMMARY
+   */
+  private transformToStructuredFormat(interactionData: any[]) {
+    const syncSessions = interactionData
+      .filter(i => i.interaction_types.includes('sync_session'))
+      .map(i => ({
+        member_id: i.member_id,
+        notes: i.context.join('; ')
+      }));
+
+    const qrScans = interactionData
+      .filter(i => i.interaction_types.includes('qr_scan'))
+      .map(i => ({
+        location: i.context.find((c: string) => c.includes('Contact exchanged at'))?.replace('Contact exchanged at ', '') || 'event',
+        timestamp: new Date().toISOString() // Mock timestamp, would be actual in production
+      }));
+
+    const chatSnippets = interactionData
+      .filter(i => i.interaction_types.includes('chat'))
+      .map(i => ({
+        member_id: i.member_id,
+        text: i.context.find((c: string) => c.includes('Message: "'))?.replace('Message: "', '').replace('"', '') || 'Connected via chat'
+      }));
+
+    return {
+      sync_sessions: syncSessions,
+      qr_scans: qrScans,
+      chat_snippets: chatSnippets
     };
   }
 
