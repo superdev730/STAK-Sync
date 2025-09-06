@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,27 +36,69 @@ import {
   Building2,
   MapPin,
   Target,
-  UserPlus
+  UserPlus,
+  Database,
+  Brain,
+  Zap,
+  TrendingUp,
+  Info
 } from "lucide-react";
 
-interface UserProfile {
-  id: string;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  title?: string;
-  company?: string;
-  bio?: string;
-  location?: string;
-  linkedinUrl?: string;
-  twitterUrl?: string;
-  githubUrl?: string;
-  websiteUrls?: string[];
-  skills?: string[];
-  industries?: string[];
-  networkingGoal?: string;
-  profileImageUrl?: string;
-}
+// Provenance Badge Component
+const ProvenanceBadge = ({ fieldName, getFieldProvenance, getFieldConfidence }: {
+  fieldName: string;
+  getFieldProvenance: (field: string) => any;
+  getFieldConfidence: (field: string) => number;
+}) => {
+  const provenance = getFieldProvenance(fieldName);
+  const confidence = getFieldConfidence(fieldName);
+  
+  if (!provenance) return null;
+  
+  const getIcon = () => {
+    switch (provenance.source) {
+      case 'db': return <Database className="w-3 h-3" />;
+      case 'enrichment': return <Brain className="w-3 h-3" />;
+      case 'user': return <User className="w-3 h-3" />;
+      default: return <Info className="w-3 h-3" />;
+    }
+  };
+  
+  const getColor = () => {
+    switch (provenance.source) {
+      case 'db': return 'bg-blue-100 text-blue-800 hover:bg-blue-200';
+      case 'enrichment': return 'bg-purple-100 text-purple-800 hover:bg-purple-200';
+      case 'user': return 'bg-green-100 text-green-800 hover:bg-green-200';
+      default: return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
+    }
+  };
+  
+  const getLabel = () => {
+    switch (provenance.source) {
+      case 'db': return 'Account Info';
+      case 'enrichment': return 'AI Enhanced';
+      case 'user': return 'User Verified';
+      default: return 'Unknown';
+    }
+  };
+  
+  return (
+    <Badge
+      variant="secondary"
+      className={`ml-2 text-xs ${getColor()} transition-colors cursor-help`}
+      title={`Source: ${getLabel()}, Confidence: ${Math.round(confidence * 100)}%`}
+    >
+      {getIcon()}
+      <span className="ml-1">{getLabel()}</span>
+      {confidence < 1 && (
+        <span className="ml-1 text-xs opacity-75">
+          {Math.round(confidence * 100)}%
+        </span>
+      )}
+    </Badge>
+  );
+};
+
 
 interface SocialSource {
   platform: string;
@@ -70,9 +113,24 @@ export default function Profile() {
   const { user: currentUser } = useAuth();
   const [, params] = useRoute("/profile/:userId?");
   const userId = params?.userId;
-  const isOwnProfile = !userId || userId === currentUser?.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // Use enhanced profile hook with provenance data
+  const {
+    profile,
+    isLoading: profileLoading,
+    isOwnProfile,
+    updateProfile,
+    isUpdating,
+    enrichProfile,
+    isEnriching,
+    getFieldProvenance,
+    getFieldConfidence,
+    isFieldFromEnrichment,
+    getUnknownFields,
+    getCompleteness
+  } = useProfile(userId);
   
   // State for AI-powered profile building
   const [activeStep, setActiveStep] = useState<'input' | 'ai' | 'preview'>('input');
@@ -97,11 +155,6 @@ export default function Profile() {
   const [companyAbortController, setCompanyAbortController] = useState<AbortController | null>(null);
   const [locationAbortController, setLocationAbortController] = useState<AbortController | null>(null);
 
-  // Profile data query
-  const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
-    queryKey: userId ? ["/api/profile", userId] : ["/api/profile"],
-    enabled: !!currentUser,
-  });
 
   // Initialize local state values from profile data
   useEffect(() => {
@@ -499,15 +552,29 @@ export default function Profile() {
                   
                   <div className="text-xl text-gray-700 mb-2">
                     {isOwnProfile ? (
-                      <Input
-                        value={profile?.title || ''}
-                        onChange={(e) => updateProfileMutation.mutate({ title: e.target.value })}
-                        className="text-xl border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
-                        placeholder="Your Job Title"
-                        data-testid="input-job-title"
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={profile?.title || ''}
+                          onChange={(e) => updateProfile({ title: e.target.value })}
+                          className="text-xl border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                          placeholder="Your Job Title"
+                          data-testid="input-job-title"
+                        />
+                        <ProvenanceBadge
+                          fieldName="title"
+                          getFieldProvenance={getFieldProvenance}
+                          getFieldConfidence={getFieldConfidence}
+                        />
+                      </div>
                     ) : (
-                      profile?.title || 'Job Title'
+                      <div className="flex items-center gap-2">
+                        <span>{profile?.title || 'Job Title'}</span>
+                        <ProvenanceBadge
+                          fieldName="title"
+                          getFieldProvenance={getFieldProvenance}
+                          getFieldConfidence={getFieldConfidence}
+                        />
+                      </div>
                     )}
                   </div>
 
@@ -714,12 +781,123 @@ export default function Profile() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             
+            {/* Profile Enhancement Section */}
+            {isOwnProfile && profile && (
+              <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-purple-600" />
+                      <span>Zero-Friction Profile</span>
+                      <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                        {Math.round(getCompleteness() * 100)}% Complete
+                      </Badge>
+                    </div>
+                    <Button
+                      onClick={() => enrichProfile()}
+                      disabled={isEnriching}
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-200 hover:bg-purple-50"
+                      data-testid="button-enrich-profile"
+                    >
+                      {isEnriching ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Enhancing...
+                        </>
+                      ) : (
+                        <>
+                          <Brain className="w-4 h-4 mr-2" />
+                          Enhance Profile
+                        </>
+                      )}
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Completeness Progress */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Profile Completeness</span>
+                        <span className="font-medium">{Math.round(getCompleteness() * 100)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${getCompleteness() * 100}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Unknown Fields */}
+                    {getUnknownFields().length > 0 && (
+                      <div className="p-3 bg-white rounded-lg border border-purple-200">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">
+                          🎯 Missing Information ({getUnknownFields().length} fields)
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {getUnknownFields().slice(0, 6).map((field) => (
+                            <Badge
+                              key={field}
+                              variant="outline"
+                              className="text-xs border-orange-200 text-orange-700 bg-orange-50"
+                            >
+                              {field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                            </Badge>
+                          ))}
+                          {getUnknownFields().length > 6 && (
+                            <Badge variant="outline" className="text-xs border-gray-200 text-gray-500">
+                              +{getUnknownFields().length - 6} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Provenance Summary */}
+                    <div className="grid grid-cols-3 gap-3 text-sm">
+                      <div className="text-center p-2 bg-white rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-center gap-1 text-blue-700 mb-1">
+                          <Database className="w-4 h-4" />
+                          <span className="font-medium">Account</span>
+                        </div>
+                        <div className="text-xs text-gray-600">Basic info from signup</div>
+                      </div>
+                      <div className="text-center p-2 bg-white rounded-lg border border-purple-200">
+                        <div className="flex items-center justify-center gap-1 text-purple-700 mb-1">
+                          <Brain className="w-4 h-4" />
+                          <span className="font-medium">AI Enhanced</span>
+                        </div>
+                        <div className="text-xs text-gray-600">Enriched from web sources</div>
+                      </div>
+                      <div className="text-center p-2 bg-white rounded-lg border border-green-200">
+                        <div className="flex items-center justify-center gap-1 text-green-700 mb-1">
+                          <User className="w-4 h-4" />
+                          <span className="font-medium">Verified</span>
+                        </div>
+                        <div className="text-xs text-gray-600">Manually confirmed</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             {/* Bio Section */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
                   About
+                  {isOwnProfile && (
+                    <ProvenanceBadge
+                      fieldName="bio"
+                      getFieldProvenance={getFieldProvenance}
+                      getFieldConfidence={getFieldConfidence}
+                    />
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
