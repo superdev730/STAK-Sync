@@ -5,6 +5,13 @@ We pre-filled your profile from public sources to save you time.
 • See something off? Tap to fix—your edits take priority instantly.
 `;
 
+// Compliance guidelines for all AI operations
+export const COMPLIANCE_PREFACE = `
+Use only public, ToS-compliant pages and approved vendor APIs.
+Do NOT scrape LinkedIn HTML or gated sites. Respect robots.txt.
+If a field can't be supported by a public URL, set it to null with confidence 0.
+`;
+
 // Additional profile building constants
 export const PROFILE_BUILDING_MESSAGES = {
   ANALYZING: "Analyzing your public information...",

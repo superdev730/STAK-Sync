@@ -85,6 +85,8 @@ OUTPUT_SCHEMA:
 
 // System field resolver prompt 
 export const SYSTEM_FIELD_RESOLVER = `
+${COMPLIANCE_PREFACE}
+
 You are a profile field resolver. 
 Given multiple candidate values for a field, choose ONE best value with a 0–1 confidence and cite up to 3 supporting source_urls.
 
@@ -211,6 +213,13 @@ We pre-filled your profile from public sources to save you time.
 • See something off? Tap to fix—your edits take priority instantly.
 `;
 
+// Compliance guidelines for all AI operations
+export const COMPLIANCE_PREFACE = `
+Use only public, ToS-compliant pages and approved vendor APIs.
+Do NOT scrape LinkedIn HTML or gated sites. Respect robots.txt.
+If a field can't be supported by a public URL, set it to null with confidence 0.
+`;
+
 // User goals and missions generator based on complete profile
 export const USER_GOALS_MISSIONS = (profileJson: any) => `
 PROFILE_JSON:
@@ -237,6 +246,8 @@ export const USER_PROFILE_NORMALIZER = (payload: {
   vendor_enrichment?: any, // Clearbit / PDL / FullContact (optional)
   event_context: { event_id: string, event_topics: string[] }
 }) => `
+${COMPLIANCE_PREFACE}
+`
 KNOWN_INPUT:
 ${JSON.stringify({
   email: payload.email,

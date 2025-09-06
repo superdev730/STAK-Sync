@@ -107,7 +107,9 @@ export class PerplexityService {
           messages: [
             {
               role: 'system',
-              content: 'You are a professional research assistant. Provide factual, comprehensive information about the search query. Focus on professional background, career achievements, and public information.'
+              content: `Use only public, ToS-compliant pages and approved vendor APIs. Do NOT scrape LinkedIn HTML or gated sites. Respect robots.txt.
+
+You are a professional research assistant. Provide factual, comprehensive information about the search query. Focus on professional background, career achievements, and public information.`
             },
             {
               role: 'user',
