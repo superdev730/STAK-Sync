@@ -272,6 +272,54 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
   const renderLinkedinStep = () => (
     <div className="space-y-6">
       <div className="text-center">
+        <LinkedinIcon className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-stak-black mb-2">Connect Your LinkedIn</h3>
+        <p className="text-gray-600 mb-6">
+          Authorize LinkedIn access to automatically import your professional profile data
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <Button
+          onClick={() => linkedinAnalysisMutation.mutate('')}
+          disabled={linkedinAnalysisMutation.isPending}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          size="lg"
+        >
+          {linkedinAnalysisMutation.isPending ? (
+            <>
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              Connecting to LinkedIn...
+            </>
+          ) : (
+            <>
+              <LinkedinIcon className="w-5 h-5 mr-2" />
+              Authorize LinkedIn Access
+            </>
+          )}
+        </Button>
+
+        {linkedinData && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-800 text-sm">
+              {linkedinData.message || "LinkedIn profile imported successfully!"}
+            </p>
+          </div>
+        )}
+
+        <div className="text-center">
+          <p className="text-xs text-gray-500 mb-2">or</p>
+          <Button variant="ghost" onClick={skipStep} className="text-gray-600">
+            Skip LinkedIn for now
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderWebsiteStep = () => (
+    <div className="space-y-6">
+      <div className="text-center">
         <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
           <Linkedin className="w-8 h-8 text-blue-600" />
         </div>
