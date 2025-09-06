@@ -13,8 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import OnboardingWizard from "@/components/OnboardingWizard";
+import ConsolidatedAIProfileBuilder from "@/components/ConsolidatedAIProfileBuilder";
 import ProfilePhotoCropper from "@/components/ProfilePhotoCropper";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -30,10 +29,7 @@ import {
   Loader2,
   Plus,
   Trash2,
-  Copy,
-  Check,
   Users,
-  Sparkles,
   Building2,
   MapPin,
   Target,
@@ -101,14 +97,6 @@ const ProvenanceBadge = ({ fieldName, getFieldProvenance, getFieldConfidence }: 
 };
 
 
-interface SocialSource {
-  platform: string;
-  url: string;
-  isValid: boolean;
-  isAnalyzing: boolean;
-  hasData: boolean;
-  error?: string;
-}
 
 export default function Profile() {
   const { user: currentUser } = useAuth();
@@ -133,17 +121,8 @@ export default function Profile() {
     getCompleteness
   } = useProfile(userId);
   
-  // State for AI-powered profile building
-  const [activeStep, setActiveStep] = useState<'input' | 'ai' | 'preview'>('input');
-  const [socialSources, setSocialSources] = useState<SocialSource[]>([]);
-  const [isBuilding, setIsBuilding] = useState(false);
-  const [newSocialUrl, setNewSocialUrl] = useState('');
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [editingBio, setEditingBio] = useState<string | undefined>(undefined);
-  const [editingGoal, setEditingGoal] = useState<string | undefined>(undefined);
-  const [networkingGoalSuggestions, setNetworkingGoalSuggestions] = useState<string[]>([]);
+  // State for consolidated AI profile builder and photo cropper
+  const [showAIBuilder, setShowAIBuilder] = useState(false);
   const [showPhotoCropper, setShowPhotoCropper] = useState(false);
   
   // Local state for company and location fields with autosave
@@ -167,23 +146,9 @@ export default function Profile() {
     }
   }, [profile]);
 
-  // Check if profile is incomplete and show onboarding for new users
-  useEffect(() => {
-    if (profile && isOwnProfile) {
-      const isIncomplete = !profile.bio || !profile.title || !profile.firstName;
-      if (isIncomplete) {
-        // Show onboarding for incomplete profiles
-        const hasSeenOnboarding = localStorage.getItem('stak-onboarding-completed');
-        if (!hasSeenOnboarding) {
-          setShowOnboarding(true);
-        }
-      }
-    }
-  }, [profile, isOwnProfile]);
-
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false);
-    localStorage.setItem('stak-onboarding-completed', 'true');
+  // Helper to refresh profile data after AI builder updates
+  const handleProfileUpdate = () => {
+    queryClient.invalidateQueries({ queryKey: userId ? ["/api/profile", userId] : ["/api/me"] });
   };
 
   // Save company field with proper state management and abort handling
@@ -348,52 +313,6 @@ export default function Profile() {
     },
   });
 
-  // AI Profile building mutation
-  const buildProfileMutation = useMutation({
-    mutationFn: async ({ sources, prompt }: { sources: SocialSource[], prompt?: string }) => {
-      const cleanSources = sources.map(s => ({ platform: s.platform, url: s.url }));
-      
-      // Fixed: apiRequest expects (url, method, data) not (method, url, data)
-      const response = await apiRequest("/api/profile/ai/build-complete", "POST", {
-        socialSources: cleanSources,
-        additionalContext: prompt,
-        currentProfile: {
-          firstName: profile?.firstName,
-          lastName: profile?.lastName,
-          email: profile?.email,
-          company: profile?.company,
-          title: profile?.title
-        }
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.profile) {
-        // Store networking goal suggestions if provided
-        if (data.profile.networkingGoalSuggestions) {
-          setNetworkingGoalSuggestions(data.profile.networkingGoalSuggestions);
-        }
-        
-        // Remove suggestions from the profile data before updating
-        const { networkingGoalSuggestions, ...profileData } = data.profile;
-        
-        // Update profile with AI-generated data
-        updateProfileMutation.mutate(profileData);
-        setActiveStep('preview');
-        toast({
-          title: "Profile Built Successfully",
-          description: "AI has analyzed your sources and built a comprehensive profile.",
-        });
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Profile Building Failed",
-        description: error.message || "Failed to build profile with AI assistance.",
-        variant: "destructive",
-      });
-    },
-  });
 
   // Handle photo upload success from cropper
   const handlePhotoUploadSuccess = (imageUrl: string) => {
@@ -408,67 +327,6 @@ export default function Profile() {
     queryClient.invalidateQueries({ queryKey: userId ? ["/api/profile", userId] : ["/api/me"] });
   };
 
-  const addSocialSource = () => {
-    if (!newSocialUrl.trim()) return;
-
-    let platform = 'Website';
-    if (newSocialUrl.includes('linkedin.com')) platform = 'LinkedIn';
-    else if (newSocialUrl.includes('twitter.com') || newSocialUrl.includes('x.com')) platform = 'Twitter';
-    else if (newSocialUrl.includes('github.com')) platform = 'GitHub';
-
-    const newSource: SocialSource = {
-      platform,
-      url: newSocialUrl.trim(),
-      isValid: true,
-      isAnalyzing: false,
-      hasData: false
-    };
-
-    setSocialSources(prev => [...prev, newSource]);
-    setNewSocialUrl('');
-  };
-
-  const removeSocialSource = (index: number) => {
-    setSocialSources(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const startAIProfileBuild = () => {
-    if (socialSources.length === 0 && !aiPrompt.trim()) {
-      toast({
-        title: "Add Sources or Context",
-        description: "Please add at least one social media profile or provide additional context.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsBuilding(true);
-    setSocialSources(prev => prev.map(s => ({ ...s, isAnalyzing: true })));
-    
-    buildProfileMutation.mutate({
-      sources: socialSources,
-      prompt: aiPrompt
-    });
-  };
-
-  const copyToClipboard = (text: string, field: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
-    toast({
-      title: "Copied",
-      description: "Content copied to clipboard",
-    });
-  };
-
-  const getSocialIcon = (platform: string) => {
-    switch (platform) {
-      case 'LinkedIn': return <Linkedin className="h-4 w-4" />;
-      case 'Twitter': return <Twitter className="h-4 w-4" />;
-      case 'GitHub': return <Github className="h-4 w-4" />;
-      default: return <Globe className="h-4 w-4" />;
-    }
-  };
 
   if (profileLoading) {
     return (
@@ -537,13 +395,13 @@ export default function Profile() {
                         onChange={(e) => {
                           const [firstName, ...lastNameParts] = e.target.value.split(' ');
                           const lastName = lastNameParts.join(' ');
-                          updateProfileMutation.mutate({ 
-                            firstName: firstName || '', 
-                            lastName: lastName || '' 
+                          updateProfile({ 
+                            firstName: firstName || null, 
+                            lastName: lastName || null
                           });
                         }}
                         className="text-3xl font-bold border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
-                        placeholder="Your Name"
+                        placeholder="Enter your name"
                         data-testid="input-user-name"
                       />
                     ) : (
@@ -640,137 +498,25 @@ export default function Profile() {
 
                 {/* Profile Actions for own profile */}
                 {isOwnProfile && (
-                  <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                  <div className="flex justify-center md:justify-start mt-4">
                     <Button 
-                      onClick={() => setShowOnboarding(true)}
-                      className="bg-stak-copper hover:bg-stak-copper/90 text-white"
+                      onClick={() => setShowAIBuilder(true)}
+                      className="bg-stak-copper hover:bg-stak-copper/90"
+                      data-testid="button-ai-profile-builder"
                     >
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Complete Profile Setup
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      AI Profile Builder
                     </Button>
-                    
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline">
-                          <Wand2 className="h-4 w-4 mr-2" />
-                          AI Profile Builder
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-stak-copper" />
-                            AI Profile Builder
-                          </DialogTitle>
-                          <DialogDescription>
-                            Let AI analyze your social media profiles and online presence to build a comprehensive professional profile instantly.
-                          </DialogDescription>
-                        </DialogHeader>
-
-                        <Tabs value={activeStep} onValueChange={(v) => setActiveStep(v as any)} className="w-full">
-                          <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="input">1. Add Sources</TabsTrigger>
-                            <TabsTrigger value="ai">2. AI Analysis</TabsTrigger>
-                            <TabsTrigger value="preview">3. Preview</TabsTrigger>
-                          </TabsList>
-
-                          <TabsContent value="input" className="space-y-6">
-                            <Card>
-                              <CardHeader>
-                                <CardTitle className="text-lg">Social Media & Online Profiles</CardTitle>
-                                <p className="text-sm text-gray-600">Add any website URL: LinkedIn, GitHub, company websites, news articles, or other online profiles</p>
-                              </CardHeader>
-                              <CardContent className="space-y-4">
-                                <div className="flex gap-2">
-                                  <Input
-                                    value={newSocialUrl}
-                                    onChange={(e) => setNewSocialUrl(e.target.value)}
-                                    placeholder="https://linkedin.com/in/yourname, https://behringco.com, https://news.com/article..."
-                                    className="flex-grow"
-                                  />
-                                  <Button onClick={addSocialSource} size="sm">
-                                    <Plus className="h-4 w-4" />
-                                  </Button>
-                                </div>
-
-                                <div className="space-y-2">
-                                  {socialSources.map((source, index) => (
-                                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                                      <div className="flex items-center gap-2">
-                                        {getSocialIcon(source.platform)}
-                                        <span className="font-medium">{source.platform}</span>
-                                        <span className="text-sm text-gray-500 truncate max-w-xs">{source.url}</span>
-                                        {source.isAnalyzing && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
-                                        {source.hasData && <CheckCircle className="h-4 w-4 text-green-500" />}
-                                        {source.error && <AlertCircle className="h-4 w-4 text-red-500" />}
-                                      </div>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeSocialSource(index)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </CardContent>
-                            </Card>
-
-                            <Card>
-                              <CardHeader>
-                                <CardTitle className="text-lg">Additional Context</CardTitle>
-                                <p className="text-sm text-gray-600">Any specific achievements or information to highlight</p>
-                              </CardHeader>
-                              <CardContent>
-                                <Textarea
-                                  value={aiPrompt}
-                                  onChange={(e) => setAiPrompt(e.target.value)}
-                                  placeholder="e.g., Led Series A funding round, Published 3 papers on AI ethics, Built team from 2 to 20 engineers..."
-                                  rows={4}
-                                />
-                              </CardContent>
-                            </Card>
-
-                            <Button
-                              onClick={startAIProfileBuild}
-                              disabled={isBuilding || (socialSources.length === 0 && !aiPrompt.trim())}
-                              className="w-full bg-stak-copper hover:bg-stak-copper/90"
-                            >
-                              {isBuilding ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Building Profile...
-                                </>
-                              ) : (
-                                <>
-                                  <Wand2 className="h-4 w-4 mr-2" />
-                                  Build My Profile
-                                </>
-                              )}
-                            </Button>
-                          </TabsContent>
-
-                          <TabsContent value="ai" className="space-y-4">
-                            <div className="text-center py-8">
-                              <Loader2 className="h-12 w-12 animate-spin text-stak-copper mx-auto mb-4" />
-                              <h3 className="text-lg font-semibold mb-2">Analyzing Your Online Presence</h3>
-                              <p className="text-gray-600">AI is gathering and synthesizing information from your profiles...</p>
-                            </div>
-                          </TabsContent>
-
-                          <TabsContent value="preview" className="space-y-4">
-                            <div className="text-center py-4">
-                              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                              <h3 className="text-lg font-semibold mb-2">Profile Built Successfully!</h3>
-                              <p className="text-gray-600">Your profile has been updated with AI-generated content.</p>
-                            </div>
-                          </TabsContent>
-                        </Tabs>
-                      </DialogContent>
-                    </Dialog>
                   </div>
                 )}
+
+                {/* Consolidated AI Profile Builder */}
+                <ConsolidatedAIProfileBuilder
+                  isOpen={showAIBuilder}
+                  onClose={() => setShowAIBuilder(false)}
+                  profile={profile || undefined}
+                  onProfileUpdate={handleProfileUpdate}
+                />
               </div>
             </div>
           </CardContent>
@@ -1095,12 +841,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Onboarding Wizard */}
-        <OnboardingWizard
-          isOpen={showOnboarding}
-          onClose={handleOnboardingComplete}
-          profile={profile}
-        />
 
         {/* Profile Photo Cropper */}
         <ProfilePhotoCropper
