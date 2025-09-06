@@ -86,12 +86,32 @@ export default function Profile() {
   const [editingGoal, setEditingGoal] = useState<string | undefined>(undefined);
   const [networkingGoalSuggestions, setNetworkingGoalSuggestions] = useState<string[]>([]);
   const [showPhotoCropper, setShowPhotoCropper] = useState(false);
+  
+  // Local state for company and location fields with autosave
+  const [companyValue, setCompanyValue] = useState('');
+  const [locationValue, setLocationValue] = useState('');
+  const [lastSavedCompany, setLastSavedCompany] = useState('');
+  const [lastSavedLocation, setLastSavedLocation] = useState('');
+  const [companySaveState, setCompanySaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [locationSaveState, setLocationSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [companyAbortController, setCompanyAbortController] = useState<AbortController | null>(null);
+  const [locationAbortController, setLocationAbortController] = useState<AbortController | null>(null);
 
   // Profile data query
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: userId ? ["/api/profile", userId] : ["/api/profile"],
     enabled: !!currentUser,
   });
+
+  // Initialize local state values from profile data
+  useEffect(() => {
+    if (profile) {
+      setCompanyValue(profile.company || '');
+      setLocationValue(profile.location || '');
+      setLastSavedCompany(profile.company || '');
+      setLastSavedLocation(profile.location || '');
+    }
+  }, [profile]);
 
   // Check if profile is incomplete and show onboarding for new users
   useEffect(() => {
@@ -110,6 +130,112 @@ export default function Profile() {
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
     localStorage.setItem('stak-onboarding-completed', 'true');
+  };
+
+  // Save company field with proper state management and abort handling
+  const saveCompany = async (value: string) => {
+    if (value === lastSavedCompany) return;
+    
+    // Cancel any existing request
+    if (companyAbortController) {
+      companyAbortController.abort();
+    }
+    
+    const controller = new AbortController();
+    setCompanyAbortController(controller);
+    setCompanySaveState('saving');
+    
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ company: value }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      setLastSavedCompany(value);
+      setCompanySaveState('saved');
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      
+      setTimeout(() => setCompanySaveState('idle'), 1000);
+      
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        setCompanySaveState('error');
+        setTimeout(() => setCompanySaveState('idle'), 2000);
+      }
+    } finally {
+      setCompanyAbortController(null);
+    }
+  };
+
+  // Save location field with proper state management and abort handling
+  const saveLocation = async (value: string) => {
+    if (value === lastSavedLocation) return;
+    
+    // Cancel any existing request
+    if (locationAbortController) {
+      locationAbortController.abort();
+    }
+    
+    const controller = new AbortController();
+    setLocationAbortController(controller);
+    setLocationSaveState('saving');
+    
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ location: value }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      setLastSavedLocation(value);
+      setLocationSaveState('saved');
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      
+      setTimeout(() => setLocationSaveState('idle'), 1000);
+      
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        setLocationSaveState('error');
+        setTimeout(() => setLocationSaveState('idle'), 2000);
+      }
+    } finally {
+      setLocationAbortController(null);
+    }
+  };
+
+  // Handle field blur for company
+  const handleCompanyBlur = () => {
+    saveCompany(companyValue);
+  };
+
+  // Handle field blur for location
+  const handleLocationBlur = () => {
+    saveLocation(locationValue);
+  };
+
+  // Handle Enter key press
+  const handleKeyDown = (e: React.KeyboardEvent, field: 'company' | 'location') => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      (e.target as HTMLInputElement).blur();
+    }
   };
 
   // Fixed update profile mutation with proper error handling
@@ -386,31 +512,57 @@ export default function Profile() {
                   </div>
 
                   <div className="flex flex-col md:flex-row items-center md:justify-start gap-4 text-gray-600 mb-4">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                       <Building2 className="w-4 h-4" />
                       {isOwnProfile ? (
-                        <Input
-                          value={profile?.company || ''}
-                          onChange={(e) => updateProfileMutation.mutate({ company: e.target.value })}
-                          className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
-                          placeholder="Company"
-                          data-testid="input-company"
-                        />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={companyValue}
+                            onChange={(e) => setCompanyValue(e.target.value)}
+                            onBlur={handleCompanyBlur}
+                            onKeyDown={(e) => handleKeyDown(e, 'company')}
+                            className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                            placeholder="Company"
+                            data-testid="input-company"
+                          />
+                          {companySaveState === 'saving' && (
+                            <span className="text-xs text-gray-400 ml-1">Saving…</span>
+                          )}
+                          {companySaveState === 'saved' && (
+                            <span className="text-xs text-green-500 ml-1">Saved</span>
+                          )}
+                          {companySaveState === 'error' && (
+                            <span className="text-xs text-red-500 ml-1">Error</span>
+                          )}
+                        </div>
                       ) : (
                         <span>{profile?.company || 'No company specified'}</span>
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
                       {isOwnProfile ? (
-                        <Input
-                          value={profile?.location || ''}
-                          onChange={(e) => updateProfileMutation.mutate({ location: e.target.value })}
-                          className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
-                          placeholder="Location"
-                          data-testid="input-location"
-                        />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={locationValue}
+                            onChange={(e) => setLocationValue(e.target.value)}
+                            onBlur={handleLocationBlur}
+                            onKeyDown={(e) => handleKeyDown(e, 'location')}
+                            className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                            placeholder="Location"
+                            data-testid="input-location"
+                          />
+                          {locationSaveState === 'saving' && (
+                            <span className="text-xs text-gray-400 ml-1">Saving…</span>
+                          )}
+                          {locationSaveState === 'saved' && (
+                            <span className="text-xs text-green-500 ml-1">Saved</span>
+                          )}
+                          {locationSaveState === 'error' && (
+                            <span className="text-xs text-red-500 ml-1">Error</span>
+                          )}
+                        </div>
                       ) : (
                         <span>{profile?.location || 'No location specified'}</span>
                       )}
