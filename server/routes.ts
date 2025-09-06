@@ -52,6 +52,7 @@ import multer from 'multer';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import express from 'express';
+import { EnrichmentService } from './enrichmentService';
 
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -765,6 +766,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching enhanced profile:", error);
       res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
+  // Manual profile enrichment endpoint
+  app.post('/api/enrich/:userId?', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = req.params.userId || getUserId(req);
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      // Check if user is enriching their own profile or is admin
+      const currentUserId = getUserId(req);
+      if (userId !== currentUserId) {
+        const isUserAdmin = await storage.isUserAdmin(currentUserId);
+        if (!isUserAdmin) {
+          return res.status(403).json({ message: "Can only enrich your own profile" });
+        }
+      }
+
+      console.log(`🚀 Starting manual enrichment for user ${userId}`);
+      
+      const enrichmentService = new EnrichmentService();
+      const result = await enrichmentService.enrichProfile(userId, 'manual');
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: "Profile enrichment completed successfully",
+          enrichedFields: Object.keys(result.enrichedData || {}),
+          sources: result.sources
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: "Profile enrichment failed",
+          error: result.error
+        });
+      }
+
+    } catch (error) {
+      console.error("Manual enrichment error:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to enrich profile",
+        error: (error as Error).message
+      });
     }
   });
 
