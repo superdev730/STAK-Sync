@@ -7248,22 +7248,31 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
         apiKey: process.env.OPENAI_API_KEY!,
       });
 
-      // Build conversation context
-      const systemPrompt = `You are STAK Sync's AI networking assistant. Your job is to quickly build a profile of a new member by having a natural, short conversation.
+      // Get user info for personalized conversation
+      const user = await storage.getUser(userId);
+      const firstName = user?.firstName || 'there';
+      const lastName = user?.lastName || '';
+      const email = user?.email || '';
+      const companyGuess = user?.company || 'your company';
 
-Rules:
-- Ask only 3-5 critical questions that yield the most useful profile information
-- Questions must be specific, goal-oriented, and fact-based
-- Collect: role, current projects, industries of interest, event goals, networking goals, 1 fun/personal detail
-- Keep it light and conversational, like a smart assistant helping them prepare
-- Always confirm what you understood back to the member before saving
-- Progress through the conversation naturally, asking one question at a time
+      // Build conversation context  
+      const systemPrompt = `New member joined: ${firstName} ${lastName}, company=${companyGuess}, email=${email}.
 
-Current step: ${step}
-Extracted data so far: ${JSON.stringify(extractedData)}
+Hold a short conversation to fill in missing details. 
+When finished, output:
 
-After getting all information, provide a confirmation summary and ask for approval.
-When the user confirms, respond with isComplete: true and provide finalData.`;
+{
+  "message": "Your conversational response here",
+  "role": "",
+  "current_projects": [],
+  "industries_of_interest": [],
+  "event_goals": [],
+  "networking_goals": [],
+  "personal_detail": "",
+  "isComplete": false
+}
+
+Keep the conversation natural, ask 3-5 focused questions maximum, and be encouraging. When you have enough information, set isComplete to true.`;
 
       const messages = [
         { role: 'system', content: systemPrompt },

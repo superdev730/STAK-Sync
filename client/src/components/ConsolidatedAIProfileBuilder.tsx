@@ -163,18 +163,30 @@ export default function ConsolidatedAIProfileBuilder({
       // Add AI response to conversation
       setConversationMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.response,
+        content: data.message,
         timestamp: new Date()
       }]);
       
-      // Update extracted data if provided
-      if (data.extractedData) {
-        setConversationalData(prev => ({ ...prev, ...data.extractedData }));
+      // Update extracted data from new format
+      const extractedInfo = {
+        role: data.role || '',
+        projects: data.current_projects || [],
+        industries: data.industries_of_interest || [],
+        eventGoals: data.event_goals || [],
+        networkingGoals: data.networking_goals || [],
+        personalDetail: data.personal_detail || ''
+      };
+
+      // Only update if there's new data
+      if (Object.values(extractedInfo).some(val => Array.isArray(val) ? val.length > 0 : val)) {
+        setConversationalData(prev => ({ ...prev, ...extractedInfo }));
       }
       
-      // Update conversation step
-      if (data.step !== undefined) {
-        setConversationStep(data.step);
+      // Handle conversation completion
+      if (data.isComplete) {
+        setConversationStep('complete');
+      } else {
+        setConversationStep(prev => prev + 1);
       }
       
       // Check if conversation is complete
