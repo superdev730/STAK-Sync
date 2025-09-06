@@ -923,6 +923,12 @@ export const insertEventAttendeeImportSchema = createInsertSchema(eventAttendeeI
 export type User = typeof users.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type ProfileRecommendation = typeof profileRecommendations.$inferSelect;
+export type InsertProfileRecommendation = typeof profileRecommendations.$inferInsert;
+
+export type ProfileAssistanceRequest = typeof profileAssistanceRequests.$inferSelect;
+export type InsertProfileAssistanceRequest = typeof profileAssistanceRequests.$inferInsert;
 export type Match = typeof matches.$inferSelect;
 export type InsertMatch = z.infer<typeof insertMatchSchema>;
 export type Message = typeof messages.$inferSelect;

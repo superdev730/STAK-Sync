@@ -64,6 +64,10 @@ import {
   type InsertAIConversation,
   type AIMessage,
   type InsertAIMessage,
+  type ProfileRecommendation,
+  type InsertProfileRecommendation,
+  type ProfileAssistanceRequest,
+  type InsertProfileAssistanceRequest,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, ilike, count, lte, isNull } from "drizzle-orm";
@@ -206,6 +210,13 @@ export interface IStorage {
   addAIMessage(conversationId: string, role: string, content: string, metadata?: any): Promise<AIMessage>;
   getAIMessages(conversationId: string): Promise<AIMessage[]>;
   updateAIConversation(conversationId: string, updates: Partial<AIConversation>): Promise<AIConversation>;
+
+  // Profile recommendation operations
+  createProfileRecommendation(recommendation: InsertProfileRecommendation): Promise<ProfileRecommendation>;
+  getProfileRecommendationsForUser(userId: string): Promise<ProfileRecommendation[]>;
+  createProfileAssistanceRequest(request: InsertProfileAssistanceRequest): Promise<ProfileAssistanceRequest>;
+  completeProfileAssistanceRequest(recommenderId: string, userId: string): Promise<void>;
+  getAllUsers(): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1855,6 +1866,50 @@ export class DatabaseStorage implements IStorage {
     // For now, return all registered attendees - in the future this could be filtered
     // to only include users actively present (e.g., checked in, active in rooms, etc.)
     return this.getEventLiveAttendees(eventId);
+  }
+
+  // Profile recommendation operations
+  async createProfileRecommendation(recommendation: InsertProfileRecommendation): Promise<ProfileRecommendation> {
+    const [newRecommendation] = await db
+      .insert(profileRecommendations)
+      .values(recommendation)
+      .returning();
+    return newRecommendation;
+  }
+
+  async getProfileRecommendationsForUser(userId: string): Promise<ProfileRecommendation[]> {
+    return await db
+      .select()
+      .from(profileRecommendations)
+      .where(eq(profileRecommendations.userId, userId));
+  }
+
+  async createProfileAssistanceRequest(request: InsertProfileAssistanceRequest): Promise<ProfileAssistanceRequest> {
+    const [newRequest] = await db
+      .insert(profileAssistanceRequests)
+      .values(request)
+      .returning();
+    return newRequest;
+  }
+
+  async completeProfileAssistanceRequest(recommenderId: string, userId: string): Promise<void> {
+    await db
+      .update(profileAssistanceRequests)
+      .set({ 
+        status: 'completed', 
+        respondedAt: new Date() 
+      })
+      .where(
+        and(
+          eq(profileAssistanceRequests.requestedUserId, recommenderId),
+          eq(profileAssistanceRequests.userId, userId)
+        )
+      );
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    const result = await db.select().from(users);
+    return result;
   }
 }
 
