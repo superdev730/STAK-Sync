@@ -204,6 +204,13 @@ export const PERPLEXITY_QUERIES = (first: string, last: string, domain?: string,
   { q: `${company || domain || ""} tech stack`.trim() }
 ]);
 
+// User-friendly copy explaining the profile pre-filling process
+export const HOW_WE_BUILT_COPY = `
+We pre-filled your profile from public sources to save you time.
+• We only use public info and show sources for each field.
+• See something off? Tap to fix—your edits take priority instantly.
+`;
+
 // User goals and missions generator based on complete profile
 export const USER_GOALS_MISSIONS = (profileJson: any) => `
 PROFILE_JSON:
