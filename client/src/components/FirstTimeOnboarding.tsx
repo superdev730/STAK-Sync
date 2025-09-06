@@ -272,7 +272,9 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
   const renderLinkedinStep = () => (
     <div className="space-y-6">
       <div className="text-center">
-        <LinkedinIcon className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+        <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Linkedin className="w-8 h-8 text-blue-600" />
+        </div>
         <h3 className="text-xl font-semibold text-stak-black mb-2">Connect Your LinkedIn</h3>
         <p className="text-gray-600 mb-6">
           Authorize LinkedIn access to automatically import your professional profile data
@@ -281,19 +283,19 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
 
       <div className="space-y-4">
         <Button
-          onClick={() => linkedinAnalysisMutation.mutate('')}
-          disabled={linkedinAnalysisMutation.isPending}
+          onClick={() => linkedinMutation.mutate('')}
+          disabled={linkedinMutation.isPending}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           size="lg"
         >
-          {linkedinAnalysisMutation.isPending ? (
+          {linkedinMutation.isPending ? (
             <>
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
               Connecting to LinkedIn...
             </>
           ) : (
             <>
-              <LinkedinIcon className="w-5 h-5 mr-2" />
+              <Linkedin className="w-5 h-5 mr-2" />
               Authorize LinkedIn Access
             </>
           )}
@@ -317,82 +319,6 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
     </div>
   );
 
-  const renderWebsiteStep = () => (
-    <div className="space-y-6">
-      <div className="text-center">
-        <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Linkedin className="w-8 h-8 text-blue-600" />
-        </div>
-        <h3 className="text-xl font-bold text-stak-black mb-2">Connect Your LinkedIn Profile</h3>
-        <p className="text-gray-600">
-          Import your professional information instantly and enhance your networking profile
-        </p>
-      </div>
-
-      <Card className="border-blue-500/30 bg-blue-50/50">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="font-semibold text-blue-900 mb-1">Why connect LinkedIn?</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Auto-fill your title, company, and experience</li>
-                <li>• Import your skills and endorsements</li> 
-                <li>• Enhance AI matching accuracy</li>
-                <li>• Build trust with verified professional info</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            LinkedIn Profile URL
-          </label>
-          <Input
-            type="url"
-            placeholder="https://www.linkedin.com/in/yourprofile"
-            value={linkedinUrl}
-            onChange={(e) => setLinkedinUrl(e.target.value)}
-            className="w-full"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Copy and paste your LinkedIn profile URL here
-          </p>
-        </div>
-
-        <div className="flex gap-3">
-          <Button
-            onClick={handleLinkedinSubmit}
-            disabled={linkedinMutation.isPending || !linkedinUrl.trim()}
-            className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
-          >
-            {linkedinMutation.isPending ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                Analyzing LinkedIn...
-              </>
-            ) : (
-              <>
-                <Linkedin className="w-4 h-4 mr-2" />
-                Connect LinkedIn
-              </>
-            )}
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            onClick={skipStep}
-            className="px-6"
-          >
-            Skip for now
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
 
   const renderWebsiteStep = () => (
     <div className="space-y-6">
