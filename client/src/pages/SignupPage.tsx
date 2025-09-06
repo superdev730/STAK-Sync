@@ -39,6 +39,13 @@ export default function SignupPage() {
     setIsSubmitting(true);
     setError(null);
 
+    console.log("🔍 SIGNUP DEBUG: Starting signup process", { 
+      email: data.email, 
+      firstName: data.firstName, 
+      lastName: data.lastName,
+      endpoint: "/api/signup"
+    });
+
     try {
       const response = await fetch("/api/signup", {
         method: "POST",
@@ -49,7 +56,14 @@ export default function SignupPage() {
         credentials: "include",
       });
 
+      console.log("🔍 SIGNUP DEBUG: Response received", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       const result = await response.json();
+      console.log("🔍 SIGNUP DEBUG: Response body", result);
 
       if (!response.ok) {
         // Handle structured error responses with suggestions
@@ -72,17 +86,27 @@ export default function SignupPage() {
       setSuccess(true);
       
     } catch (err) {
-      console.error("Signup error:", err);
+      console.error("🔍 SIGNUP DEBUG: Caught error", err);
+      console.error("🔍 SIGNUP DEBUG: Error type", typeof err);
+      console.error("🔍 SIGNUP DEBUG: Error details", {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : 'No stack trace',
+        name: err instanceof Error ? err.name : 'Unknown name'
+      });
+      
       let errorMessage = "Something went wrong. Please try again.";
       
       if (err instanceof Error) {
         errorMessage = err.message;
+        console.log("🔍 SIGNUP DEBUG: Processing error message", errorMessage);
+        
         // Handle common error cases
         if (errorMessage.includes("already exists")) {
           errorMessage += " Please try signing in instead, or use a different email address.";
         }
       }
       
+      console.log("🔍 SIGNUP DEBUG: Final error message to user", errorMessage);
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);

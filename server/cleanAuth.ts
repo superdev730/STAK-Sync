@@ -32,10 +32,19 @@ export function setupCleanAuth(app: Express) {
   
   // Step 1: Initial signup - collect basic info and send verification email
   app.post('/api/signup', async (req, res) => {
+    console.log('🔍 BACKEND DEBUG: /api/signup endpoint hit');
+    console.log('🔍 BACKEND DEBUG: Request body:', req.body);
+    console.log('🔍 BACKEND DEBUG: Request headers:', req.headers);
+    
     try {
       const { firstName, lastName, email } = req.body as SignupData;
       
       console.log('📝 Signup attempt:', { firstName, lastName, email });
+      console.log('🔍 BACKEND DEBUG: Extracted data types:', {
+        firstName: typeof firstName,
+        lastName: typeof lastName,
+        email: typeof email
+      });
       
       // Validate input
       if (!firstName?.trim() || !lastName?.trim() || !email?.trim()) {
