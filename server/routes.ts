@@ -7149,5 +7149,88 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
     }
   });
 
+  // Fact-based profile endpoints
+  app.get('/api/profile/facts', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const facts = await storage.getProfileFacts(userId);
+      res.json(facts);
+    } catch (error) {
+      console.error('Get profile facts error:', error);
+      res.status(500).json({ error: 'Failed to get profile facts' });
+    }
+  });
+
+  app.post('/api/profile/facts:refresh', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // Start fact harvesting run
+      const runId = await storage.startFactHarvestRun(userId);
+      
+      // Import fact harvester
+      const { factHarvester } = await import('./factHarvester');
+      
+      // Run fact harvesting in background
+      factHarvester.harvestFacts(user)
+        .then(async (facts) => {
+          // Store facts in database
+          for (const fact of facts) {
+            await storage.createProfileFact({
+              ...fact,
+              userId: userId,
+              factType: fact.fact_type,
+              valueNumber: fact.value_number?.toString(),
+              valueCurrency: fact.value_currency,
+              startDate: fact.start_date,
+              endDate: fact.end_date,
+              sourceUrls: fact.source_urls,
+              evidenceQuote: fact.evidence_quote,
+              sourceType: fact.source_type,
+            });
+          }
+          
+          // Complete the run
+          await storage.completeFactHarvestRun(runId, facts.length, facts.length);
+        })
+        .catch(async (error) => {
+          console.error('Background fact harvest failed:', error);
+          await storage.failFactHarvestRun(runId, error.message);
+        });
+      
+      res.json({ success: true, runId });
+    } catch (error) {
+      console.error('Start fact refresh error:', error);
+      res.status(500).json({ error: 'Failed to start fact refresh' });
+    }
+  });
+
+  app.get('/api/profile/enrichment-runs', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const runs = await storage.getProfileEnrichmentRuns(userId);
+      res.json(runs);
+    } catch (error) {
+      console.error('Get enrichment runs error:', error);
+      res.status(500).json({ error: 'Failed to get enrichment runs' });
+    }
+  });
+
   return httpServer;
 }

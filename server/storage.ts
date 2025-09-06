@@ -68,6 +68,12 @@ import {
   type InsertProfileRecommendation,
   type ProfileAssistanceRequest,
   type InsertProfileAssistanceRequest,
+  profileFacts,
+  profileEnrichmentRuns,
+  type ProfileFact,
+  type InsertProfileFact,
+  type ProfileEnrichmentRun,
+  type InsertProfileEnrichmentRun,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, ilike, count, lte, isNull } from "drizzle-orm";
@@ -217,6 +223,14 @@ export interface IStorage {
   createProfileAssistanceRequest(request: InsertProfileAssistanceRequest): Promise<ProfileAssistanceRequest>;
   completeProfileAssistanceRequest(recommenderId: string, userId: string): Promise<void>;
   getAllUsers(): Promise<User[]>;
+
+  // Fact-based profile operations
+  getProfileFacts(userId: string): Promise<ProfileFact[]>;
+  createProfileFact(fact: InsertProfileFact): Promise<ProfileFact>;
+  startFactHarvestRun(userId: string): Promise<string>; // Returns run ID
+  completeFactHarvestRun(runId: string, factsFound: number, sourcesProcessed: number): Promise<ProfileEnrichmentRun>;
+  failFactHarvestRun(runId: string, errorMessage: string): Promise<ProfileEnrichmentRun>;
+  getProfileEnrichmentRuns(userId: string): Promise<ProfileEnrichmentRun[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1915,6 +1929,63 @@ export class DatabaseStorage implements IStorage {
   async getAllUsers(): Promise<User[]> {
     const result = await db.select().from(users);
     return result;
+  }
+
+  // Fact-based profile operations implementation
+  async getProfileFacts(userId: string): Promise<ProfileFact[]> {
+    return await db.select()
+      .from(profileFacts)
+      .where(eq(profileFacts.userId, userId))
+      .orderBy(desc(profileFacts.createdAt));
+  }
+
+  async createProfileFact(fact: InsertProfileFact): Promise<ProfileFact> {
+    const [created] = await db.insert(profileFacts).values(fact).returning();
+    return created;
+  }
+
+  async startFactHarvestRun(userId: string): Promise<string> {
+    const [run] = await db.insert(profileEnrichmentRuns)
+      .values({
+        userId,
+        status: 'running',
+        factsFound: 0,
+        sourcesProcessed: 0,
+      })
+      .returning();
+    return run.id;
+  }
+
+  async completeFactHarvestRun(runId: string, factsFound: number, sourcesProcessed: number): Promise<ProfileEnrichmentRun> {
+    const [run] = await db.update(profileEnrichmentRuns)
+      .set({
+        status: 'completed',
+        finishedAt: new Date(),
+        factsFound,
+        sourcesProcessed,
+      })
+      .where(eq(profileEnrichmentRuns.id, runId))
+      .returning();
+    return run;
+  }
+
+  async failFactHarvestRun(runId: string, errorMessage: string): Promise<ProfileEnrichmentRun> {
+    const [run] = await db.update(profileEnrichmentRuns)
+      .set({
+        status: 'failed',
+        finishedAt: new Date(),
+        errorMessage,
+      })
+      .where(eq(profileEnrichmentRuns.id, runId))
+      .returning();
+    return run;
+  }
+
+  async getProfileEnrichmentRuns(userId: string): Promise<ProfileEnrichmentRun[]> {
+    return await db.select()
+      .from(profileEnrichmentRuns)
+      .where(eq(profileEnrichmentRuns.userId, userId))
+      .orderBy(desc(profileEnrichmentRuns.startedAt));
   }
 }
 
