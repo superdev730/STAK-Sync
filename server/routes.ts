@@ -7337,15 +7337,15 @@ Rules:
 - Tag each with related industries or topics.
 - Output JSON only.
 
-Expected JSON format:
+TRANSCRIPT:
+{conversation_text}
+
+OUTPUT_SCHEMA:
 {
-  "goals": [
-    {
-      "goal": "Action-oriented goal statement",
-      "category": "funding|partnerships|customers|learning|recruiting|other",
-      "industries": ["industry1", "industry2"],
-      "priority": 1
-    }
+  "primary_goals": [
+    {"goal": "", "tags": ["industry/topic1","topic2"]},
+    {"goal": "", "tags": []},
+    {"goal": "", "tags": []}
   ]
 }`;
 
