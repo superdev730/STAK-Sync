@@ -225,8 +225,15 @@ export function setupGeneralAuth(app: Express) {
  * Enhanced authentication middleware that supports both Replit and general auth
  */
 export const isAuthenticatedGeneral = async (req: any, res: any, next: any) => {
+  console.log('🔍 AUTH DEBUG: Checking authentication');
+  console.log('🔍 AUTH DEBUG: req.isAuthenticated():', req.isAuthenticated?.());
+  console.log('🔍 AUTH DEBUG: req.user:', req.user);
+  console.log('🔍 AUTH DEBUG: req.session:', req.session);
+  console.log('🔍 AUTH DEBUG: req.sessionID:', req.sessionID);
+
   // Check if user is authenticated via session
   if (!req.isAuthenticated() || !req.user) {
+    console.log('🔍 AUTH DEBUG: Authentication failed - no session or user');
     return res.status(401).json({ message: 'Unauthorized' });
   }
   

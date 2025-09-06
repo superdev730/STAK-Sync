@@ -187,10 +187,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Simple auth status endpoint for the new system
-  app.get('/api/auth/user', async (req: any, res) => {
+  app.get('/api/auth/user', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      // For now, return unauthorized until we implement login
-      res.status(401).json({ message: "Unauthorized" });
+      // Get user from session
+      const sessionUser = req.user;
+      
+      // For general auth users, get full user data from database
+      if (sessionUser.authType === 'general') {
+        const fullUser = await storage.getUserByEmail(sessionUser.email);
+        if (!fullUser) {
+          return res.status(401).json({ message: "User not found" });
+        }
+        // Return user data without password
+        const { password: _, ...userWithoutPassword } = fullUser;
+        return res.json(userWithoutPassword);
+      }
+      
+      // For Replit auth users, get from database using their ID
+      const userId = sessionUser.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
+      const fullUser = await storage.getUserById(userId);
+      if (!fullUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      return res.json(fullUser);
     } catch (error) {
       console.error("Error checking auth:", error);
       res.status(500).json({ message: "Failed to check auth" });
