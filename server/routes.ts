@@ -379,7 +379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `client_id=${process.env.LINKEDIN_CLIENT_ID}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `state=${state}&` +
-        `scope=profile%20email`;
+        `scope=openid%20profile%20email`;
         
       res.json({ authUrl: linkedinAuthUrl });
     } catch (error) {
@@ -424,8 +424,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Failed to get access token' });
       }
 
-      // Fetch user profile data
-      const profileResponse = await fetch('https://api.linkedin.com/v2/people/~?projection=(id,firstName,lastName,headline,publicProfileUrl,industry)', {
+      // Fetch user profile data using OpenID Connect userinfo endpoint
+      const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`,
         },
@@ -437,36 +437,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('LinkedIn profile fetch error:', profileData);
         return res.status(400).json({ error: 'Failed to fetch profile data' });
       }
+      
+      console.log('LinkedIn profile data received:', profileData);
 
-      // Fetch email
-      const emailResponse = await fetch('https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))', {
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`,
-        },
-      });
+      // Email is included in userinfo response - no separate call needed
 
-      let emailData = null;
-      if (emailResponse.ok) {
-        emailData = await emailResponse.json();
-      }
-
-      // Update user profile with LinkedIn data
+      // Update user profile with LinkedIn data (using OpenID Connect format)
       const updateData: any = {
-        linkedinUrl: profileData.publicProfileUrl,
-        linkedinId: profileData.id,
+        linkedinUrl: profileData.profile || `https://www.linkedin.com/in/${profileData.given_name?.toLowerCase()}-${profileData.family_name?.toLowerCase()}`,
+        linkedinId: profileData.sub,
       };
 
-      if (profileData.firstName) {
-        updateData.firstName = profileData.firstName.localized?.en_US || profileData.firstName.preferredLocale?.country || '';
+      if (profileData.given_name) {
+        updateData.firstName = profileData.given_name;
       }
-      if (profileData.lastName) {
-        updateData.lastName = profileData.lastName.localized?.en_US || profileData.lastName.preferredLocale?.country || '';
+      if (profileData.family_name) {
+        updateData.lastName = profileData.family_name;
       }
-      if (profileData.headline) {
-        updateData.title = profileData.headline;
-      }
-      if (profileData.industry) {
-        updateData.industries = [profileData.industry];
+      if (profileData.name) {
+        // Extract title/headline if available in name or picture context
+        console.log('LinkedIn name data:', profileData.name);
       }
 
       await storage.updateUser(user.id, updateData);
@@ -508,7 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           `client_id=${process.env.LINKEDIN_CLIENT_ID}&` +
           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
           `state=${state}&` +
-          `scope=profile%20email`;
+          `scope=openid%20profile%20email`;
         
         analysisResult = {
           success: true,
