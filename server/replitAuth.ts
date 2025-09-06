@@ -7,6 +7,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { setupGeneralAuth } from "./generalAuth";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -75,6 +76,9 @@ export async function setupAuth(app: Express) {
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Setup general authentication alongside Replit auth
+  setupGeneralAuth(app);
 
   const config = await getOidcConfig();
 

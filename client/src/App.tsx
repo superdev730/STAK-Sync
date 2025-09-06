@@ -28,6 +28,7 @@ import EventPreparation from "@/pages/event-preparation";
 import Logout from "@/pages/logout";
 import NotFound from "@/pages/not-found";
 import Layout from "@/components/Layout";
+import SignupLogin from "@/pages/SignupLogin";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -46,6 +47,8 @@ function Router() {
       {!isAuthenticated ? (
         <Switch>
           <Route path="/" component={Landing} />
+          <Route path="/signup" component={SignupLogin} />
+          <Route path="/login" component={SignupLogin} />
           <Route component={Landing} />
         </Switch>
       ) : (

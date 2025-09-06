@@ -1,0 +1,205 @@
+import bcrypt from 'bcryptjs';
+import { storage } from './storage';
+import type { Express } from 'express';
+
+export interface SignupData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+/**
+ * Hash password using bcrypt
+ */
+export async function hashPassword(password: string): Promise<string> {
+  const saltRounds = 12;
+  return await bcrypt.hash(password, saltRounds);
+}
+
+/**
+ * Verify password against hash
+ */
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return await bcrypt.compare(password, hash);
+}
+
+/**
+ * Register general authentication routes
+ */
+export function setupGeneralAuth(app: Express) {
+  
+  // General signup endpoint
+  app.post('/api/auth/signup', async (req, res) => {
+    try {
+      const { email, password, firstName, lastName } = req.body as SignupData;
+      
+      // Validate input
+      if (!email || !password || !firstName || !lastName) {
+        return res.status(400).json({ 
+          error: 'All fields are required: email, password, firstName, lastName' 
+        });
+      }
+      
+      if (password.length < 8) {
+        return res.status(400).json({ 
+          error: 'Password must be at least 8 characters long' 
+        });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ 
+          error: 'User with this email already exists' 
+        });
+      }
+      
+      // Hash password and create user
+      const hashedPassword = await hashPassword(password);
+      const newUser = await storage.createUser({
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName
+      });
+      
+      // Create session (log user in automatically)
+      req.login({ 
+        id: newUser.id, 
+        email: newUser.email,
+        authType: 'general'
+      }, (err) => {
+        if (err) {
+          console.error('Session creation error:', err);
+          return res.status(500).json({ error: 'Failed to create session' });
+        }
+        
+        // Return user data (without password)
+        const { password: _, ...userWithoutPassword } = newUser;
+        res.status(201).json({ 
+          success: true,
+          user: userWithoutPassword,
+          message: 'Account created successfully'
+        });
+      });
+      
+    } catch (error) {
+      console.error('Signup error:', error);
+      res.status(500).json({ error: 'Failed to create account' });
+    }
+  });
+  
+  // General login endpoint
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body as LoginData;
+      
+      // Validate input
+      if (!email || !password) {
+        return res.status(400).json({ 
+          error: 'Email and password are required' 
+        });
+      }
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user || !user.password) {
+        return res.status(401).json({ 
+          error: 'Invalid email or password' 
+        });
+      }
+      
+      // Verify password
+      const isPasswordValid = await verifyPassword(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ 
+          error: 'Invalid email or password' 
+        });
+      }
+      
+      // Create session
+      req.login({ 
+        id: user.id, 
+        email: user.email,
+        authType: 'general'
+      }, (err) => {
+        if (err) {
+          console.error('Session creation error:', err);
+          return res.status(500).json({ error: 'Failed to create session' });
+        }
+        
+        // Return user data (without password)
+        const { password: _, ...userWithoutPassword } = user;
+        res.json({ 
+          success: true,
+          user: userWithoutPassword,
+          message: 'Logged in successfully'
+        });
+      });
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: 'Failed to log in' });
+    }
+  });
+}
+
+/**
+ * Enhanced authentication middleware that supports both Replit and general auth
+ */
+export const isAuthenticatedGeneral = async (req: any, res: any, next: any) => {
+  // Check if user is authenticated via session
+  if (!req.isAuthenticated() || !req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  
+  // For general auth users, we just need to verify the session is valid
+  if (req.user.authType === 'general') {
+    return next();
+  }
+  
+  // For Replit auth users, use the existing token refresh logic
+  const user = req.user as any;
+  if (!user.expires_at) {
+    return next();
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (now <= user.expires_at) {
+    return next();
+  }
+
+  // Handle token refresh for Replit auth (existing logic)
+  const refreshToken = user.refresh_token;
+  if (!refreshToken) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  try {
+    // Handle Replit token refresh - import modules directly
+    const client = await import('openid-client');
+    const replitAuth = await import('./replitAuth');
+    
+    // Get OIDC config for token refresh
+    const config = await client.discovery(
+      new URL("https://replit.com/oidc"),
+      process.env.REPL_ID!
+    );
+    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+    
+    user.claims = tokenResponse.claims();
+    user.access_token = tokenResponse.access_token;
+    user.refresh_token = tokenResponse.refresh_token;
+    user.expires_at = user.claims?.exp;
+    
+    return next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+};
