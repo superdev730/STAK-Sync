@@ -7310,5 +7310,64 @@ Keep the conversation natural, ask 3-5 focused questions maximum, and be encoura
     }
   });
 
+  // Goal extraction endpoint for analyzing conversation transcripts
+  app.post('/api/ai/extract-goals', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { conversationTranscript } = req.body;
+
+      if (!conversationTranscript) {
+        return res.status(400).json({ error: 'Conversation transcript is required' });
+      }
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY!,
+      });
+
+      const goalExtractionPrompt = `You are a goal extractor. Given a conversation transcript with a member, identify their primary event goals and networking intents.
+
+Rules:
+- Focus on what outcomes they want (funding, partnerships, customers, learning, recruiting).
+- Reduce each to 1 sentence, action-oriented goals.
+- Prioritize up to 3 strongest goals.
+- Tag each with related industries or topics.
+- Output JSON only.
+
+Expected JSON format:
+{
+  "goals": [
+    {
+      "goal": "Action-oriented goal statement",
+      "category": "funding|partnerships|customers|learning|recruiting|other",
+      "industries": ["industry1", "industry2"],
+      "priority": 1
+    }
+  ]
+}`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: 'system', content: goalExtractionPrompt },
+          { role: 'user', content: `Conversation transcript:\n\n${conversationTranscript}` }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+        max_tokens: 800
+      });
+
+      const extractedGoals = JSON.parse(response.choices[0].message.content || '{"goals": []}');
+      
+      res.json(extractedGoals);
+    } catch (error) {
+      console.error('Goal extraction error:', error);
+      res.status(500).json({ error: 'Failed to extract goals' });
+    }
+  });
+
   return httpServer;
 }
