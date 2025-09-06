@@ -1269,6 +1269,50 @@ Make this message stand out by being genuinely thoughtful and specific.`;
     }
   });
 
+  // Simplified Profile Building endpoint (new schema-based approach)
+  app.post("/api/profile/build-simplified", isAuthenticated, async (req: any, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      const userId = req.user.claims.sub;
+      const { email, linkedin_url, social_urls, manual_context } = req.body;
+      
+      console.log('Simplified Profile Build Request:', { userId, social_urls_count: social_urls?.length || 0 });
+      
+      const { simplifiedProfileBuilder } = await import('./simplifiedProfileBuilder');
+      const profileOutput = await simplifiedProfileBuilder.buildProfile({
+        email,
+        linkedin_url,
+        social_urls: social_urls || [],
+        manual_context
+      });
+      
+      console.log('Simplified Profile Generated:', {
+        name: profileOutput.person.name.value,
+        confidence_scores: {
+          name: profileOutput.person.name.confidence,
+          title: profileOutput.person.current_role.title.confidence,
+          bio: profileOutput.person.bio.confidence
+        }
+      });
+      
+      res.json({
+        success: true,
+        profile: profileOutput,
+        message: "Profile built successfully using simplified builder with confidence tracking"
+      });
+      
+    } catch (error: unknown) {
+      console.error("Error in simplified profile build:", error);
+      res.status(500).json({ 
+        message: "Failed to build simplified profile",
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
   // Complete AI Profile Building endpoint
   app.post("/api/profile/ai/build-complete", isAuthenticated, async (req: any, res) => {
     if (!req.user?.claims?.sub) {
