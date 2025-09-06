@@ -54,6 +54,7 @@ export default function SignupLogin() {
       email: "",
       password: "",
     },
+    mode: "onChange",
   });
 
   const loginForm = useForm<LoginForm>({
@@ -240,7 +241,15 @@ export default function SignupLogin() {
                             data-testid="input-email"
                             type="email" 
                             placeholder="john@example.com" 
-                            {...field} 
+                            autoComplete="email"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck="false"
+                            {...field}
+                            value={field.value || ""}
+                            onChange={(e) => {
+                              field.onChange(e.target.value);
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -307,7 +316,15 @@ export default function SignupLogin() {
                             data-testid="input-email"
                             type="email" 
                             placeholder="john@example.com" 
-                            {...field} 
+                            autoComplete="email"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck="false"
+                            {...field}
+                            value={field.value || ""}
+                            onChange={(e) => {
+                              field.onChange(e.target.value);
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
