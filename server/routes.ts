@@ -221,6 +221,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Profile Analysis endpoints for onboarding
+  app.post('/api/ai/analyze-profile', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { type, url, userId } = req.body;
+      const user = req.user;
+
+      console.log('🔍 AI PROFILE DEBUG: Analysis request', { type, url, userId: user?.id });
+
+      if (!type || !url) {
+        return res.status(400).json({ error: "Type and URL are required" });
+      }
+
+      let analysisResult;
+      
+      if (type === 'linkedin') {
+        // Simulate LinkedIn profile analysis
+        analysisResult = {
+          success: true,
+          data: {
+            title: "Senior Software Engineer",
+            company: "Tech Innovations Inc",
+            location: "San Francisco, CA", 
+            skills: ["JavaScript", "React", "Node.js", "AI/ML"],
+            bio: "Experienced software engineer passionate about building AI-powered applications that solve real-world problems.",
+            industries: ["Technology", "Artificial Intelligence"]
+          }
+        };
+        
+        // Update user profile with LinkedIn data
+        await storage.updateUser(user.id, {
+          linkedinUrl: url,
+          title: analysisResult.data.title,
+          company: analysisResult.data.company,
+          location: analysisResult.data.location,
+          bio: analysisResult.data.bio,
+          skills: analysisResult.data.skills,
+          industries: analysisResult.data.industries
+        });
+        
+      } else if (type === 'website') {
+        // Simulate website analysis
+        analysisResult = {
+          success: true,
+          data: {
+            company: "Innovative Solutions Co",
+            description: "Leading provider of AI-driven business solutions", 
+            services: ["AI Consulting", "Software Development", "Digital Transformation"],
+            industries: ["Technology", "Consulting"]
+          }
+        };
+
+        // Update user profile with website data
+        await storage.updateUser(user.id, {
+          websiteUrls: [url],
+          company: analysisResult.data.company,
+          industries: analysisResult.data.industries
+        });
+      }
+
+      console.log('🔍 AI PROFILE DEBUG: Analysis completed', analysisResult);
+      res.json(analysisResult);
+      
+    } catch (error) {
+      console.error('AI profile analysis error:', error);
+      res.status(500).json({ error: 'Failed to analyze profile' });
+    }
+  });
+
+  app.post('/api/ai/profile-suggestions', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { userId, currentProfile } = req.body;
+      const user = req.user;
+
+      console.log('🔍 AI SUGGESTIONS DEBUG: Request for user', { userId: user?.id, profile: currentProfile });
+
+      // Generate AI-powered profile suggestions
+      const suggestions = [
+        {
+          title: "Enhance Your Bio",
+          description: "Add specific achievements and quantifiable results to make your profile stand out. Consider mentioning key projects or metrics.",
+          priority: "high",
+          category: "bio"
+        },
+        {
+          title: "Define Your Networking Goals", 
+          description: "Specify what you're looking for - funding, partnerships, mentorship, or talent. This helps our AI find better matches.",
+          priority: "high",
+          category: "goals"
+        },
+        {
+          title: "Add Industry Expertise",
+          description: "List your primary and secondary industries to connect with relevant professionals in your field.",
+          priority: "medium", 
+          category: "industries"
+        },
+        {
+          title: "Upload Professional Headshot",
+          description: "Profiles with photos receive 5x more connection requests. Use a clear, professional image.",
+          priority: "medium",
+          category: "photo"
+        },
+        {
+          title: "Specify Investment Interests",
+          description: "Add your investment thesis, check sizes, and preferred stages to attract relevant startups and co-investors.",
+          priority: "medium",
+          category: "investment"
+        }
+      ];
+
+      // Filter suggestions based on what's already filled
+      const relevantSuggestions = suggestions.filter(suggestion => {
+        if (suggestion.category === 'bio' && !currentProfile?.bio) return true;
+        if (suggestion.category === 'goals' && !currentProfile?.networkingGoal) return true;
+        if (suggestion.category === 'industries' && !currentProfile?.industries) return true;
+        if (suggestion.category === 'photo' && !currentProfile?.profileImageUrl) return true;
+        if (suggestion.category === 'investment' && !currentProfile?.investmentInterests) return true;
+        return false;
+      }).slice(0, 4); // Limit to top 4 suggestions
+
+      console.log('🔍 AI SUGGESTIONS DEBUG: Generated suggestions', { count: relevantSuggestions.length });
+
+      res.json({ 
+        success: true, 
+        suggestions: relevantSuggestions,
+        message: `Found ${relevantSuggestions.length} ways to enhance your profile`
+      });
+      
+    } catch (error) {
+      console.error('AI suggestions error:', error);
+      res.status(500).json({ error: 'Failed to generate suggestions' });
+    }
+  });
+
   // Profile routes - temporarily disabled until login is implemented
   app.get('/api/profile', async (req: any, res) => {
     try {

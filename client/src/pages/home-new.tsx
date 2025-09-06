@@ -21,6 +21,7 @@ import { LiveEventBanner } from "@/components/LiveEventBanner";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Match, User, Message } from "@shared/schema";
+import FirstTimeOnboarding from "@/components/FirstTimeOnboarding";
 
 export default function Home() {
   const { user } = useAuth();
@@ -32,6 +33,8 @@ export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<Array<{id: string, role: string, content: string, timestamp: string}>>([]);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
   // Fetch user's data for dashboard stats
   const { data: matches } = useQuery<(Match & { matchedUser: User })[]>({
@@ -57,7 +60,7 @@ export default function Home() {
     conv.senderId === user?.id ? conv.receiverId : conv.senderId
   ))?.size || 0;
 
-  // Profile completeness
+  // Profile completeness - enhanced with networking essentials
   const profileFields = [
     user?.firstName,
     user?.lastName,
@@ -66,10 +69,44 @@ export default function Home() {
     user?.company,
     user?.bio,
     user?.location,
-    user?.profileImageUrl
+    user?.profileImageUrl,
+    user?.linkedinUrl,
+    user?.websiteUrls,
+    user?.networkingGoal,
+    user?.industries
   ];
-  const filledFields = profileFields.filter(field => field && field.trim().length > 0).length;
+  const filledFields = profileFields.filter(field => field && field.trim?.().length > 0).length;
   const profileCompleteness = Math.round((filledFields / profileFields.length) * 100);
+
+  // Check if user needs onboarding (new user with low profile completeness)
+  const isNewUser = profileCompleteness < 50 && !hasSeenOnboarding;
+
+  // Set onboarding state on mount
+  useEffect(() => {
+    const hasCompletedOnboarding = localStorage.getItem(`onboarding_completed_${user?.id}`);
+    setHasSeenOnboarding(!!hasCompletedOnboarding);
+    
+    if (isNewUser && !hasCompletedOnboarding) {
+      setShowOnboarding(true);
+    }
+  }, [user?.id, profileCompleteness]);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    setHasSeenOnboarding(true);
+    localStorage.setItem(`onboarding_completed_${user?.id}`, 'true');
+    toast({
+      title: "Welcome to STAK Sync!",
+      description: "Your profile is ready. Start discovering amazing connections!",
+    });
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+  };
+
+  const handleOnboardingSkip = () => {
+    setShowOnboarding(false);
+    setHasSeenOnboarding(true);
+    localStorage.setItem(`onboarding_skipped_${user?.id}`, 'true');
+  };
 
   // Activity score
   const recentActivityScore = Math.min(100, (newMatches * 20) + (unreadMessages * 10) + (connectedMatches * 15));
@@ -174,9 +211,50 @@ export default function Home() {
     setChatMessages([]);
   };
 
+  // Show onboarding for new users
+  if (showOnboarding) {
+    return (
+      <FirstTimeOnboarding 
+        user={user}
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <LiveEventBanner />
+      
+      {/* Profile Completion Alert for users who haven't finished */}
+      {profileCompleteness < 80 && hasSeenOnboarding && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="bg-gradient-to-r from-stak-copper/10 to-stak-copper/5 border border-stak-copper/30 rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-stak-copper" />
+                <div>
+                  <h4 className="font-semibold text-stak-black">Complete Your Profile ({profileCompleteness}%)</h4>
+                  <p className="text-sm text-gray-600">Add more details to get better AI matches and increase your networking success</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Progress value={profileCompleteness} className="w-24 h-2" />
+                <Button 
+                  asChild 
+                  size="sm"
+                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                >
+                  <Link href="/profile">
+                    <Wand2 className="w-4 h-4 mr-1" />
+                    Enhance Profile
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Header */}
