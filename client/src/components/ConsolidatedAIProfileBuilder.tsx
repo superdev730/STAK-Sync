@@ -147,6 +147,9 @@ export default function ConsolidatedAIProfileBuilder({
     mutationFn: async (message: string) => {
       const response = await apiRequest('/api/ai/conversation', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           message,
           conversationHistory: conversationMessages,

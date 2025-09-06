@@ -221,7 +221,7 @@ export class FactHarvester {
     
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o", // Using GPT-4o as specified in requirements
+        model: "gpt-4o",
         messages: [
           {
             role: "system",

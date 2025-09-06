@@ -7274,9 +7274,9 @@ When the user confirms, respond with isComplete: true and provide finalData.`;
         { role: 'user', content: message }
       ];
 
-      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      // Use GPT-4o for conversation
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o",
         messages,
         response_format: { type: "json_object" },
         temperature: 0.7,
