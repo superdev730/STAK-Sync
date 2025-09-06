@@ -817,6 +817,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PATCH profile endpoint for per-field updates with provenance tracking
+  app.patch('/api/profile', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const updates = req.body;
+      console.log(`📝 Profile update request for user ${userId}:`, Object.keys(updates));
+
+      // Filter valid profile fields
+      const validFields = [
+        'firstName', 'lastName', 'title', 'company', 'bio', 'location',
+        'linkedinUrl', 'twitterUrl', 'githubUrl', 'websiteUrls',
+        'skills', 'industries', 'networkingGoal', 'profileImageUrl'
+      ];
+      
+      const profileUpdates: any = {};
+      const fieldsToUpdate: string[] = [];
+      
+      for (const [field, value] of Object.entries(updates)) {
+        if (validFields.includes(field) && value !== undefined) {
+          profileUpdates[field] = value;
+          fieldsToUpdate.push(field);
+        }
+      }
+
+      if (fieldsToUpdate.length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+
+      // Update user profile
+      const updatedUser = await storage.updateUser(userId, profileUpdates);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Update provenance metadata for changed fields
+      const { db } = await import('./db');
+      const { profileMetadata } = await import('@shared/schema');
+      
+      try {
+        const metadataPromises = fieldsToUpdate.map(async (fieldName) => {
+          return db.insert(profileMetadata).values({
+            userId: userId,
+            fieldName: fieldName,
+            provenance: 'user',
+            confidence: '1.0', // User-provided data has highest confidence
+            sources: ['user_input'],
+            updatedAt: new Date()
+          }).onConflictDoUpdate({
+            target: [profileMetadata.userId, profileMetadata.fieldName],
+            set: {
+              provenance: 'user',
+              confidence: '1.0',
+              sources: ['user_input'],
+              updatedAt: new Date()
+            }
+          });
+        });
+
+        await Promise.all(metadataPromises);
+        console.log(`✅ Updated provenance for ${fieldsToUpdate.length} fields:`, fieldsToUpdate);
+      } catch (metadataError) {
+        console.error('Provenance update failed (non-critical):', metadataError);
+        // Don't fail the request if metadata update fails
+      }
+
+      res.json({
+        success: true,
+        message: "Profile updated successfully",
+        updatedFields: fieldsToUpdate,
+        user: {
+          id: updatedUser.id,
+          ...profileUpdates
+        }
+      });
+
+    } catch (error) {
+      console.error("Profile update error:", error);
+      res.status(500).json({ 
+        message: "Failed to update profile",
+        error: (error as Error).message
+      });
+    }
+  });
+
   // Profile routes - temporarily disabled until login is implemented
   app.get('/api/profile', async (req: any, res) => {
     try {
