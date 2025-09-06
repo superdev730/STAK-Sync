@@ -93,6 +93,22 @@ Rules:
 - Output exactly the JSON schema below and nothing else.
 `;
 
+// System connection matcher for generating targeted connection recommendations
+export const SYSTEM_CONNECTION_MATCHER = `
+You are a connection matchmaker. 
+Given the current member profile and a CANDIDATE_MEMBER_INDEX (array of member mini-profiles with tags), suggest up to 5 connection_targets.
+
+Each target must include:
+- member_id
+- reason (≤140 chars, concrete overlap or value exchange)
+- overlap_tags (shared skills/interests/industries)
+
+Rules:
+- Rank by likely mutual value at this event.
+- Avoid suggesting teammates from the same company unless complementary roles differ.
+- Output EXACT JSON (array of connection_targets).
+`;
+
 // User goals and missions generator based on complete profile
 export const USER_GOALS_MISSIONS = (profileJson: any) => `
 PROFILE_JSON:
@@ -466,9 +482,10 @@ Rules:
       // Fallback to basic generation
       this.generateBasicSTAKRecommendations(profile);
     }
-    
-    // Note: Connection and sponsor targets would require access to STAK member database
-    // This would be implemented once we have that data available
+
+    // Generate connection and sponsor targets
+    await this.generateConnectionTargets(profile, input);
+    await this.generateSponsorTargets(profile, input);
   }
 
   /**
@@ -540,6 +557,241 @@ Rules:
         "Leveraging technology and insights to solve industry challenges"
       ];
     }
+  }
+
+  /**
+   * Generate connection targets using AI-powered matching
+   */
+  private async generateConnectionTargets(profile: ProfileOutput, input: BuilderInput) {
+    console.log('🔗 Generating connection targets...');
+    
+    try {
+      // Get candidate members from STAK database (mock for now)
+      const candidateMembers = await this.getCandidateMembersForMatching(profile, input);
+      
+      if (candidateMembers.length === 0) {
+        console.log('No candidate members found for connection matching');
+        return;
+      }
+
+      const systemPrompt = SYSTEM_CONNECTION_MATCHER;
+      
+      const userPrompt = `CURRENT_MEMBER_PROFILE:
+${JSON.stringify({
+  person: profile.person,
+  interests: profile.person.interests_topics,
+  skills: profile.person.skills_keywords,
+  industries: profile.person.industries,
+  goals: profile.stak_recos.goal_suggestions
+}, null, 2)}
+
+CANDIDATE_MEMBER_INDEX:
+${JSON.stringify(candidateMembers, null, 2)}
+
+EVENT_CONTEXT:
+${JSON.stringify(input.event_context || { event_id: 'networking_event', event_topics: ['business', 'technology'] }, null, 2)}`;
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3, // Lower temperature for consistent matching
+        max_tokens: 1000
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{}');
+      
+      if (result.connection_targets && Array.isArray(result.connection_targets)) {
+        profile.stak_recos.connection_targets = result.connection_targets;
+        console.log(`✅ Generated ${result.connection_targets.length} connection targets`);
+      } else if (result && Array.isArray(result)) {
+        // Handle case where AI returns direct array
+        profile.stak_recos.connection_targets = result;
+        console.log(`✅ Generated ${result.length} connection targets`);
+      } else {
+        console.warn('⚠️ AI connection matching returned unexpected format');
+      }
+
+    } catch (error) {
+      console.error('❌ Connection targets generation failed:', error);
+      // Keep empty array as fallback
+      profile.stak_recos.connection_targets = [];
+    }
+  }
+
+  /**
+   * Generate sponsor targets (similar to connection targets but for sponsors)
+   */
+  private async generateSponsorTargets(profile: ProfileOutput, input: BuilderInput) {
+    console.log('💼 Generating sponsor targets...');
+    
+    try {
+      // Get potential sponsors from STAK database (mock for now)
+      const potentialSponsors = await this.getPotentialSponsorsForMatching(profile, input);
+      
+      if (potentialSponsors.length === 0) {
+        console.log('No potential sponsors found for matching');
+        return;
+      }
+
+      const systemPrompt = `You are a sponsor matchmaker.
+Given the current member profile and POTENTIAL_SPONSORS (array of sponsor profiles), suggest up to 3 sponsor_targets.
+
+Each target must include:
+- sponsor_id  
+- reason (≤140 chars, why this sponsor would be interested)
+- overlap_tags (shared interests/industries)
+
+Rules:
+- Focus on mutual strategic value and alignment
+- Consider sponsor's investment thesis and member's needs
+- Output EXACT JSON (array of sponsor_targets).`;
+      
+      const userPrompt = `CURRENT_MEMBER_PROFILE:
+${JSON.stringify({
+  person: profile.person,
+  goals: profile.stak_recos.goal_suggestions,
+  mission: profile.stak_recos.mission_pack
+}, null, 2)}
+
+POTENTIAL_SPONSORS:
+${JSON.stringify(potentialSponsors, null, 2)}`;
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+        max_tokens: 800
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{}');
+      
+      if (result.sponsor_targets && Array.isArray(result.sponsor_targets)) {
+        profile.stak_recos.sponsor_targets = result.sponsor_targets;
+        console.log(`✅ Generated ${result.sponsor_targets.length} sponsor targets`);
+      } else if (result && Array.isArray(result)) {
+        profile.stak_recos.sponsor_targets = result;
+        console.log(`✅ Generated ${result.length} sponsor targets`);
+      }
+
+    } catch (error) {
+      console.error('❌ Sponsor targets generation failed:', error);
+      // Keep empty array as fallback
+      profile.stak_recos.sponsor_targets = [];
+    }
+  }
+
+  /**
+   * Get candidate STAK members for connection matching
+   * TODO: Replace with actual STAK member database query
+   */
+  private async getCandidateMembersForMatching(profile: ProfileOutput, input: BuilderInput) {
+    // Mock candidate members for demonstration
+    // In production, this would query the STAK member database
+    const mockCandidates = [
+      {
+        member_id: "member_001",
+        name: "Alex Thompson",
+        title: "VP of Engineering",
+        company: "TechCorp",
+        industries: ["technology", "artificial intelligence"],
+        skills: ["machine learning", "team leadership", "product development"],
+        interests: ["startup scaling", "technical mentorship"],
+        location: "San Francisco",
+        networking_goals: ["Looking for technical co-founders", "Seeking AI startup investments"]
+      },
+      {
+        member_id: "member_002", 
+        name: "Maria Rodriguez",
+        title: "Managing Partner",
+        company: "Venture Dynamics",
+        industries: ["venture capital", "fintech"],
+        skills: ["due diligence", "portfolio management", "strategic partnerships"],
+        interests: ["fintech innovation", "diverse founding teams"],
+        location: "New York",
+        networking_goals: ["Sourcing Series A opportunities", "Building LP relationships"]
+      },
+      {
+        member_id: "member_003",
+        name: "David Kim",
+        title: "Chief Marketing Officer", 
+        company: "Growth Labs",
+        industries: ["marketing", "e-commerce"],
+        skills: ["digital marketing", "brand strategy", "growth hacking"],
+        interests: ["consumer behavior", "marketing automation"],
+        location: "Los Angeles",
+        networking_goals: ["Seeking board positions", "Looking for marketing partnerships"]
+      }
+    ];
+
+    // Filter candidates based on profile context
+    const relevantCandidates = mockCandidates.filter(candidate => {
+      const hasIndustryOverlap = candidate.industries.some(industry => 
+        profile.person.industries.includes(industry)
+      );
+      const hasSkillsOverlap = candidate.skills.some(skill =>
+        profile.person.skills_keywords.some(userSkill => 
+          userSkill.toLowerCase().includes(skill.toLowerCase()) ||
+          skill.toLowerCase().includes(userSkill.toLowerCase())
+        )
+      );
+      
+      return hasIndustryOverlap || hasSkillsOverlap || 
+             candidate.company !== profile.person.current_role.company.value;
+    });
+
+    return relevantCandidates.slice(0, 10); // Limit to top 10 candidates
+  }
+
+  /**
+   * Get potential sponsors for matching
+   * TODO: Replace with actual sponsor database query
+   */
+  private async getPotentialSponsorsForMatching(profile: ProfileOutput, input: BuilderInput) {
+    // Mock sponsors for demonstration
+    const mockSponsors = [
+      {
+        sponsor_id: "sponsor_001",
+        name: "Innovation Ventures",
+        type: "Venture Capital",
+        focus_areas: ["artificial intelligence", "healthcare", "fintech"],
+        investment_stage: ["Series A", "Series B"],
+        ticket_size: "$5M - $25M",
+        recent_investments: ["HealthAI Corp", "FinTech Solutions"],
+        interests: ["AI-driven healthcare", "regulatory compliance"]
+      },
+      {
+        sponsor_id: "sponsor_002", 
+        name: "TechGrow Partners",
+        type: "Growth Equity",
+        focus_areas: ["enterprise software", "marketplace"],
+        investment_stage: ["Series B", "Series C"],
+        ticket_size: "$10M - $50M", 
+        recent_investments: ["B2B Platform Inc", "Marketplace Pro"],
+        interests: ["scalable business models", "enterprise adoption"]
+      }
+    ];
+
+    // Filter sponsors based on profile relevance
+    const relevantSponsors = mockSponsors.filter(sponsor => {
+      const hasIndustryAlignment = sponsor.focus_areas.some(area =>
+        profile.person.industries.some(industry => 
+          area.toLowerCase().includes(industry.toLowerCase()) ||
+          industry.toLowerCase().includes(area.toLowerCase())
+        )
+      );
+      
+      return hasIndustryAlignment;
+    });
+
+    return relevantSponsors;
   }
 
   private mergePublicData(profile: ProfileOutput, sources: any) {
