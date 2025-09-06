@@ -1107,6 +1107,168 @@ Make this message stand out by being genuinely thoughtful and specific.`;
     }
   });
 
+  // Enhanced AI Profile Building endpoint with web search and peer feedback
+  app.post("/api/profile/ai/build-enhanced", isAuthenticated, async (req: any, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      const userId = req.user.claims.sub;
+      const { socialSources, additionalContext, currentProfile } = req.body;
+      
+      console.log('Enhanced AI Profile Build Request:', { userId, sourcesCount: socialSources?.length || 0 });
+      
+      // Use the enhanced AI Profile Builder
+      const { enhancedAIProfileBuilder } = await import('./enhancedAIProfileBuilder');
+      const generatedProfile = await enhancedAIProfileBuilder.buildEnhancedProfile(
+        userId,
+        socialSources || [],
+        additionalContext || '',
+        currentProfile || {}
+      );
+      
+      console.log('Enhanced AI Profile Generated:', {
+        bioLength: generatedProfile.bio?.length,
+        skillsCount: generatedProfile.skills?.length,
+        industriesCount: generatedProfile.industries?.length,
+        enhancementSources: generatedProfile.enhancementSources
+      });
+      
+      res.json({
+        success: true,
+        profile: generatedProfile,
+        message: "Profile built successfully with web search, peer feedback, and AI analysis"
+      });
+      
+    } catch (error: unknown) {
+      console.error("Error building enhanced AI profile:", error);
+      res.status(500).json({ 
+        message: "Failed to build enhanced profile",
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  // Profile recommendation system endpoints
+  app.post("/api/profile/request-recommendations", isAuthenticated, async (req: any, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      const userId = req.user.claims.sub;
+      const { targetUserIds, customMessage } = req.body;
+
+      if (!targetUserIds || !Array.isArray(targetUserIds)) {
+        return res.status(400).json({ message: "Target user IDs are required" });
+      }
+
+      const { profileRecommendationService } = await import('./profileRecommendationService');
+      const result = await profileRecommendationService.requestProfileFeedback(
+        userId,
+        targetUserIds,
+        customMessage
+      );
+
+      res.json({
+        success: true,
+        sent: result.sent,
+        failed: result.failed,
+        message: `Recommendation requests sent to ${result.sent} users`
+      });
+
+    } catch (error: unknown) {
+      console.error("Error requesting profile recommendations:", error);
+      res.status(500).json({ 
+        message: "Failed to request recommendations",
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.post("/api/profile/submit-recommendation", isAuthenticated, async (req: any, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      const recommenderId = req.user.claims.sub;
+      const { userId, responses } = req.body;
+
+      if (!userId || !responses) {
+        return res.status(400).json({ message: "User ID and responses are required" });
+      }
+
+      const { profileRecommendationService } = await import('./profileRecommendationService');
+      await profileRecommendationService.submitFeedback(recommenderId, userId, responses);
+
+      res.json({
+        success: true,
+        message: "Recommendation submitted successfully"
+      });
+
+    } catch (error: unknown) {
+      console.error("Error submitting recommendation:", error);
+      res.status(500).json({ 
+        message: "Failed to submit recommendation",
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.get("/api/profile/recommendations", isAuthenticated, async (req: any, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      const userId = req.user.claims.sub;
+      
+      const { profileRecommendationService } = await import('./profileRecommendationService');
+      const feedback = await profileRecommendationService.getAggregatedFeedback(userId);
+
+      res.json({
+        success: true,
+        feedback,
+        message: "Recommendations retrieved successfully"
+      });
+
+    } catch (error: unknown) {
+      console.error("Error retrieving recommendations:", error);
+      res.status(500).json({ 
+        message: "Failed to retrieve recommendations",
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.get("/api/profile/potential-recommenders", isAuthenticated, async (req: any, res) => {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    try {
+      const userId = req.user.claims.sub;
+      
+      const { profileRecommendationService } = await import('./profileRecommendationService');
+      const potentialRecommenders = await profileRecommendationService.findPotentialRecommenders(userId);
+
+      res.json({
+        success: true,
+        recommenders: potentialRecommenders,
+        message: "Potential recommenders found successfully"
+      });
+
+    } catch (error: unknown) {
+      console.error("Error finding potential recommenders:", error);
+      res.status(500).json({ 
+        message: "Failed to find potential recommenders",
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
   // Complete AI Profile Building endpoint
   app.post("/api/profile/ai/build-complete", isAuthenticated, async (req: any, res) => {
     if (!req.user?.claims?.sub) {
