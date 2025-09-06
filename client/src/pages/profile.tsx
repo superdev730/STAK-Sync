@@ -47,8 +47,8 @@ const ProvenanceBadge = ({ fieldName, getFieldProvenance, getFieldConfidence }: 
   
   const getIcon = () => {
     switch (provenance.source) {
-      case 'db': return <Database className="w-3 h-3" />;
-      case 'enrichment': return <Brain className="w-3 h-3" />;
+      case 'db': return <UserIcon className="w-3 h-3" />;
+      case 'enrichment': return <Wand2 className="w-3 h-3" />;
       case 'user': return <UserIcon className="w-3 h-3" />;
       default: return <Info className="w-3 h-3" />;
     }
@@ -221,7 +221,6 @@ export default function Profile() {
 
 
   if (profileLoading) {
-    console.log('🔍 PROFILE DEBUG: Loading profile...');
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -233,11 +232,10 @@ export default function Profile() {
   }
 
   if (!profile && !isOwnProfile) {
-    console.log('🔍 PROFILE DEBUG: Profile not found', { profile, isOwnProfile, userId });
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <UserIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-stak-black mb-2">Profile Not Found</h2>
           <p className="text-gray-600">This profile doesn't exist or you don't have permission to view it.</p>
         </div>
@@ -245,12 +243,6 @@ export default function Profile() {
     );
   }
 
-  console.log('🔍 PROFILE DEBUG: Rendering profile component', {
-    profileExists: !!profile,
-    firstName: profile?.firstName,
-    lastName: profile?.lastName,
-    hasData: Object.keys(profile || {}).length > 0
-  });
 
   try {
     return (
@@ -491,8 +483,8 @@ export default function Profile() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {profile?.skills?.length ? (
-                    profile.skills.map((skill, index) => (
+                  {getProfileValue(profile?.skills)?.length ? (
+                    getProfileValue(profile?.skills).map((skill: string, index: number) => (
                       <Badge key={index} variant="secondary" className="bg-stak-copper/10 text-stak-copper">
                         {skill}
                       </Badge>
@@ -511,8 +503,8 @@ export default function Profile() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {profile?.industries?.length ? (
-                    profile.industries.map((industry, index) => (
+                  {getProfileValue(profile?.industries)?.length ? (
+                    getProfileValue(profile?.industries).map((industry: string, index: number) => (
                       <Badge key={index} variant="outline" className="border-stak-copper text-stak-copper">
                         {industry}
                       </Badge>
@@ -530,9 +522,9 @@ export default function Profile() {
                 <CardTitle className="text-lg">Connect</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {profile?.linkedinUrl && (
+                {getProfileValue(profile?.linkedinUrl) && (
                   <a 
-                    href={profile.linkedinUrl} 
+                    href={getProfileValue(profile?.linkedinUrl)} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
@@ -541,9 +533,9 @@ export default function Profile() {
                     LinkedIn
                   </a>
                 )}
-                {profile?.twitterUrl && (
+                {getProfileValue(profile?.twitterUrl) && (
                   <a 
-                    href={profile.twitterUrl} 
+                    href={getProfileValue(profile?.twitterUrl)} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-blue-400 hover:text-blue-600 transition-colors"
@@ -552,9 +544,9 @@ export default function Profile() {
                     Twitter
                   </a>
                 )}
-                {profile?.githubUrl && (
+                {getProfileValue(profile?.githubUrl) && (
                   <a 
-                    href={profile.githubUrl} 
+                    href={getProfileValue(profile?.githubUrl)} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors"
@@ -576,7 +568,7 @@ export default function Profile() {
                   </a>
                 ))}
                 
-                {!profile?.linkedinUrl && !profile?.twitterUrl && !profile?.githubUrl && (!Array.isArray(profile?.websiteUrls) || profile.websiteUrls.length === 0) && (
+                {!getProfileValue(profile?.linkedinUrl) && !getProfileValue(profile?.twitterUrl) && !getProfileValue(profile?.githubUrl) && (!Array.isArray(profile?.websiteUrls) || profile.websiteUrls.length === 0) && (
                   <p className="text-gray-500 text-sm">No social links added</p>
                 )}
               </CardContent>
