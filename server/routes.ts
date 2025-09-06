@@ -43,6 +43,10 @@ import { generateQuickResponses } from "./aiResponses";
 import { tokenUsageService } from "./tokenUsageService";
 import { ObjectStorageService } from "./objectStorage";
 import { TaxService, TaxableItem } from "./taxService";
+import multer from 'multer';
+import path from 'path';
+import { randomUUID } from 'crypto';
+import express from 'express';
 
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -63,6 +67,42 @@ const isAdmin = async (req: any, res: any, next: any) => {
     res.status(500).json({ message: "Failed to verify admin access" });
   }
 };
+
+// Configure Multer for profile avatar uploads
+const multerStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueId = randomUUID();
+    const extension = path.extname(file.originalname);
+    cb(null, `avatar-${uniqueId}${extension}`);
+  }
+});
+
+const fileFilter = (req: any, file: any, cb: any) => {
+  // Accept only specific image formats
+  const allowedMimes = [
+    'image/png',
+    'image/jpeg', 
+    'image/webp',
+    'image/heic'
+  ];
+  
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only PNG, JPEG, WebP, and HEIC images are allowed.'), false);
+  }
+};
+
+const upload = multer({
+  storage: multerStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: fileFilter
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - use general auth with session support
@@ -111,6 +151,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.redirect('/');
       });
     });
+  });
+
+  // Serve uploaded files
+  app.use('/uploads', express.static('uploads'));
+
+  // Profile avatar upload route with Multer
+  app.post('/api/profile/avatar/upload', isAuthenticatedGeneral, upload.single('avatar'), async (req: any, res) => {
+    try {
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded." });
+      }
+
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Generate secure URL for the uploaded file
+      const protocol = req.get('host')?.includes('localhost') ? 'http' : 'https';
+      const secureUrl = `${protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+
+      // Update user's profile image in database
+      try {
+        await storage.updateUser(userId, {
+          profileImage: secureUrl
+        });
+      } catch (dbError) {
+        console.error('Database update error:', dbError);
+        // Continue anyway, return the URL
+      }
+
+      // Return the secure URL
+      res.json({ 
+        success: true,
+        url: secureUrl,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      
+      if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File too large. Maximum size is 10MB.' });
+        }
+        return res.status(400).json({ error: error.message });
+      }
+
+      res.status(500).json({ error: 'Upload failed. Please try again.' });
+    }
   });
 
   // Simple logo route
