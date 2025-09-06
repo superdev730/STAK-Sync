@@ -104,6 +104,9 @@ export default function Profile() {
   const userId = params?.userId;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Debug logging
+  console.log('🔍 PROFILE DEBUG: Component mounted', { userId, currentUser });
   
   // Use enhanced profile hook with provenance data
   const {
@@ -120,6 +123,16 @@ export default function Profile() {
     getUnknownFields,
     getCompleteness
   } = useProfile(userId);
+
+  // Debug profile data
+  console.log('🔍 PROFILE DEBUG: Profile data', {
+    profile,
+    profileLoading,
+    isOwnProfile,
+    websiteUrls: profile?.websiteUrls,
+    websiteUrlsType: typeof profile?.websiteUrls,
+    websiteUrlsArray: Array.isArray(profile?.websiteUrls)
+  });
   
   // State for consolidated AI profile builder and photo cropper
   const [showAIBuilder, setShowAIBuilder] = useState(false);
@@ -148,7 +161,12 @@ export default function Profile() {
 
   // Helper to refresh profile data after AI builder updates
   const handleProfileUpdate = () => {
-    queryClient.invalidateQueries({ queryKey: userId ? ["/api/profile", userId] : ["/api/me"] });
+    try {
+      console.log('🔍 PROFILE DEBUG: Refreshing profile data');
+      queryClient.invalidateQueries({ queryKey: userId ? ["/api/profile", userId] : ["/api/me"] });
+    } catch (error) {
+      console.error('🚨 PROFILE ERROR: Failed to refresh profile data', error);
+    }
   };
 
   // Save company field with proper state management and abort handling
@@ -329,6 +347,7 @@ export default function Profile() {
 
 
   if (profileLoading) {
+    console.log('🔍 PROFILE DEBUG: Loading profile...');
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -340,6 +359,7 @@ export default function Profile() {
   }
 
   if (!profile && !isOwnProfile) {
+    console.log('🔍 PROFILE DEBUG: Profile not found', { profile, isOwnProfile, userId });
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -351,9 +371,17 @@ export default function Profile() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+  console.log('🔍 PROFILE DEBUG: Rendering profile component', {
+    profileExists: !!profile,
+    firstName: profile?.firstName,
+    lastName: profile?.lastName,
+    hasData: Object.keys(profile || {}).length > 0
+  });
+
+  try {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4 py-8">
         
         {/* Header Section */}
         <Card className="mb-8 border-0 shadow-sm">
@@ -367,6 +395,10 @@ export default function Profile() {
                     src={profile.profileImageUrl}
                     alt="Profile"
                     className="rounded-full w-24 h-24 object-cover border"
+                    onError={(e) => {
+                      console.log('🔍 PROFILE DEBUG: Image load error', e);
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
                 ) : (
                   <div className="rounded-full w-24 h-24 flex items-center justify-center bg-orange-400 text-white text-xl font-bold">
@@ -393,12 +425,17 @@ export default function Profile() {
                       <Input
                         value={`${profile?.firstName || ''} ${profile?.lastName || ''}`.trim()}
                         onChange={(e) => {
-                          const [firstName, ...lastNameParts] = e.target.value.split(' ');
-                          const lastName = lastNameParts.join(' ');
-                          updateProfile({ 
-                            firstName: firstName || null, 
-                            lastName: lastName || null
-                          });
+                          try {
+                            const [firstName, ...lastNameParts] = e.target.value.split(' ');
+                            const lastName = lastNameParts.join(' ');
+                            console.log('🔍 PROFILE DEBUG: Updating name', { firstName, lastName });
+                            updateProfile({ 
+                              firstName: firstName || null, 
+                              lastName: lastName || null
+                            });
+                          } catch (error) {
+                            console.error('🚨 PROFILE ERROR: Name update failed', error);
+                          }
                         }}
                         className="text-3xl font-bold border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
                         placeholder="Enter your name"
@@ -652,7 +689,14 @@ export default function Profile() {
                   <div className="space-y-2">
                     <Textarea
                       value={profile?.bio || ''}
-                      onChange={(e) => updateProfile({ bio: e.target.value })}
+                      onChange={(e) => {
+                        try {
+                          console.log('🔍 PROFILE DEBUG: Updating bio');
+                          updateProfile({ bio: e.target.value });
+                        } catch (error) {
+                          console.error('🚨 PROFILE ERROR: Bio update failed', error);
+                        }
+                      }}
                       placeholder="Tell others about yourself, your experience, and what you're passionate about..."
                       className="min-h-[120px]"
                       data-testid="textarea-bio"
@@ -680,7 +724,14 @@ export default function Profile() {
                   <div className="space-y-4">
                     <Textarea
                       value={profile?.networkingGoal || ''}
-                      onChange={(e) => updateProfile({ networkingGoal: e.target.value })}
+                      onChange={(e) => {
+                        try {
+                          console.log('🔍 PROFILE DEBUG: Updating networking goal');
+                          updateProfile({ networkingGoal: e.target.value });
+                        } catch (error) {
+                          console.error('🚨 PROFILE ERROR: Networking goal update failed', error);
+                        }
+                      }}
                       placeholder="What are you looking to achieve through networking? Who would you like to meet?"
                       className="min-h-[100px]"
                       data-testid="textarea-networking-goals"
@@ -777,7 +828,7 @@ export default function Profile() {
                     GitHub
                   </a>
                 )}
-                {profile?.websiteUrls?.map((url, index) => (
+                {Array.isArray(profile?.websiteUrls) && profile.websiteUrls.map((url, index) => (
                   <a 
                     key={index}
                     href={url} 
@@ -790,7 +841,7 @@ export default function Profile() {
                   </a>
                 ))}
                 
-                {!profile?.linkedinUrl && !profile?.twitterUrl && !profile?.githubUrl && !profile?.websiteUrls?.length && (
+                {!profile?.linkedinUrl && !profile?.twitterUrl && !profile?.githubUrl && (!Array.isArray(profile?.websiteUrls) || profile.websiteUrls.length === 0) && (
                   <p className="text-gray-500 text-sm">No social links added</p>
                 )}
               </CardContent>
@@ -805,7 +856,24 @@ export default function Profile() {
           onClose={() => setShowPhotoCropper(false)}
           onSuccess={handlePhotoUploadSuccess}
         />
+        </div>
       </div>
-    </div>
-  );
+    );
+  } catch (error) {
+    console.error('🚨 PROFILE ERROR: Component render failed', error);
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">
+            <AlertCircle className="h-16 w-16 mx-auto mb-2" />
+            <h2 className="text-2xl font-bold">Profile Error</h2>
+          </div>
+          <p className="text-gray-600 mb-4">There was an error loading the profile page.</p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Reload Page
+          </Button>
+        </div>
+      </div>
+    );
+  }
 }
