@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { webSearchService } from './webSearchService';
 import { socialMediaCrawler } from './socialMediaCrawler';
+import { PerplexityService } from './perplexityService';
 
 // New schema-based interfaces
 export interface ProfileDataPoint {
@@ -192,6 +193,17 @@ Rules:
 - Output EXACT JSON and nothing else.
 `;
 
+// Perplexity search query generator for comprehensive profile data gathering
+export const PERPLEXITY_QUERIES = (first: string, last: string, domain?: string, company?: string) => ([
+  { q: `"${first} ${last}" ${domain ? `"${domain}"` : ""}`.trim() },
+  { q: `"${first} ${last}" ${company ? `"${company}"` : ""}`.trim() },
+  { q: `"${first} ${last}" bio` },
+  { q: `${company || domain || ""} about`.trim() },
+  { q: `${company || domain || ""} leadership`.trim() },
+  { q: `${company || domain || ""} blog "${first} ${last}"`.trim() },
+  { q: `${company || domain || ""} tech stack`.trim() }
+]);
+
 // User goals and missions generator based on complete profile
 export const USER_GOALS_MISSIONS = (profileJson: any) => `
 PROFILE_JSON:
@@ -274,9 +286,11 @@ OUTPUT_SCHEMA:
 
 export class SimplifiedProfileBuilder {
   private openai: OpenAI;
+  private perplexityService: PerplexityService;
 
   constructor() {
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    this.perplexityService = new PerplexityService();
   }
 
   /**
@@ -358,46 +372,104 @@ export class SimplifiedProfileBuilder {
     const sources = {
       social: [] as any[],
       webSearch: null as any,
-      emailDomain: null as any
+      emailDomain: null as any,
+      perplexityData: null as any
     };
 
-    // Only analyze public, ToS-compliant sources
+    // Extract basic info for Perplexity search
+    const firstName = input.email?.split('@')[0]?.split('.')[0] || '';
+    const lastName = input.email?.split('@')[0]?.split('.')[1] || '';
+    const emailDomain = input.email?.split('@')[1];
+    
+    // Parallel execution for efficiency
+    const tasks = [];
+
+    // Only analyze public, ToS-compliant social sources
     if (input.social_urls?.length) {
       for (const url of input.social_urls) {
-        try {
-          // Skip LinkedIn HTML scraping - violates ToS
-          if (url.toLowerCase().includes('linkedin.com')) {
-            console.warn('Skipping LinkedIn HTML scraping - use LinkedIn API instead');
-            continue;
+        tasks.push((async () => {
+          try {
+            // Skip LinkedIn HTML scraping - violates ToS
+            if (url.toLowerCase().includes('linkedin.com')) {
+              console.warn('Skipping LinkedIn HTML scraping - use LinkedIn API instead');
+              return null;
+            }
+            
+            // Only analyze truly public sources
+            const platform = this.detectPlatformFromUrl(url);
+            if (['github', 'website'].includes(platform)) {
+              const socialData = await socialMediaCrawler.analyzeSocialProfile(url);
+              return { ...socialData, source_url: url };
+            } else {
+              console.warn(`Skipping ${platform} - requires API access for ToS compliance`);
+              return null;
+            }
+          } catch (error) {
+            console.warn(`Failed to analyze ${url}:`, error);
+            return null;
           }
-          
-          // Only analyze truly public sources
-          const platform = this.detectPlatformFromUrl(url);
-          if (['github', 'website'].includes(platform)) {
-            const socialData = await socialMediaCrawler.analyzeSocialProfile(url);
-            sources.social.push({ ...socialData, source_url: url });
-          } else {
-            console.warn(`Skipping ${platform} - requires API access for ToS compliance`);
-          }
-        } catch (error) {
-          console.warn(`Failed to analyze ${url}:`, error);
-        }
+        })());
       }
     }
 
-    // Web search based on available info (using public search engines)
+    // Web search task
     if (input.email) {
-      const emailDomain = input.email.split('@')[1];
       sources.emailDomain = { domain: emailDomain, email: input.email };
       
-      // Use web search for publicly available information only
-      try {
-        sources.webSearch = await this.searchWebForPerson(input);
-      } catch (error) {
-        console.warn('Web search failed:', error);
-      }
+      tasks.push((async () => {
+        try {
+          return await this.searchWebForPerson(input);
+        } catch (error) {
+          console.warn('Web search failed:', error);
+          return null;
+        }
+      })());
     }
 
+    // Perplexity AI search task (enhanced public data gathering)
+    if (firstName || input.linkedin_url) {
+      tasks.push((async () => {
+        try {
+          const name = firstName && lastName ? `${firstName} ${lastName}` : '';
+          const domain = this.extractDomainFromUrl(input.linkedin_url || '');
+          const searchFirstName = firstName || name.split(' ')[0] || '';
+          const searchLastName = lastName || name.split(' ').slice(1).join(' ') || '';
+          
+          if (searchFirstName) {
+            return await this.perplexityService.gatherProfileData(
+              searchFirstName, 
+              searchLastName, 
+              domain, 
+              emailDomain
+            );
+          }
+          return null;
+        } catch (error) {
+          console.warn('Perplexity search failed:', error);
+          return null;
+        }
+      })());
+    }
+
+    // Execute all tasks in parallel
+    const results = await Promise.allSettled(tasks);
+    
+    // Process social media results
+    results.forEach(result => {
+      if (result.status === 'fulfilled' && result.value) {
+        if (result.value.source_url) {
+          sources.social.push(result.value);
+        } else if (result.value.searchResults) {
+          // Perplexity result
+          sources.perplexityData = result.value;
+        } else {
+          // Web search result
+          sources.webSearch = result.value;
+        }
+      }
+    });
+
+    console.log(`✅ Public data gathering completed: ${sources.social.length} social sources, ${sources.webSearch ? 'web search' : 'no web search'}, ${sources.perplexityData ? 'Perplexity data' : 'no Perplexity'}`);
     return sources;
   }
 
@@ -997,6 +1069,20 @@ Rules:
       .sort((a, b) => b.relevance_score - a.relevance_score);
 
     return sortedSponsors.slice(0, 6); // Return top 6 sponsors for matching
+  }
+
+  /**
+   * Extract domain from URL for search queries
+   */
+  private extractDomainFromUrl(url?: string): string | undefined {
+    if (!url) return undefined;
+    
+    try {
+      const parsedUrl = new URL(url);
+      return parsedUrl.hostname.replace('www.', '');
+    } catch {
+      return undefined;
+    }
   }
 
   private mergePublicData(profile: ProfileOutput, sources: any) {
