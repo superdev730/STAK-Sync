@@ -7369,5 +7369,71 @@ OUTPUT_SCHEMA:
     }
   });
 
+  // Networking matchmaker endpoint
+  app.post('/api/ai/matchmaker', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { memberGoals, memberTags, candidateMembers } = req.body;
+
+      if (!memberGoals || !memberTags || !candidateMembers) {
+        return res.status(400).json({ error: 'Member goals, tags, and candidate list are required' });
+      }
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY!,
+      });
+
+      const matchmakerPrompt = `You are a high-value networking matchmaker. Given a member's goals, tags, and a candidate list of other members, rank the top 5 matches.
+
+Rules:
+- Match based on overlap of industries, goals, and complementary needs (e.g. one seeking funding, another investing).
+- Explain WHY each match is valuable in ≤140 chars.
+- Include overlap_tags for transparency.
+- Output exactly in JSON schema.
+
+Expected JSON format:
+{
+  "matches": [
+    {
+      "candidate_id": "",
+      "match_score": 0.95,
+      "reason": "Brief explanation ≤140 chars why this is valuable",
+      "overlap_tags": ["shared_industry1", "shared_topic2"],
+      "complementary_fit": "funding_seeker+investor | buyer+seller | etc"
+    }
+  ]
+}`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: 'system', content: matchmakerPrompt },
+          { 
+            role: 'user', 
+            content: `Member Goals: ${JSON.stringify(memberGoals)}
+Member Tags: ${JSON.stringify(memberTags)}
+Candidate Members: ${JSON.stringify(candidateMembers)}
+
+Rank the top 5 matches and explain why each is valuable.`
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.4,
+        max_tokens: 1000
+      });
+
+      const matches = JSON.parse(response.choices[0].message.content || '{"matches": []}');
+      
+      res.json(matches);
+    } catch (error) {
+      console.error('Matchmaker error:', error);
+      res.status(500).json({ error: 'Failed to generate matches' });
+    }
+  });
+
   return httpServer;
 }
