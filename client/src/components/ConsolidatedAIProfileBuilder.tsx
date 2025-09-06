@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { apiRequest } from "@/lib/queryClient";
 import { 
   Wand2, 
@@ -23,7 +24,12 @@ import {
   Sparkles,
   Edit,
   Save,
-  X
+  X,
+  ExternalLink,
+  TrendingUp,
+  Database,
+  FileText,
+  Clock
 } from "lucide-react";
 import type { User } from "@shared/schema";
 
@@ -34,6 +40,35 @@ interface SocialSource {
   isAnalyzing: boolean;
   hasData: boolean;
   error?: string;
+}
+
+interface ProfileFact {
+  id: string;
+  factType: string;
+  title: string;
+  description: string;
+  org?: string;
+  role?: string;
+  valueNumber?: string;
+  valueCurrency?: string;
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  sourceUrls: string[];
+  evidenceQuote: string;
+  confidence: number;
+  sourceType: string;
+  createdAt: string;
+}
+
+interface ProfileEnrichmentRun {
+  id: string;
+  status: 'running' | 'completed' | 'failed';
+  startedAt: string;
+  finishedAt?: string;
+  factsFound: number;
+  sourcesProcessed: number;
+  errorMessage?: string;
 }
 
 interface ConsolidatedAIProfileBuilderProps {
@@ -52,6 +87,42 @@ export default function ConsolidatedAIProfileBuilder({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Fetch profile facts
+  const { data: profileFacts = [], refetch: refetchFacts } = useQuery({
+    queryKey: ['/api/profile/facts'],
+    enabled: isOpen && profile !== undefined,
+  });
+
+  // Fetch enrichment runs
+  const { data: enrichmentRuns = [] } = useQuery({
+    queryKey: ['/api/profile/enrichment-runs'],
+    enabled: isOpen && profile !== undefined,
+  });
+
+  // Mutation to refresh facts
+  const refreshFactsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('/api/profile/facts:refresh', {
+        method: 'POST',
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Fact refresh started",
+        description: "We're analyzing your sources for new facts. This may take a few minutes.",
+      });
+      refetchFacts();
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/enrichment-runs'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Refresh failed",
+        description: error.message || "Failed to start fact refresh",
+        variant: "destructive",
+      });
+    },
+  });
+  
   // Helper to extract values from profile objects
   const getProfileValue = (field: any) => {
     if (typeof field === 'object' && field?.value !== undefined) {
@@ -60,7 +131,7 @@ export default function ConsolidatedAIProfileBuilder({
     return field || '';
   };
   
-  const [activeTab, setActiveTab] = useState<'sources' | 'preview' | 'edit'>('sources');
+  const [activeTab, setActiveTab] = useState<'sources' | 'facts' | 'preview' | 'edit'>('sources');
   const [socialSources, setSocialSources] = useState<SocialSource[]>([]);
   const [newSocialUrl, setNewSocialUrl] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
@@ -324,8 +395,9 @@ export default function ConsolidatedAIProfileBuilder({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="sources">Add Sources</TabsTrigger>
+            <TabsTrigger value="facts">Facts</TabsTrigger>
             <TabsTrigger value="preview" disabled={!generatedProfile.bio}>Preview & Edit</TabsTrigger>
             <TabsTrigger value="edit" disabled={!generatedProfile.bio}>Manual Edit</TabsTrigger>
           </TabsList>
@@ -572,6 +644,204 @@ export default function ConsolidatedAIProfileBuilder({
                   </>
                 )}
               </Button>
+            </div>
+          </TabsContent>
+
+          {/* Facts Tab - New fact-based profile system */}
+          <TabsContent value="facts" className="mt-6 space-y-6">
+            <div className="space-y-6">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2 flex items-center justify-center gap-2">
+                  <Database className="h-5 w-5 text-stak-copper" />
+                  Fact-Based Profile
+                </h3>
+                <p className="text-gray-600">Verified facts extracted from authoritative sources with citations.</p>
+              </div>
+
+              {/* Refresh Facts Button */}
+              <div className="flex justify-between items-center">
+                <Button
+                  onClick={() => refreshFactsMutation.mutate()}
+                  disabled={refreshFactsMutation.isPending}
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-refresh-facts"
+                >
+                  {refreshFactsMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Analyzing Sources...
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Refresh Facts
+                    </>
+                  )}
+                </Button>
+                
+                <div className="text-sm text-gray-500">
+                  {profileFacts.length} verified facts found
+                </div>
+              </div>
+
+              {/* Enrichment Run Status */}
+              {enrichmentRuns.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Recent Analysis Runs
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {enrichmentRuns.slice(0, 3).map((run: ProfileEnrichmentRun) => (
+                      <div key={run.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div className="flex items-center gap-2">
+                          {run.status === 'running' && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
+                          {run.status === 'completed' && <CheckCircle className="h-3 w-3 text-green-500" />}
+                          {run.status === 'failed' && <AlertCircle className="h-3 w-3 text-red-500" />}
+                          <span className="text-xs capitalize">{run.status}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(run.startedAt).toLocaleDateString()}
+                        </div>
+                        <div className="text-xs">
+                          {run.factsFound} facts
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Facts Display */}
+              {profileFacts.length > 0 ? (
+                <div className="space-y-4">
+                  {profileFacts.map((fact: ProfileFact) => (
+                    <Card key={fact.id} className="border-l-4 border-l-stak-copper">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <CardTitle className="text-base">{fact.title}</CardTitle>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                {fact.factType.replace('_', ' ')}
+                              </Badge>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-gray-500">Confidence:</span>
+                                <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-yellow-500 to-green-500"
+                                    style={{ width: `${Math.round(fact.confidence * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs font-medium">{Math.round(fact.confidence * 100)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                          <Badge 
+                            variant={
+                              fact.sourceType === 'official_filings' ? 'default' :
+                              fact.sourceType === 'reputable_media' ? 'secondary' : 'outline'
+                            }
+                            className="text-xs"
+                          >
+                            {fact.sourceType.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <p className="text-gray-700">{fact.description}</p>
+                        
+                        {/* Additional Details */}
+                        {(fact.org || fact.role || fact.valueNumber || fact.location || fact.startDate) && (
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            {fact.org && (
+                              <div>
+                                <span className="font-medium text-gray-500">Organization:</span> {fact.org}
+                              </div>
+                            )}
+                            {fact.role && (
+                              <div>
+                                <span className="font-medium text-gray-500">Role:</span> {fact.role}
+                              </div>
+                            )}
+                            {fact.valueNumber && (
+                              <div>
+                                <span className="font-medium text-gray-500">Value:</span> 
+                                {fact.valueCurrency && ` ${fact.valueCurrency}`} {fact.valueNumber}
+                              </div>
+                            )}
+                            {fact.location && (
+                              <div>
+                                <span className="font-medium text-gray-500">Location:</span> {fact.location}
+                              </div>
+                            )}
+                            {fact.startDate && (
+                              <div>
+                                <span className="font-medium text-gray-500">Date:</span> 
+                                {fact.startDate}{fact.endDate && ` - ${fact.endDate}`}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <Separator />
+
+                        {/* Evidence Quote */}
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <FileText className="h-4 w-4 text-gray-500 mt-0.5" />
+                            <div>
+                              <div className="text-xs font-medium text-gray-500 mb-1">Evidence:</div>
+                              <p className="text-sm italic text-gray-700">"{fact.evidenceQuote}"</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Source Citations */}
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-gray-500 mb-2">Sources:</div>
+                          <div className="space-y-1">
+                            {fact.sourceUrls.map((url, index) => (
+                              <div key={index} className="flex items-center gap-2 text-xs">
+                                <ExternalLink className="h-3 w-3 text-gray-400" />
+                                <a 
+                                  href={url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline truncate max-w-96"
+                                  data-testid={`link-source-${index}`}
+                                >
+                                  {new URL(url).hostname}
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="text-center py-8">
+                    <Database className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 mb-4">No facts found yet</p>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Add your social media profiles and professional sources, then click "Refresh Facts" to extract verified information.
+                    </p>
+                    <Button
+                      onClick={() => setActiveTab('sources')}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Add Sources First
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
 
