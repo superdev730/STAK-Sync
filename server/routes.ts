@@ -65,18 +65,9 @@ const isAdmin = async (req: any, res: any, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
-  
-  // Update main auth middleware to use the general one that handles both types
-  const { isAuthenticatedGeneral } = await import('./generalAuth');
-  app.use('/api', (req, res, next) => {
-    // Skip auth middleware for login/signup routes
-    if (req.path === '/auth/login' || req.path === '/auth/signup') {
-      return next();
-    }
-    return next();
-  });
+  // Auth middleware - only use clean auth now
+  const { setupCleanAuth } = await import('./cleanAuth');
+  setupCleanAuth(app);
 
   // Simple logo route
   app.get('/api/logo', (req, res) => {
