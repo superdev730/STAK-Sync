@@ -222,16 +222,33 @@ Make them sound absolutely FANTASTIC - the kind of person top VCs want to fund, 
 
     const aiResponse = JSON.parse(completion.choices[0].message.content || '{}');
 
+    // Extract all website URLs, supporting any platform/website
+    const linkedinUrl = socialSources.find(s => s.platform === 'LinkedIn')?.url;
+    const twitterUrl = socialSources.find(s => s.platform === 'Twitter')?.url;
+    const githubUrl = socialSources.find(s => s.platform === 'GitHub')?.url;
+    
+    // Collect all other URLs as website URLs (any URL that isn't LinkedIn, Twitter, or GitHub)
+    const websiteUrls = socialSources
+      .filter(s => !['LinkedIn', 'Twitter', 'GitHub'].includes(s.platform) && s.url && s.url.trim())
+      .map(s => s.url);
+
+    console.log('AI Profile Builder - Social URLs extracted:', {
+      linkedinUrl,
+      twitterUrl, 
+      githubUrl,
+      websiteUrls
+    });
+
     // Ensure quality and add social URLs
     return {
       bio: aiResponse.bio || this.generateImpressiveBio(currentProfile, additionalContext),
       networkingGoal: aiResponse.networkingGoal || this.generateNetworkingGoal(currentProfile),
       skills: this.ensureQualitySkills(aiResponse.skills || []),
       industries: this.ensureQualityIndustries(aiResponse.industries || []),
-      linkedinUrl: socialSources.find(s => s.platform === 'LinkedIn')?.url,
-      twitterUrl: socialSources.find(s => s.platform === 'Twitter')?.url,
-      githubUrl: socialSources.find(s => s.platform === 'GitHub')?.url,
-      websiteUrls: socialSources.filter(s => s.platform === 'Website').map(s => s.url)
+      linkedinUrl,
+      twitterUrl,
+      githubUrl,
+      websiteUrls
     };
   }
 
@@ -306,7 +323,9 @@ Make them sound absolutely FANTASTIC - the kind of person top VCs want to fund, 
       linkedinUrl: socialSources.find(s => s.platform === 'LinkedIn')?.url,
       twitterUrl: socialSources.find(s => s.platform === 'Twitter')?.url,
       githubUrl: socialSources.find(s => s.platform === 'GitHub')?.url,
-      websiteUrls: socialSources.filter(s => s.platform === 'Website').map(s => s.url)
+      websiteUrls: socialSources
+        .filter(s => !['LinkedIn', 'Twitter', 'GitHub'].includes(s.platform) && s.url && s.url.trim())
+        .map(s => s.url)
     };
   }
 

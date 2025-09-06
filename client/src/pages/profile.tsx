@@ -556,14 +556,14 @@ export default function Profile() {
                             <Card>
                               <CardHeader>
                                 <CardTitle className="text-lg">Social Media & Online Profiles</CardTitle>
-                                <p className="text-sm text-gray-600">Add your profiles for AI to analyze and extract information</p>
+                                <p className="text-sm text-gray-600">Add any website URL: LinkedIn, GitHub, company websites, news articles, or other online profiles</p>
                               </CardHeader>
                               <CardContent className="space-y-4">
                                 <div className="flex gap-2">
                                   <Input
                                     value={newSocialUrl}
                                     onChange={(e) => setNewSocialUrl(e.target.value)}
-                                    placeholder="https://linkedin.com/in/yourname"
+                                    placeholder="https://linkedin.com/in/yourname, https://behringco.com, https://news.com/article..."
                                     className="flex-grow"
                                   />
                                   <Button onClick={addSocialSource} size="sm">
