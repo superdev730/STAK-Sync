@@ -93,6 +93,18 @@ Rules:
 - Output exactly the JSON schema below and nothing else.
 `;
 
+// User goals and missions generator based on complete profile
+export const USER_GOALS_MISSIONS = (profileJson: any) => `
+PROFILE_JSON:
+${JSON.stringify(profileJson, null, 2)}
+
+OUTPUT_SCHEMA:
+{
+  "goal_suggestions": ["", "", ""],
+  "mission_pack": ["", "", "", "", ""]
+}
+`;
+
 // Enhanced user profile normalizer with structured input
 export const USER_PROFILE_NORMALIZER = (payload: {
   email: string,
@@ -391,58 +403,143 @@ Hard rules:
   }
 
   /**
-   * Phase 4: Generate STAK-specific recommendations
+   * Phase 4: Generate STAK-specific recommendations using complete profile context
    */
   private async generateSTAKRecommendations(profile: ProfileOutput) {
-    console.log('🎯 Generating STAK recommendations...');
+    console.log('🎯 Generating STAK recommendations with full profile context...');
     
-    const role = profile.person.current_role.title.value;
-    const company = profile.person.current_role.company.value;
-    const industries = profile.person.industries;
+    try {
+      // Use the complete profile for context-aware goal and mission generation
+      const profileForGoals = {
+        person: profile.person,
+        context: {
+          industries: profile.person.industries,
+          skills: profile.person.skills_keywords,
+          interests: profile.person.interests_topics,
+          role_title: profile.person.current_role.title.value,
+          company: profile.person.current_role.company.value,
+          bio: profile.person.bio.value,
+          location: profile.person.geo.value
+        }
+      };
 
-    // Generate role-based networking goals
-    profile.stak_recos.goal_suggestions = this.generateNetworkingGoals(role, company);
-    
-    // Generate mission pack (key value propositions)
-    profile.stak_recos.mission_pack = this.generateMissionPack(role, industries);
+      const systemPrompt = `You are STAK Sync's Goals & Missions Generator.
+
+Generate professional networking goals and mission statements tailored to this person's profile for luxury business networking events.
+
+Rules:
+- goal_suggestions: 3 specific, actionable networking objectives (what they're seeking)
+- mission_pack: 5 value propositions (what unique value they bring)
+- Focus on high-value connections, strategic partnerships, and premium opportunities
+- Use professional language appropriate for executive networking
+- Consider their role, industry, skills, and background
+- Output EXACTLY the JSON schema provided. No extra text.`;
+
+      const userPrompt = USER_GOALS_MISSIONS(profileForGoals);
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.4, // Balanced creativity for personalized goals
+        max_tokens: 800
+      });
+
+      const goalsAndMissions = JSON.parse(response.choices[0].message.content || '{}');
+      
+      if (goalsAndMissions.goal_suggestions && goalsAndMissions.mission_pack) {
+        profile.stak_recos.goal_suggestions = goalsAndMissions.goal_suggestions;
+        profile.stak_recos.mission_pack = goalsAndMissions.mission_pack;
+        
+        console.log('✅ Generated personalized STAK goals and missions');
+      } else {
+        // Fallback to basic generation
+        console.warn('⚠️ AI goals generation incomplete, using fallback');
+        this.generateBasicSTAKRecommendations(profile);
+      }
+
+    } catch (error) {
+      console.error('❌ STAK recommendations generation failed:', error);
+      // Fallback to basic generation
+      this.generateBasicSTAKRecommendations(profile);
+    }
     
     // Note: Connection and sponsor targets would require access to STAK member database
     // This would be implemented once we have that data available
   }
 
-  private generateNetworkingGoals(role: string, company: string): string[] {
+  /**
+   * Fallback method for basic STAK recommendations
+   */
+  private generateBasicSTAKRecommendations(profile: ProfileOutput) {
+    const role = profile.person.current_role.title.value;
+    const company = profile.person.current_role.company.value;
+    const industries = profile.person.industries;
+
+    // Generate role-based networking goals (fallback)
+    profile.stak_recos.goal_suggestions = this.generateNetworkingGoals(role, company);
+    
+    // Generate mission pack (fallback)
+    profile.stak_recos.mission_pack = this.generateMissionPack(role, industries);
+  }
+
+  private generateNetworkingGoals(role?: string, company?: string): string[] {
     const roleKeywords = role?.toLowerCase() || '';
     const companyKeywords = company?.toLowerCase() || '';
     
     if (roleKeywords.includes('founder') || roleKeywords.includes('ceo')) {
       return [
-        "Seeking strategic investors and venture capital partners",
-        "Looking for experienced mentors and industry advisors",
-        "Connecting with exceptional technical talent and co-founders"
+        "Seeking strategic investors and venture capital partners for growth acceleration",
+        "Looking for experienced mentors and industry advisors to guide strategic decisions",
+        "Connecting with exceptional technical talent and potential co-founders"
       ];
     } else if (roleKeywords.includes('investor') || companyKeywords.includes('capital')) {
       return [
-        "Sourcing high-quality deal flow and innovative startups",
-        "Building relationships with institutional LPs",
-        "Connecting with co-investment partners"
+        "Sourcing high-quality deal flow and innovative startups in emerging sectors",
+        "Building relationships with institutional LPs and family offices for fund development",
+        "Connecting with co-investment partners for syndicated opportunities"
       ];
     } else {
       return [
-        "Building strategic partnerships and collaborations",
-        "Exploring board and advisory opportunities",
-        "Connecting with industry leaders and innovators"
+        "Building strategic partnerships and collaborations to drive innovation",
+        "Exploring board and advisory opportunities in growth-stage companies",
+        "Connecting with industry leaders and innovators for knowledge sharing"
       ];
     }
   }
 
-  private generateMissionPack(role: string, industries: string[]): string[] {
-    return [
-      "Strategic leadership in transformative industries",
-      "Building category-defining companies and partnerships",
-      "Driving innovation through collaborative ecosystems",
-      "Creating sustainable value for all stakeholders",
-      "Leveraging technology to solve complex challenges"
-    ];
+  private generateMissionPack(role?: string, industries?: string[]): string[] {
+    const industryContext = industries?.length ? industries.slice(0, 2).join(' and ') : 'technology';
+    const roleContext = role?.toLowerCase() || 'professional';
+    
+    if (roleContext.includes('founder') || roleContext.includes('ceo')) {
+      return [
+        `Strategic leadership in ${industryContext} transformation`,
+        "Building category-defining companies that reshape markets",
+        "Driving innovation through collaborative entrepreneurial ecosystems",
+        "Creating sustainable value and meaningful impact for all stakeholders",
+        "Leveraging cutting-edge technology to solve complex global challenges"
+      ];
+    } else if (roleContext.includes('investor') || roleContext.includes('partner')) {
+      return [
+        `Identifying breakthrough opportunities in ${industryContext} innovation`,
+        "Building portfolios of exceptional founders and transformative companies",
+        "Providing strategic capital and guidance for sustainable growth",
+        "Creating value through deep industry expertise and network effects",
+        "Supporting visionary entrepreneurs who are changing the world"
+      ];
+    } else {
+      return [
+        `Excellence and thought leadership in ${industryContext}`,
+        "Building strategic partnerships that drive meaningful innovation",
+        "Contributing expertise to collaborative growth initiatives", 
+        "Creating sustainable value through strategic decision-making",
+        "Leveraging technology and insights to solve industry challenges"
+      ];
+    }
   }
 
   private mergePublicData(profile: ProfileOutput, sources: any) {
