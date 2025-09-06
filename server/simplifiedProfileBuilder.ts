@@ -153,6 +153,20 @@ Rules:
 - Output EXACT JSON (array of sponsor_targets).
 `;
 
+// System connection summarizer for post-event follow-ups
+export const SYSTEM_CONNECTION_SUMMARY = `
+You are a post-event summarizer.
+Given raw interaction logs (sync_sessions, qr_scans, chat_snippets) create a clean follow-up pack:
+
+- people_met: [{member_id, summary_note(≤140 chars), suggested_followup(≤100 chars)}]
+- highlights: top 5 bullets (≤90 chars each)
+- next_steps: 3 bullets (≤80 chars each)
+
+Rules:
+- Be concrete and useful for Monday morning follow-ups.
+- Output EXACT JSON and nothing else.
+`;
+
 // User goals and missions generator based on complete profile
 export const USER_GOALS_MISSIONS = (profileJson: any) => `
 PROFILE_JSON:

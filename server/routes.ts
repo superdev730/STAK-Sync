@@ -1313,6 +1313,32 @@ Make this message stand out by being genuinely thoughtful and specific.`;
     }
   });
 
+  // Post-Event Connection Summary endpoint
+  app.post('/api/events/:eventId/connection-summary', isAuthenticated, async (req: any, res) => {
+    try {
+      console.log('📝 Generating post-event connection summary...');
+      
+      const userId = req.user.claims.sub;
+      const eventId = req.params.eventId;
+      const interactionLogs = req.body;
+      
+      // Initialize connection summarizer
+      const { ConnectionSummarizer } = await import('./connectionSummarizer');
+      const summarizer = new ConnectionSummarizer();
+      const summary = await summarizer.generateSummary(userId, eventId, interactionLogs);
+
+      console.log('✅ Post-event summary generated successfully');
+      res.json(summary);
+
+    } catch (error) {
+      console.error('❌ Post-event summary generation failed:', error);
+      res.status(500).json({ 
+        error: 'Failed to generate event summary', 
+        message: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
   // Complete AI Profile Building endpoint
   app.post("/api/profile/ai/build-complete", isAuthenticated, async (req: any, res) => {
     if (!req.user?.claims?.sub) {
