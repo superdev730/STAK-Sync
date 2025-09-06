@@ -187,58 +187,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Simple auth status endpoint for the new system
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      // Handle both Replit auth (has claims.sub) and general auth (has id)
-      const userId = req.user?.claims?.sub || req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ message: "No user ID found" });
-      }
-      
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      res.json(user);
+      // For now, return unauthorized until we implement login
+      res.status(401).json({ message: "Unauthorized" });
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      console.error("Error checking auth:", error);
+      res.status(500).json({ message: "Failed to check auth" });
     }
   });
 
-  // Profile routes
-  app.get('/api/profile', isAuthenticated, async (req: any, res) => {
+  // Profile routes - temporarily disabled until login is implemented
+  app.get('/api/profile', async (req: any, res) => {
     try {
-      // Handle both Replit auth and general auth
-      const userId = req.user?.claims?.sub || req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ message: "No user ID found" });
-      }
-      
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "Profile not found" });
-      }
-      res.json(user);
+      res.status(401).json({ message: "Unauthorized" });
     } catch (error) {
       console.error("Error fetching profile:", error);
       res.status(500).json({ message: "Failed to fetch profile" });
     }
   });
 
-  app.get('/api/profile/:userId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/profile/:userId', async (req: any, res) => {
     try {
-      const { userId } = req.params;
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "Profile not found" });
-      }
-      res.json(user);
+      res.status(401).json({ message: "Unauthorized" });
     } catch (error) {
-      console.error("Error fetching profile:", error);
-      res.status(500).json({ message: "Failed to fetch profile" });
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
     }
   });
 
