@@ -59,7 +59,30 @@ interface BuilderInput {
   };
 }
 
-// System field resolver for handling conflicting data
+// Enhanced user field resolver with structured input and specific field types
+export const USER_FIELD_RESOLVER = (payload: {
+  field: "current_role.title" | "current_role.company" | "headline" | "geo" | "bio" | "links" | "avatar_url",
+  candidates: Array<{value: string | null, source_url: string, source_type: "vendor" | "public_web" | "company_site" }>,
+  context?: any
+}) => `
+FIELD: ${payload.field}
+
+CANDIDATES:
+${JSON.stringify(payload.candidates, null, 2)}
+
+CONTEXT:
+${JSON.stringify(payload.context || {}, null, 2)}
+
+OUTPUT_SCHEMA:
+{
+  "value": null,
+  "confidence": 0,
+  "source_urls": [],
+  "explanation": ""
+}
+`;
+
+// System field resolver prompt 
 export const SYSTEM_FIELD_RESOLVER = `
 You are a profile field resolver. 
 Given multiple candidate values for a field, choose ONE best value with a 0–1 confidence and cite up to 3 supporting source_urls.
@@ -425,23 +448,24 @@ Hard rules:
   private mergePublicData(profile: ProfileOutput, sources: any) {
     console.log('🔄 Merging public data sources with conflict resolution...');
     
-    // Collect all candidate values for each field
+    // Collect all candidate values for each field with enhanced typing
     const fieldCandidates = {
-      name: [] as Array<{value: string, confidence: number, source_url: string, source_type: string}>,
-      bio: [] as Array<{value: string, confidence: number, source_url: string, source_type: string}>,
-      title: [] as Array<{value: string, confidence: number, source_url: string, source_type: string}>,
-      company: [] as Array<{value: string, confidence: number, source_url: string, source_type: string}>
+      name: [] as Array<{value: string, source_url: string, source_type: "vendor" | "public_web" | "company_site"}>,
+      bio: [] as Array<{value: string, source_url: string, source_type: "vendor" | "public_web" | "company_site"}>,
+      title: [] as Array<{value: string, source_url: string, source_type: "vendor" | "public_web" | "company_site"}>,
+      company: [] as Array<{value: string, source_url: string, source_type: "vendor" | "public_web" | "company_site"}>,
+      headline: [] as Array<{value: string, source_url: string, source_type: "vendor" | "public_web" | "company_site"}>,
+      geo: [] as Array<{value: string, source_url: string, source_type: "vendor" | "public_web" | "company_site"}>,
+      avatar_url: [] as Array<{value: string, source_url: string, source_type: "vendor" | "public_web" | "company_site"}>
     };
 
-    // Process social media data and collect candidates
+    // Process social media data and collect candidates with enhanced source typing
     sources.social.forEach((social: any) => {
-      const baseConfidence = this.calculateSocialConfidence(social);
-      const sourceType = this.getSourceType(social.source_url);
+      const sourceType = this.mapToResolverSourceType(social.source_url);
       
       if (social.displayName) {
         fieldCandidates.name.push({
           value: social.displayName,
-          confidence: baseConfidence,
           source_url: social.source_url,
           source_type: sourceType
         });
@@ -450,7 +474,6 @@ Hard rules:
       if (social.bio) {
         fieldCandidates.bio.push({
           value: social.bio,
-          confidence: baseConfidence,
           source_url: social.source_url,
           source_type: sourceType
         });
@@ -459,7 +482,6 @@ Hard rules:
       if (social.title) {
         fieldCandidates.title.push({
           value: social.title,
-          confidence: baseConfidence,
           source_url: social.source_url,
           source_type: sourceType
         });
@@ -468,7 +490,31 @@ Hard rules:
       if (social.company) {
         fieldCandidates.company.push({
           value: social.company,
-          confidence: baseConfidence,
+          source_url: social.source_url,
+          source_type: sourceType
+        });
+      }
+
+      // Additional fields for enhanced resolver
+      if (social.headline) {
+        fieldCandidates.headline.push({
+          value: social.headline,
+          source_url: social.source_url,
+          source_type: sourceType
+        });
+      }
+      
+      if (social.location) {
+        fieldCandidates.geo.push({
+          value: social.location,
+          source_url: social.source_url,
+          source_type: sourceType
+        });
+      }
+      
+      if (social.avatarUrl) {
+        fieldCandidates.avatar_url.push({
+          value: social.avatarUrl,
           source_url: social.source_url,
           source_type: sourceType
         });
@@ -513,7 +559,7 @@ Hard rules:
       const candidate = fieldCandidates.name[0];
       profile.person.name = {
         value: candidate.value,
-        confidence: candidate.confidence,
+        confidence: this.getConfidenceBySourceType(candidate.source_type),
         source_urls: [candidate.source_url]
       };
     }
@@ -528,7 +574,7 @@ Hard rules:
       const candidate = fieldCandidates.bio[0];
       profile.person.bio = {
         value: candidate.value,
-        confidence: candidate.confidence,
+        confidence: this.getConfidenceBySourceType(candidate.source_type),
         source_urls: [candidate.source_url]
       };
     }
@@ -543,7 +589,7 @@ Hard rules:
       const candidate = fieldCandidates.title[0];
       profile.person.current_role.title = {
         value: candidate.value,
-        confidence: candidate.confidence,
+        confidence: this.getConfidenceBySourceType(candidate.source_type),
         source_urls: [candidate.source_url]
       };
     }
@@ -558,35 +604,113 @@ Hard rules:
       const candidate = fieldCandidates.company[0];
       profile.person.current_role.company = {
         value: candidate.value,
-        confidence: candidate.confidence,
+        confidence: this.getConfidenceBySourceType(candidate.source_type),
+        source_urls: [candidate.source_url]
+      };
+    }
+
+    // Handle additional fields with enhanced resolver
+    await this.resolveAdditionalFields(profile, fieldCandidates);
+  }
+
+  /**
+   * Resolve additional fields (headline, geo, avatar_url) introduced in enhanced resolver
+   */
+  private async resolveAdditionalFields(profile: ProfileOutput, fieldCandidates: any) {
+    // Resolve headline conflicts
+    if (fieldCandidates.headline.length > 1) {
+      const resolved = await this.resolveFieldWithAI('headline', fieldCandidates.headline);
+      if (resolved) {
+        profile.person.headline = resolved;
+      }
+    } else if (fieldCandidates.headline.length === 1) {
+      const candidate = fieldCandidates.headline[0];
+      profile.person.headline = {
+        value: candidate.value,
+        confidence: this.getConfidenceBySourceType(candidate.source_type),
+        source_urls: [candidate.source_url]
+      };
+    }
+
+    // Resolve geo conflicts
+    if (fieldCandidates.geo.length > 1) {
+      const resolved = await this.resolveFieldWithAI('geo', fieldCandidates.geo);
+      if (resolved) {
+        profile.person.geo = resolved;
+      }
+    } else if (fieldCandidates.geo.length === 1) {
+      const candidate = fieldCandidates.geo[0];
+      profile.person.geo = {
+        value: candidate.value,
+        confidence: this.getConfidenceBySourceType(candidate.source_type),
+        source_urls: [candidate.source_url]
+      };
+    }
+
+    // Resolve avatar_url conflicts
+    if (fieldCandidates.avatar_url.length > 1) {
+      const resolved = await this.resolveFieldWithAI('avatar_url', fieldCandidates.avatar_url);
+      if (resolved) {
+        profile.person.avatar_url = resolved;
+      }
+    } else if (fieldCandidates.avatar_url.length === 1) {
+      const candidate = fieldCandidates.avatar_url[0];
+      profile.person.avatar_url = {
+        value: candidate.value,
+        confidence: this.getConfidenceBySourceType(candidate.source_type),
         source_urls: [candidate.source_url]
       };
     }
   }
 
   /**
-   * Use AI to resolve field conflicts intelligently
+   * Get confidence score based on source type
    */
-  private async resolveFieldWithAI(fieldName: string, candidates: any[]): Promise<ProfileDataPoint | null> {
+  private getConfidenceBySourceType(sourceType: "vendor" | "public_web" | "company_site"): number {
+    switch (sourceType) {
+      case 'vendor': return 0.9;
+      case 'company_site': return 0.8;
+      case 'public_web': return 0.6;
+      default: return 0.5;
+    }
+  }
+
+  /**
+   * Use enhanced AI field resolver with structured input
+   */
+  private async resolveFieldWithAI(
+    fieldName: "name" | "bio" | "title" | "company" | "headline" | "geo" | "avatar_url", 
+    candidates: any[], 
+    context?: any
+  ): Promise<ProfileDataPoint | null> {
     try {
-      const prompt = `Field: ${fieldName}
+      // Map field names to resolver field types
+      const fieldTypeMap = {
+        name: "headline", // Use headline for name resolution
+        bio: "bio",
+        title: "current_role.title",
+        company: "current_role.company", 
+        headline: "headline",
+        geo: "geo",
+        avatar_url: "avatar_url"
+      };
 
-Candidates:
-${JSON.stringify(candidates, null, 2)}
-
-Output schema:
-{
-  "value": "chosen value",
-  "confidence": 0.85,
-  "source_urls": ["url1", "url2"],
-  "explanation": "Brief rationale for choice"
-}`;
+      const resolverField = fieldTypeMap[fieldName] as any;
+      
+      const userPrompt = USER_FIELD_RESOLVER({
+        field: resolverField,
+        candidates: candidates,
+        context: context || {
+          field_name: fieldName,
+          resolution_timestamp: new Date().toISOString()
+        }
+      });
 
       const response = await this.openai.chat.completions.create({
         model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
         messages: [
           { role: "system", content: SYSTEM_FIELD_RESOLVER },
-          { role: "user", content: prompt }
+          { role: "user", content: userPrompt }
         ],
         response_format: { type: "json_object" },
         temperature: 0.2, // Low temperature for consistent resolution
@@ -605,18 +729,50 @@ Output schema:
 
     } catch (error) {
       console.error(`Failed to resolve ${fieldName} conflict:`, error);
-      // Fallback to highest confidence candidate
-      const best = candidates.sort((a, b) => b.confidence - a.confidence)[0];
+      // Enhanced fallback with source type preference
+      const sortedCandidates = candidates.sort((a, b) => {
+        const sourceRank = { vendor: 3, company_site: 2, public_web: 1 };
+        return (sourceRank[b.source_type] || 0) - (sourceRank[a.source_type] || 0);
+      });
+      
+      const best = sortedCandidates[0];
       return {
         value: best.value,
-        confidence: best.confidence,
+        confidence: best.source_type === 'vendor' ? 0.8 : best.source_type === 'company_site' ? 0.7 : 0.6,
         source_urls: [best.source_url]
       };
     }
   }
 
   /**
-   * Determine source type for confidence weighting
+   * Map URLs to resolver source types (vendor | public_web | company_site)
+   */
+  private mapToResolverSourceType(url: string): "vendor" | "public_web" | "company_site" {
+    const lower = url.toLowerCase();
+    
+    // Vendor APIs and verified sources
+    if (lower.includes('api.') || lower.includes('clearbit.') || lower.includes('peopledatalabs.') || 
+        lower.includes('fullcontact.') || lower.includes('linkedin.com/in/')) {
+      return 'vendor';
+    }
+    
+    // Company sites and official domains
+    if (lower.includes('.com') && !lower.includes('social') && !lower.includes('github') && 
+        !lower.includes('twitter') && !lower.includes('facebook')) {
+      // Try to detect if it's a company domain vs social platform
+      const domain = new URL(url).hostname;
+      const socialDomains = ['twitter.com', 'x.com', 'facebook.com', 'instagram.com', 'tiktok.com'];
+      if (!socialDomains.some(social => domain.includes(social))) {
+        return 'company_site';
+      }
+    }
+    
+    // Everything else is public web
+    return 'public_web';
+  }
+
+  /**
+   * Determine source type for confidence weighting (legacy method)
    */
   private getSourceType(url: string): string {
     const lower = url.toLowerCase();
