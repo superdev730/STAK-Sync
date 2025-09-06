@@ -126,6 +126,16 @@ Rules:
 - Output EXACT JSON (array of connection_targets).
 `;
 
+// System sponsor matcher for relevance-based sponsor recommendations  
+export const SYSTEM_SPONSOR_MATCHER = `
+You are a sponsor relevance engine.
+Given a profile and SPONSOR_INDEX (id, category tags, short value prop), recommend up to 3 sponsor_targets with reason + overlap_tags.
+
+Rules:
+- Optimize for likely usefulness (tooling fit, hiring, perks value).
+- Output EXACT JSON (array of sponsor_targets).
+`;
+
 // User goals and missions generator based on complete profile
 export const USER_GOALS_MISSIONS = (profileJson: any) => `
 PROFILE_JSON:
@@ -652,10 +662,10 @@ Rules:
   }
 
   /**
-   * Generate sponsor targets (similar to connection targets but for sponsors)
+   * Generate sponsor targets focused on relevance (tooling, hiring, perks)
    */
   private async generateSponsorTargets(profile: ProfileOutput, input: BuilderInput) {
-    console.log('💼 Generating sponsor targets...');
+    console.log('💼 Generating sponsor targets with relevance engine...');
     
     try {
       // Get potential sponsors from STAK database (mock for now)
@@ -666,27 +676,19 @@ Rules:
         return;
       }
 
-      const systemPrompt = `You are a sponsor matchmaker.
-Given the current member profile and POTENTIAL_SPONSORS (array of sponsor profiles), suggest up to 3 sponsor_targets.
-
-Each target must include:
-- sponsor_id  
-- reason (≤140 chars, why this sponsor would be interested)
-- overlap_tags (shared interests/industries)
-
-Rules:
-- Focus on mutual strategic value and alignment
-- Consider sponsor's investment thesis and member's needs
-- Output EXACT JSON (array of sponsor_targets).`;
+      const systemPrompt = SYSTEM_SPONSOR_MATCHER;
       
-      const userPrompt = `CURRENT_MEMBER_PROFILE:
+      const userPrompt = `MEMBER_PROFILE:
 ${JSON.stringify({
   person: profile.person,
-  goals: profile.stak_recos.goal_suggestions,
-  mission: profile.stak_recos.mission_pack
+  industries: profile.person.industries,
+  skills_keywords: profile.person.skills_keywords,
+  interests_topics: profile.person.interests_topics,
+  current_role: profile.person.current_role,
+  goals: profile.stak_recos.goal_suggestions
 }, null, 2)}
 
-POTENTIAL_SPONSORS:
+SPONSOR_INDEX:
 ${JSON.stringify(potentialSponsors, null, 2)}`;
 
       const response = await this.openai.chat.completions.create({
@@ -702,12 +704,20 @@ ${JSON.stringify(potentialSponsors, null, 2)}`;
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
       
-      if (result.sponsor_targets && Array.isArray(result.sponsor_targets)) {
-        profile.stak_recos.sponsor_targets = result.sponsor_targets;
-        console.log(`✅ Generated ${result.sponsor_targets.length} sponsor targets`);
-      } else if (result && Array.isArray(result)) {
-        profile.stak_recos.sponsor_targets = result;
+      if (Array.isArray(result)) {
+        // Handle direct array response
+        profile.stak_recos.sponsor_targets = result.slice(0, 3); // Limit to 3 as per spec
         console.log(`✅ Generated ${result.length} sponsor targets`);
+      } else if (result.sponsor_targets && Array.isArray(result.sponsor_targets)) {
+        profile.stak_recos.sponsor_targets = result.sponsor_targets.slice(0, 3);
+        console.log(`✅ Generated ${result.sponsor_targets.length} sponsor targets`);
+      } else {
+        console.warn('⚠️ AI sponsor matching returned unexpected format, trying to parse...');
+        const targets = result.targets || result.matches || result.sponsors || [];
+        if (Array.isArray(targets)) {
+          profile.stak_recos.sponsor_targets = targets.slice(0, 3);
+          console.log(`✅ Generated ${targets.length} sponsor targets (parsed)`);
+        }
       }
 
     } catch (error) {
@@ -826,47 +836,105 @@ ${JSON.stringify(potentialSponsors, null, 2)}`;
   }
 
   /**
-   * Get potential sponsors for matching
+   * Get potential sponsors for relevance-based matching
    * TODO: Replace with actual sponsor database query
    */
   private async getPotentialSponsorsForMatching(profile: ProfileOutput, input: BuilderInput) {
-    // Mock sponsors for demonstration
+    // Enhanced mock sponsors focused on tooling, hiring, and perks
     const mockSponsors = [
       {
         sponsor_id: "sponsor_001",
-        name: "Innovation Ventures",
-        type: "Venture Capital",
-        focus_areas: ["artificial intelligence", "healthcare", "fintech"],
-        investment_stage: ["Series A", "Series B"],
-        ticket_size: "$5M - $25M",
-        recent_investments: ["HealthAI Corp", "FinTech Solutions"],
-        interests: ["AI-driven healthcare", "regulatory compliance"]
+        name: "DevTools Pro",
+        category_tags: ["development_tools", "productivity", "cloud_infrastructure"],
+        short_value_prop: "Advanced development platform with AI-powered code analysis and deployment automation",
+        target_audience: ["engineers", "ctos", "developers"],
+        offerings: ["free_pro_accounts", "technical_workshops", "priority_support"]
       },
       {
         sponsor_id: "sponsor_002", 
-        name: "TechGrow Partners",
-        type: "Growth Equity",
-        focus_areas: ["enterprise software", "marketplace"],
-        investment_stage: ["Series B", "Series C"],
-        ticket_size: "$10M - $50M", 
-        recent_investments: ["B2B Platform Inc", "Marketplace Pro"],
-        interests: ["scalable business models", "enterprise adoption"]
+        name: "TalentBridge Recruiting",
+        category_tags: ["hiring", "recruitment", "talent_acquisition"],
+        short_value_prop: "Executive search and technical recruiting for high-growth startups",
+        target_audience: ["founders", "ceos", "hr_leaders"],
+        offerings: ["free_candidate_sourcing", "hiring_strategy_consultation", "network_introductions"]
+      },
+      {
+        sponsor_id: "sponsor_003",
+        name: "CloudScale Solutions", 
+        category_tags: ["cloud_infrastructure", "scalability", "enterprise_software"],
+        short_value_prop: "Scalable cloud infrastructure with automatic optimization for growing companies",
+        target_audience: ["ctos", "engineers", "operations"],
+        offerings: ["startup_credits", "architecture_review", "24_7_support"]
+      },
+      {
+        sponsor_id: "sponsor_004",
+        name: "Executive Wellness Co",
+        category_tags: ["wellness", "executive_benefits", "work_life_balance"],
+        short_value_prop: "Premium wellness and mental health services designed for busy executives",
+        target_audience: ["executives", "founders", "senior_leaders"],
+        offerings: ["complimentary_sessions", "team_wellness_programs", "executive_coaching"]
+      },
+      {
+        sponsor_id: "sponsor_005",
+        name: "Legal Partners Group",
+        category_tags: ["legal_services", "startup_law", "compliance"],
+        short_value_prop: "Specialized legal services for startups, from incorporation to Series A and beyond",
+        target_audience: ["founders", "ceos", "legal_teams"],
+        offerings: ["free_startup_consultation", "discounted_incorporation", "regulatory_guidance"]
+      },
+      {
+        sponsor_id: "sponsor_006",
+        name: "DataSecure Analytics",
+        category_tags: ["data_analytics", "security", "business_intelligence"],
+        short_value_prop: "Enterprise-grade data analytics with built-in security and compliance features",
+        target_audience: ["data_scientists", "analysts", "security_teams"],
+        offerings: ["free_security_audit", "analytics_training", "custom_dashboard_setup"]
       }
     ];
 
-    // Filter sponsors based on profile relevance
-    const relevantSponsors = mockSponsors.filter(sponsor => {
-      const hasIndustryAlignment = sponsor.focus_areas.some(area =>
-        profile.person.industries.some(industry => 
-          area.toLowerCase().includes(industry.toLowerCase()) ||
-          industry.toLowerCase().includes(area.toLowerCase())
-        )
-      );
+    // Enhanced relevance filtering based on role, skills, and interests
+    const scoredSponsors = mockSponsors.map(sponsor => {
+      let relevanceScore = 0;
       
-      return hasIndustryAlignment;
+      // Role-based relevance
+      const userRole = profile.person.current_role.title.value?.toLowerCase() || '';
+      const roleMatches = sponsor.target_audience.filter(audience =>
+        userRole.includes(audience.replace('_', ' ')) || 
+        audience.replace('_', ' ').includes(userRole)
+      ).length;
+      relevanceScore += roleMatches * 3;
+      
+      // Skills-based relevance
+      const skillMatches = sponsor.category_tags.filter(tag =>
+        profile.person.skills_keywords.some(skill =>
+          skill.toLowerCase().includes(tag.replace('_', ' ')) ||
+          tag.replace('_', ' ').includes(skill.toLowerCase())
+        )
+      ).length;
+      relevanceScore += skillMatches * 2;
+      
+      // Industry/interest relevance
+      const interestMatches = sponsor.category_tags.filter(tag =>
+        profile.person.interests_topics.some(interest =>
+          interest.toLowerCase().includes(tag.replace('_', ' ')) ||
+          tag.replace('_', ' ').includes(interest.toLowerCase())
+        ) ||
+        profile.person.industries.some(industry =>
+          industry.toLowerCase().includes(tag.replace('_', ' ')) ||
+          tag.replace('_', ' ').includes(industry.toLowerCase())
+        )
+      ).length;
+      relevanceScore += interestMatches * 1;
+      
+      return { ...sponsor, relevance_score: relevanceScore };
     });
 
-    return relevantSponsors;
+    // Sort by relevance and return top sponsors
+    const sortedSponsors = scoredSponsors
+      .filter(sponsor => sponsor.relevance_score > 0 || mockSponsors.length <= 4) // Keep some even with low scores if limited options
+      .sort((a, b) => b.relevance_score - a.relevance_score);
+
+    return sortedSponsors.slice(0, 6); // Return top 6 sponsors for matching
   }
 
   private mergePublicData(profile: ProfileOutput, sources: any) {
