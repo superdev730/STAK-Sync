@@ -17,16 +17,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Schema for signup form
 const signupSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  firstName: z.string().min(1, "Please enter your first name"),
+  lastName: z.string().min(1, "Please enter your last name"),
+  email: z.string()
+    .min(1, "Please enter your email address")
+    .email("Please enter a valid email address (like name@example.com)"),
+  password: z.string().min(8, "Password must be at least 8 characters long"),
 });
 
 // Schema for login form
 const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
+  email: z.string()
+    .min(1, "Please enter your email address")
+    .email("Please enter a valid email address (like name@example.com)"),
+  password: z.string().min(1, "Please enter your password"),
 });
 
 type SignupForm = z.infer<typeof signupSchema>;
@@ -84,7 +88,23 @@ export default function SignupLogin() {
     },
     onError: (error: any) => {
       console.error('Signup error details:', error);
-      const errorMessage = error.message || "Failed to create account";
+      let errorMessage = "Failed to create account. Please try again.";
+      
+      // Handle structured error responses from server
+      if (error.suggestion) {
+        errorMessage = `${error.message || error.error}. ${error.suggestion}`;
+      } else if (error.message) {
+        if (error.message.includes("already exists")) {
+          errorMessage = "An account with this email already exists. Please try signing in instead, or use the 'Forgot Password' option if you can't remember your password.";
+        } else if (error.message.includes("invalid email") || error.message.includes("email address")) {
+          errorMessage = "Please enter a valid email address (like name@example.com)";
+        } else if (error.message.includes("password")) {
+          errorMessage = "Password must be at least 8 characters long";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       setAuthError(errorMessage);
       toast({
         title: "Signup failed",
@@ -113,7 +133,10 @@ export default function SignupLogin() {
       console.error('Login error details:', error);
       let errorMessage = "Invalid email or password";
       
-      if (error.message) {
+      // Handle structured error responses from server
+      if (error.suggestion) {
+        errorMessage = `${error.message || error.error}. ${error.suggestion}`;
+      } else if (error.message) {
         if (error.message.includes('Email and password are required')) {
           errorMessage = "Please fill in both email and password fields";
         } else if (error.message.includes('Invalid email or password')) {

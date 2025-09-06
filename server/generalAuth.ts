@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { storage } from './storage';
 import { sendWelcomeEmail } from './welcomeEmailService';
+import { getSession } from './replitAuth';
+import passport from 'passport';
 import type { Express } from 'express';
 
 export interface SignupData {
@@ -34,6 +36,20 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
  * Register general authentication routes
  */
 export function setupGeneralAuth(app: Express) {
+  // Set up sessions and passport for general auth
+  app.set("trust proxy", 1);
+  app.use(getSession());
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  // Simple user serialization for general auth
+  passport.serializeUser((user: any, done) => {
+    done(null, user);
+  });
+  
+  passport.deserializeUser((user: any, done) => {
+    done(null, user);
+  });
   
   // General signup endpoint
   app.post('/api/auth/signup', async (req, res) => {
@@ -43,13 +59,13 @@ export function setupGeneralAuth(app: Express) {
       // Validate input
       if (!email || !password || !firstName || !lastName) {
         return res.status(400).json({ 
-          error: 'All fields are required: email, password, firstName, lastName' 
+          error: 'Please fill in all required fields: first name, last name, email, and password' 
         });
       }
       
       if (password.length < 8) {
         return res.status(400).json({ 
-          error: 'Password must be at least 8 characters long' 
+          error: 'Password must be at least 8 characters long. Please choose a stronger password.' 
         });
       }
       
@@ -57,7 +73,9 @@ export function setupGeneralAuth(app: Express) {
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
         return res.status(409).json({ 
-          error: 'User with this email already exists' 
+          error: 'An account with this email already exists',
+          suggestion: 'Please try signing in instead. If you forgot your password, you can reset it on the login page.',
+          action: 'login'
         });
       }
       
@@ -102,7 +120,9 @@ export function setupGeneralAuth(app: Express) {
       
     } catch (error) {
       console.error('Signup error:', error);
-      res.status(500).json({ error: 'Failed to create account' });
+      res.status(500).json({ 
+        error: 'We had trouble creating your account. Please check your information and try again. If the problem continues, please contact support.' 
+      });
     }
   });
   
@@ -126,7 +146,7 @@ export function setupGeneralAuth(app: Express) {
       if (!emailRegex.test(email)) {
         console.log('Invalid email format:', email);
         return res.status(400).json({ 
-          error: 'Please enter a valid email address' 
+          error: 'Please enter a valid email address (like name@example.com)' 
         });
       }
       
@@ -136,7 +156,9 @@ export function setupGeneralAuth(app: Express) {
       
       if (!user) {
         return res.status(401).json({ 
-          error: 'No account found with this email address. Please check your email or create a new account.' 
+          error: 'No account found with this email address',
+          suggestion: 'Please check your email address, or create a new account if you don\'t have one yet.',
+          action: 'signup'
         });
       }
       
@@ -152,7 +174,9 @@ export function setupGeneralAuth(app: Express) {
       
       if (!isPasswordValid) {
         return res.status(401).json({ 
-          error: 'Incorrect password. Please check your password and try again.' 
+          error: 'Incorrect password',
+          suggestion: 'Please check your password and try again. If you forgot your password, you can reset it.',
+          action: 'forgot_password'
         });
       }
       

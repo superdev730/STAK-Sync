@@ -10,9 +10,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, Mail, AlertCircle, Loader2 } from "lucide-react";
 
 const signupSchema = z.object({
-  firstName: z.string().min(1, "First name is required").max(50, "First name too long"),
-  lastName: z.string().min(1, "Last name is required").max(50, "Last name too long"),
-  email: z.string().email("Please enter a valid email address").toLowerCase(),
+  firstName: z.string().min(1, "Please enter your first name").max(50, "First name must be less than 50 characters"),
+  lastName: z.string().min(1, "Please enter your last name").max(50, "Last name must be less than 50 characters"),
+  email: z.string()
+    .min(1, "Please enter your email address")
+    .email("Please enter a valid email address (like name@example.com)")
+    .toLowerCase(),
 });
 
 type SignupForm = z.infer<typeof signupSchema>;
@@ -49,7 +52,20 @@ export default function SignupPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to create account");
+        // Handle structured error responses with suggestions
+        let errorMessage = result.error || "Failed to create account";
+        
+        if (result.suggestion) {
+          errorMessage = `${result.error}. ${result.suggestion}`;
+        } else if (result.error && result.error.includes("already exists")) {
+          errorMessage = "An account with this email already exists. Would you like to sign in instead?";
+        } else if (result.error && result.error.includes("invalid email")) {
+          errorMessage = "Please enter a valid email address (like name@example.com)";
+        } else if (result.error && result.error.includes("required")) {
+          errorMessage = "Please fill in all required fields";
+        }
+        
+        throw new Error(errorMessage);
       }
 
       setUserEmail(data.email);
@@ -57,7 +73,17 @@ export default function SignupPage() {
       
     } catch (err) {
       console.error("Signup error:", err);
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      let errorMessage = "Something went wrong. Please try again.";
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Handle common error cases
+        if (errorMessage.includes("already exists")) {
+          errorMessage += " Please try signing in instead, or use a different email address.";
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

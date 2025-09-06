@@ -48,7 +48,7 @@ export function setupCleanAuth(app: Express) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         return res.status(400).json({ 
-          error: 'Please enter a valid email address' 
+          error: 'Please enter a valid email address (like name@example.com)' 
         });
       }
       
@@ -78,7 +78,9 @@ export function setupCleanAuth(app: Express) {
         }
         
         return res.status(409).json({ 
-          error: 'An account with this email already exists. Please sign in instead.' 
+          error: 'An account with this email already exists',
+          suggestion: 'Please try signing in instead. If you forgot your password, you can reset it on the login page.',
+          action: 'login'
         });
       }
       
@@ -122,7 +124,9 @@ export function setupCleanAuth(app: Express) {
       
     } catch (error) {
       console.error('❌ Signup error:', error);
-      res.status(500).json({ error: 'Failed to create account. Please try again.' });
+      res.status(500).json({ 
+        error: 'We had trouble creating your account. Please check your information and try again. If the problem continues, please contact support.' 
+      });
     }
   });
   
