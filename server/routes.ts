@@ -90,6 +90,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Logout route that works for both auth types
+  app.get('/api/logout', (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ error: 'Failed to logout' });
+      }
+
+      // Destroy the session
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+        }
+
+        // Clear the session cookie
+        res.clearCookie('connect.sid');
+
+        // Redirect to the frontend login/landing page instead of Replit
+        res.redirect('/');
+      });
+    });
+  });
+
   // Simple logo route
   app.get('/api/logo', (req, res) => {
     // Return a simple SVG of the STAK logo
