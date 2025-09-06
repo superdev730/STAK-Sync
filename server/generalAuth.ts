@@ -131,8 +131,8 @@ export function setupGeneralAuth(app: Express) {
     } catch (error) {
       console.error('🔍 BACKEND DEBUG: Signup error details:', error);
       console.error('🔍 BACKEND DEBUG: Error type:', typeof error);
-      console.error('🔍 BACKEND DEBUG: Error message:', error?.message);
-      console.error('🔍 BACKEND DEBUG: Error stack:', error?.stack);
+      console.error('🔍 BACKEND DEBUG: Error message:', (error as Error)?.message);
+      console.error('🔍 BACKEND DEBUG: Error stack:', (error as Error)?.stack);
       
       res.status(500).json({ 
         error: 'We had trouble creating your account. Please check your information and try again. If the problem continues, please contact support.' 
@@ -220,6 +220,21 @@ export function setupGeneralAuth(app: Express) {
     }
   });
 }
+
+/**
+ * Helper function to get user ID from different auth types
+ */
+export const getUserId = (req: any): string | null => {
+  if (!req.user) return null;
+  
+  // For general auth, user ID is at req.user.id
+  if (req.user.authType === 'general') {
+    return req.user.id;
+  }
+  
+  // For Replit auth, user ID is at req.user.claims.sub
+  return req.user.claims?.sub || null;
+};
 
 /**
  * Enhanced authentication middleware that supports both Replit and general auth

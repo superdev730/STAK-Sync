@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupGeneralAuth, isAuthenticatedGeneral } from "./generalAuth";
+import { setupGeneralAuth, isAuthenticatedGeneral, getUserId } from "./generalAuth";
 import { AdminSetupService } from "./adminSetup";
 import OpenAI from "openai";
 import { 
@@ -47,7 +47,7 @@ import { TaxService, TaxableItem } from "./taxService";
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
   try {
-    const userId = req.user?.claims?.sub;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -67,6 +67,28 @@ const isAdmin = async (req: any, res: any, next: any) => {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - use general auth with session support
   setupGeneralAuth(app);
+
+  // Auth routes that work with both auth types
+  app.get('/api/auth/user', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Return user data (without password)
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      res.status(500).json({ message: 'Failed to fetch user data' });
+    }
+  });
 
   // Simple logo route
   app.get('/api/logo', (req, res) => {
@@ -1105,7 +1127,11 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // Matches routes
   app.get('/api/matches', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        console.log('No user ID found in request');
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
       const matches = await storage.getMatches(userId);
       res.json(matches);
     } catch (error) {
@@ -1132,9 +1158,9 @@ Make this message stand out by being genuinely thoughtful and specific.`;
     console.log('Request body:', req.body);
     
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
-        console.log('No user ID found in claims');
+        console.log('No user ID found in request');
         return res.status(401).json({ message: "User not authenticated" });
       }
 
