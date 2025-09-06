@@ -16,6 +16,7 @@ const signupSchema = z.object({
     .min(1, "Please enter your email address")
     .email("Please enter a valid email address (like name@example.com)")
     .toLowerCase(),
+  password: z.string().min(8, "Password must be at least 8 characters long"),
 });
 
 type SignupForm = z.infer<typeof signupSchema>;
@@ -32,6 +33,7 @@ export default function SignupPage() {
       firstName: "",
       lastName: "",
       email: "",
+      password: "",
     },
     mode: "onChange", // Enable real-time validation
   });
@@ -50,11 +52,11 @@ export default function SignupPage() {
       email: data.email, 
       firstName: data.firstName, 
       lastName: data.lastName,
-      endpoint: "/api/signup"
+      endpoint: "/api/auth/signup"
     });
 
     try {
-      const response = await fetch("/api/signup", {
+      const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -279,6 +281,26 @@ export default function SignupPage() {
                           placeholder="john@example.com" 
                           {...field} 
                           data-testid="input-email"
+                          disabled={isSubmitting}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password"
+                          placeholder="At least 8 characters" 
+                          {...field} 
+                          data-testid="input-password"
                           disabled={isSubmitting}
                         />
                       </FormControl>
