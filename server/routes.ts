@@ -7232,5 +7232,74 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
     }
   });
 
+  // AI Conversation endpoint for profile building
+  app.post('/api/ai/conversation', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { message, conversationHistory, step, extractedData } = req.body;
+
+      // Import OpenAI
+      const { default: OpenAI } = await import('openai');
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY!,
+      });
+
+      // Build conversation context
+      const systemPrompt = `You are STAK Sync's AI networking assistant. Your job is to quickly build a profile of a new member by having a natural, short conversation.
+
+Rules:
+- Ask only 3-5 critical questions that yield the most useful profile information
+- Questions must be specific, goal-oriented, and fact-based
+- Collect: role, current projects, industries of interest, event goals, networking goals, 1 fun/personal detail
+- Keep it light and conversational, like a smart assistant helping them prepare
+- Always confirm what you understood back to the member before saving
+- Progress through the conversation naturally, asking one question at a time
+
+Current step: ${step}
+Extracted data so far: ${JSON.stringify(extractedData)}
+
+After getting all information, provide a confirmation summary and ask for approval.
+When the user confirms, respond with isComplete: true and provide finalData.`;
+
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        ...conversationHistory.map((msg: any) => ({
+          role: msg.role,
+          content: msg.content
+        })),
+        { role: 'user', content: message }
+      ];
+
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages,
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+        max_tokens: 500
+      });
+
+      const aiResponse = JSON.parse(response.choices[0].message.content || '{}');
+
+      // Structure the response
+      const result = {
+        response: aiResponse.response || aiResponse.message || "I'm here to help you build your profile!",
+        step: aiResponse.step !== undefined ? aiResponse.step : step + 1,
+        extractedData: aiResponse.extractedData || {},
+        isComplete: aiResponse.isComplete || false,
+        finalData: aiResponse.finalData || null
+      };
+
+      res.json(result);
+    } catch (error) {
+      console.error('AI conversation error:', error);
+      res.status(500).json({ error: 'Failed to process conversation' });
+    }
+  });
+
   return httpServer;
 }

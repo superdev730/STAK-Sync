@@ -29,7 +29,11 @@ import {
   TrendingUp,
   Database,
   FileText,
-  Clock
+  Clock,
+  MessageCircle,
+  Send,
+  Bot,
+  User as UserIcon
 } from "lucide-react";
 import type { User } from "@shared/schema";
 
@@ -71,6 +75,21 @@ interface ProfileEnrichmentRun {
   errorMessage?: string;
 }
 
+interface ConversationMessage {
+  role: 'assistant' | 'user';
+  content: string;
+  timestamp: Date;
+}
+
+interface ConversationalData {
+  role?: string;
+  currentProjects?: string;
+  industriesOfInterest?: string[];
+  eventGoals?: string;
+  networkingGoals?: string;
+  personalDetail?: string;
+}
+
 interface ConsolidatedAIProfileBuilderProps {
   isOpen: boolean;
   onClose: () => void;
@@ -109,7 +128,7 @@ export default function ConsolidatedAIProfileBuilder({
     onSuccess: () => {
       toast({
         title: "Fact refresh started",
-        description: "We're analyzing your sources for new facts. This may take a few minutes.",
+        description: "We're analyzing your sources for new facts. This may takes a few minutes.",
       });
       refetchFacts();
       queryClient.invalidateQueries({ queryKey: ['/api/profile/enrichment-runs'] });
@@ -118,6 +137,54 @@ export default function ConsolidatedAIProfileBuilder({
       toast({
         title: "Refresh failed",
         description: error.message || "Failed to start fact refresh",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Conversational AI mutation
+  const conversationMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const response = await apiRequest('/api/ai/conversation', {
+        method: 'POST',
+        body: JSON.stringify({
+          message,
+          conversationHistory: conversationMessages,
+          step: conversationStep,
+          extractedData: conversationalData
+        }),
+      });
+      return response;
+    },
+    onSuccess: (data: any) => {
+      // Add AI response to conversation
+      setConversationMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date()
+      }]);
+      
+      // Update extracted data if provided
+      if (data.extractedData) {
+        setConversationalData(prev => ({ ...prev, ...data.extractedData }));
+      }
+      
+      // Update conversation step
+      if (data.step !== undefined) {
+        setConversationStep(data.step);
+      }
+      
+      // Check if conversation is complete
+      if (data.isComplete) {
+        setIsConversationComplete(true);
+        // Auto-apply conversational data to profile
+        applyConversationalDataToProfile(data.finalData || conversationalData);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Conversation error",
+        description: error.message || "Failed to process conversation",
         variant: "destructive",
       });
     },
@@ -131,7 +198,7 @@ export default function ConsolidatedAIProfileBuilder({
     return field || '';
   };
   
-  const [activeTab, setActiveTab] = useState<'sources' | 'facts' | 'preview' | 'edit'>('sources');
+  const [activeTab, setActiveTab] = useState<'sources' | 'facts' | 'interview' | 'preview' | 'edit'>('sources');
   const [socialSources, setSocialSources] = useState<SocialSource[]>([]);
   const [newSocialUrl, setNewSocialUrl] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
@@ -146,6 +213,13 @@ export default function ConsolidatedAIProfileBuilder({
     portfolio?: string;
     other?: string;
   }>({});
+  
+  // Conversational AI state
+  const [conversationMessages, setConversationMessages] = useState<ConversationMessage[]>([]);
+  const [currentUserMessage, setCurrentUserMessage] = useState('');
+  const [conversationalData, setConversationalData] = useState<ConversationalData>({});
+  const [conversationStep, setConversationStep] = useState(0);
+  const [isConversationComplete, setIsConversationComplete] = useState(false);
   
   // Check for LinkedIn connection success
   useEffect(() => {
@@ -311,6 +385,68 @@ export default function ConsolidatedAIProfileBuilder({
     setSocialSources(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Initialize conversation
+  const initializeConversation = () => {
+    setConversationMessages([{
+      role: 'assistant',
+      content: `Hi! I'm STAK Sync's AI networking assistant. I'll help you build an amazing profile with just a few quick questions. This will only take 2-3 minutes and will help other members connect with you more effectively.
+
+Ready to get started?`,
+      timestamp: new Date()
+    }]);
+    setConversationStep(0);
+    setConversationalData({});
+    setIsConversationComplete(false);
+  };
+
+  // Handle sending user message
+  const sendMessage = () => {
+    if (!currentUserMessage.trim()) return;
+    
+    // Add user message to conversation
+    const userMessage: ConversationMessage = {
+      role: 'user',
+      content: currentUserMessage,
+      timestamp: new Date()
+    };
+    
+    setConversationMessages(prev => [...prev, userMessage]);
+    
+    // Send to AI
+    conversationMutation.mutate(currentUserMessage);
+    
+    // Clear input
+    setCurrentUserMessage('');
+  };
+
+  // Apply conversational data to profile
+  const applyConversationalDataToProfile = (data: ConversationalData) => {
+    const updates: Partial<User> = {};
+    
+    if (data.role) updates.title = data.role;
+    if (data.currentProjects) updates.bio = `${updates.bio || ''} Currently working on: ${data.currentProjects}.`.trim();
+    if (data.industriesOfInterest) updates.industries = data.industriesOfInterest;
+    if (data.networkingGoals) updates.networkingGoal = data.networkingGoals;
+    if (data.eventGoals && data.personalDetail) {
+      updates.bio = `${updates.bio || ''} ${data.personalDetail}`.trim();
+    }
+    
+    setGeneratedProfile(prev => ({ ...prev, ...updates }));
+    setEditingProfile(prev => ({ ...prev, ...updates }));
+    
+    toast({
+      title: "Profile enhanced!",
+      description: "Your conversational data has been integrated into your profile.",
+    });
+  };
+
+  // Initialize conversation when tab is opened
+  useEffect(() => {
+    if (activeTab === 'interview' && conversationMessages.length === 0) {
+      initializeConversation();
+    }
+  }, [activeTab]);
+
   const processManualSources = () => {
     const sourcesToAdd: SocialSource[] = [];
     
@@ -395,9 +531,10 @@ export default function ConsolidatedAIProfileBuilder({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="sources">Add Sources</TabsTrigger>
             <TabsTrigger value="facts">Facts</TabsTrigger>
+            <TabsTrigger value="interview">AI Interview</TabsTrigger>
             <TabsTrigger value="preview" disabled={!generatedProfile.bio}>Preview & Edit</TabsTrigger>
             <TabsTrigger value="edit" disabled={!generatedProfile.bio}>Manual Edit</TabsTrigger>
           </TabsList>
@@ -841,6 +978,196 @@ export default function ConsolidatedAIProfileBuilder({
                     </Button>
                   </CardContent>
                 </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* AI Interview Tab - Conversational profile enhancement */}
+          <TabsContent value="interview" className="mt-6 space-y-6">
+            <div className="space-y-6">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2 flex items-center justify-center gap-2">
+                  <MessageCircle className="h-5 w-5 text-stak-copper" />
+                  AI Interview
+                </h3>
+                <p className="text-gray-600">Quick conversation to enhance your profile with additional details.</p>
+              </div>
+
+              <Card className="max-h-96 flex flex-col">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-stak-copper" />
+                    Conversation
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-hidden">
+                  {/* Messages Container */}
+                  <div className="h-64 overflow-y-auto space-y-3 mb-4 pr-2">
+                    {conversationMessages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`flex gap-3 ${
+                          message.role === 'user' ? 'justify-end' : 'justify-start'
+                        }`}
+                      >
+                        <div
+                          className={`max-w-[80%] p-3 rounded-lg ${
+                            message.role === 'user'
+                              ? 'bg-stak-copper text-white ml-auto'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {message.role === 'assistant' && (
+                              <Bot className="h-4 w-4 text-stak-copper mt-0.5 flex-shrink-0" />
+                            )}
+                            {message.role === 'user' && (
+                              <UserIcon className="h-4 w-4 text-white mt-0.5 flex-shrink-0 order-2" />
+                            )}
+                            <div className={message.role === 'user' ? 'order-1' : ''}>
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                {message.content}
+                              </p>
+                              <div 
+                                className={`text-xs mt-1 opacity-70 ${
+                                  message.role === 'user' ? 'text-white' : 'text-gray-500'
+                                }`}
+                              >
+                                {message.timestamp.toLocaleTimeString()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {conversationMutation.isPending && (
+                      <div className="flex justify-start">
+                        <div className="bg-gray-100 p-3 rounded-lg flex items-center gap-2">
+                          <Bot className="h-4 w-4 text-stak-copper" />
+                          <Loader2 className="h-4 w-4 animate-spin text-stak-copper" />
+                          <span className="text-sm text-gray-600">AI is thinking...</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Message Input */}
+                  {!isConversationComplete && (
+                    <div className="flex gap-2">
+                      <Input
+                        value={currentUserMessage}
+                        onChange={(e) => setCurrentUserMessage(e.target.value)}
+                        placeholder="Type your response..."
+                        className="flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                          }
+                        }}
+                        disabled={conversationMutation.isPending}
+                        data-testid="input-conversation-message"
+                      />
+                      <Button
+                        onClick={sendMessage}
+                        disabled={!currentUserMessage.trim() || conversationMutation.isPending}
+                        size="sm"
+                        className="bg-stak-copper hover:bg-stak-copper/90"
+                        data-testid="button-send-message"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Conversation Complete State */}
+                  {isConversationComplete && (
+                    <div className="bg-green-50 p-4 rounded-lg text-center">
+                      <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
+                      <p className="text-sm text-green-800 font-medium">Interview Complete!</p>
+                      <p className="text-xs text-green-600 mt-1">
+                        Your responses have been integrated into your profile. Check the Preview tab to see the results.
+                      </p>
+                      <Button
+                        onClick={() => setActiveTab('preview')}
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                      >
+                        View Enhanced Profile
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Extracted Data Preview */}
+              {(conversationalData.role || conversationalData.currentProjects || conversationalData.networkingGoals) && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Database className="h-4 w-4" />
+                      Information Captured
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {conversationalData.role && (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">Role</Badge>
+                        <span className="text-sm text-gray-700">{conversationalData.role}</span>
+                      </div>
+                    )}
+                    {conversationalData.currentProjects && (
+                      <div className="flex items-start gap-2">
+                        <Badge variant="outline" className="text-xs mt-1">Projects</Badge>
+                        <span className="text-sm text-gray-700">{conversationalData.currentProjects}</span>
+                      </div>
+                    )}
+                    {conversationalData.industriesOfInterest && conversationalData.industriesOfInterest.length > 0 && (
+                      <div className="flex items-start gap-2">
+                        <Badge variant="outline" className="text-xs mt-1">Industries</Badge>
+                        <div className="flex flex-wrap gap-1">
+                          {conversationalData.industriesOfInterest.map((industry, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs">
+                              {industry}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {conversationalData.networkingGoals && (
+                      <div className="flex items-start gap-2">
+                        <Badge variant="outline" className="text-xs mt-1">Networking Goals</Badge>
+                        <span className="text-sm text-gray-700">{conversationalData.networkingGoals}</span>
+                      </div>
+                    )}
+                    {conversationalData.personalDetail && (
+                      <div className="flex items-start gap-2">
+                        <Badge variant="outline" className="text-xs mt-1">Personal</Badge>
+                        <span className="text-sm text-gray-700">{conversationalData.personalDetail}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Restart Conversation Button */}
+              {isConversationComplete && (
+                <div className="flex justify-center">
+                  <Button
+                    onClick={() => {
+                      initializeConversation();
+                      setActiveTab('interview');
+                    }}
+                    variant="outline"
+                    size="sm"
+                    data-testid="button-restart-conversation"
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Start New Interview
+                  </Button>
+                </div>
               )}
             </div>
           </TabsContent>
