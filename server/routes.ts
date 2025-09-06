@@ -89,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Seed sample users (authenticated)
-  app.post('/api/seed-users', isAuthenticatedGeneralGeneral, async (req, res) => {
+  app.post('/api/seed-users', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { seedSampleUsers } = await import('./seedData');
       const success = await seedSampleUsers();
@@ -117,7 +117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Event image upload route
-  app.post("/api/events/upload-image", isAuthenticatedGeneralGeneral, async (req, res) => {
+  app.post("/api/events/upload-image", isAuthenticatedGeneral, async (req, res) => {
     try {
       const objectStorageService = new ObjectStorageService();
       const uploadURL = await objectStorageService.getEventImageUploadURL();
