@@ -3,22 +3,47 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     try {
-      // Clone the response to avoid "body stream already read" error
-      const responseClone = res.clone();
       const errorData = await res.json();
-      if (errorData.message || errorData.error) {
-        throw new Error(errorData.message || errorData.error);
+      console.log('Server error response:', errorData);
+      
+      // Extract the most helpful error message
+      const errorMessage = errorData.error || errorData.message || errorData.details;
+      if (errorMessage) {
+        throw new Error(errorMessage);
       }
+      
+      // Fallback to status-specific messages
+      if (res.status === 401) {
+        throw new Error('Authentication failed. Please check your credentials.');
+      } else if (res.status === 400) {
+        throw new Error('Invalid request. Please check your input.');
+      } else if (res.status === 500) {
+        throw new Error('Server error. Please try again later.');
+      }
+      
       throw new Error(`Request failed with status ${res.status}`);
     } catch (jsonError) {
-      // Use the cloned response for text fallback
+      // If JSON parsing fails, try to get text response
       try {
-        const responseClone = res.clone();
-        const text = await responseClone.text() || res.statusText;
-        throw new Error(text);
+        const text = await res.text();
+        if (text && text.trim()) {
+          throw new Error(text);
+        }
       } catch (textError) {
-        throw new Error(`Request failed with status ${res.status}: ${res.statusText}`);
+        // Ultimate fallback
+        console.error('Error parsing response:', jsonError);
       }
+      
+      // Status-specific fallbacks when we can't parse the response
+      if (res.status === 401) {
+        throw new Error('Authentication failed. Please check your email and password.');
+      } else if (res.status === 400) {
+        throw new Error('Invalid request. Please check your input and try again.');
+      } else if (res.status === 500) {
+        throw new Error('Server error. Please try again in a moment.');
+      }
+      
+      throw new Error(`Request failed with status ${res.status}: ${res.statusText}`);
     }
   }
 }

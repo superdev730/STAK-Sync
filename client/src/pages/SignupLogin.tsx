@@ -378,21 +378,38 @@ export default function SignupLogin() {
             </div>
 
             {/* Quick Test User Access */}
-            <div className="text-center">
+            <div className="text-center space-y-2">
               <p className="text-xs text-gray-500 mb-2">Quick test access:</p>
-              <Button
-                data-testid="button-test-login"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  loginForm.setValue("email", "test@example.com");
-                  loginForm.setValue("password", "test123");
-                  loginForm.handleSubmit(onLogin)();
-                }}
-                disabled={loginMutation.isPending}
-              >
-                Login as Test User
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  data-testid="button-test-login"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    loginForm.setValue("email", "test@example.com");
+                    loginForm.setValue("password", "test123");
+                    loginForm.handleSubmit(onLogin)();
+                  }}
+                  disabled={loginMutation.isPending}
+                  className="w-full"
+                >
+                  Login as Test User
+                </Button>
+                <Button
+                  data-testid="button-colin-login"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    loginForm.setValue("email", "colinbehring@gmail.com");
+                    loginForm.setValue("password", "staktest123");
+                    loginForm.handleSubmit(onLogin)();
+                  }}
+                  disabled={loginMutation.isPending}
+                  className="w-full"
+                >
+                  Login as Colin (STAK Founder)
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
