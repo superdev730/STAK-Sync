@@ -651,19 +651,13 @@ export default function Profile() {
                 {isOwnProfile ? (
                   <div className="space-y-2">
                     <Textarea
-                      value={editingBio ?? (profile?.bio || '')}
-                      onChange={(e) => setEditingBio(e.target.value)}
-                      onBlur={() => {
-                        if (editingBio !== undefined && editingBio !== profile?.bio) {
-                          updateProfileMutation.mutate({ bio: editingBio });
-                        }
-                        setEditingBio(undefined);
-                      }}
+                      value={profile?.bio || ''}
+                      onChange={(e) => updateProfile({ bio: e.target.value })}
                       placeholder="Tell others about yourself, your experience, and what you're passionate about..."
                       className="min-h-[120px]"
                       data-testid="textarea-bio"
                     />
-                    <p className="text-xs text-gray-500">Click outside or press Tab to save changes</p>
+
                   </div>
                 ) : (
                   <p className="text-gray-700 leading-relaxed">
@@ -684,50 +678,13 @@ export default function Profile() {
               <CardContent>
                 {isOwnProfile ? (
                   <div className="space-y-4">
-                    {/* Show networking goal suggestions if available */}
-                    {networkingGoalSuggestions.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-stak-copper">Quick suggestions based on your role:</p>
-                        <div className="space-y-2">
-                          {networkingGoalSuggestions.slice(0, 3).map((suggestion, index) => (
-                            <Button
-                              key={index}
-                              variant="outline"
-                              size="sm"
-                              className="text-left h-auto py-2 px-3 whitespace-normal w-full hover:bg-stak-copper/10 hover:border-stak-copper"
-                              onClick={() => {
-                                setEditingGoal(suggestion);
-                                updateProfileMutation.mutate({ networkingGoal: suggestion });
-                                setNetworkingGoalSuggestions([]);
-                                toast({
-                                  title: "Networking Goal Updated",
-                                  description: "Your networking goal has been set.",
-                                });
-                              }}
-                            >
-                              {suggestion}
-                            </Button>
-                          ))}
-                        </div>
-                        <Separator className="my-2" />
-                        <p className="text-xs text-muted-foreground">Or write your own:</p>
-                      </div>
-                    )}
-                    
                     <Textarea
-                      value={editingGoal ?? (profile?.networkingGoal || '')}
-                      onChange={(e) => setEditingGoal(e.target.value)}
-                      onBlur={() => {
-                        if (editingGoal !== undefined && editingGoal !== profile?.networkingGoal) {
-                          updateProfileMutation.mutate({ networkingGoal: editingGoal });
-                        }
-                        setEditingGoal(undefined);
-                      }}
+                      value={profile?.networkingGoal || ''}
+                      onChange={(e) => updateProfile({ networkingGoal: e.target.value })}
                       placeholder="What are you looking to achieve through networking? Who would you like to meet?"
                       className="min-h-[100px]"
                       data-testid="textarea-networking-goals"
                     />
-                    <p className="text-xs text-gray-500">Click outside or press Tab to save changes</p>
                   </div>
                 ) : (
                   <p className="text-gray-700 leading-relaxed">
