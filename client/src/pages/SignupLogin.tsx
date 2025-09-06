@@ -33,16 +33,18 @@ type SignupForm = z.infer<typeof signupSchema>;
 type LoginForm = z.infer<typeof loginSchema>;
 
 export default function SignupLogin() {
-  const [isSignup, setIsSignup] = useState(false);
+  const [location] = useLocation();
+  // Default to signup if on /signup route, otherwise login
+  const [isSignup, setIsSignup] = useState(location === "/signup");
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const [, setLocation] = useLocation();
+  const [, setLocationHook] = useLocation();
 
   // Redirect if already authenticated
   if (user) {
-    setLocation("/");
+    setLocationHook("/");
     return null;
   }
 
@@ -384,7 +386,13 @@ export default function SignupLogin() {
               <button
                 data-testid="button-switch-mode"
                 type="button"
-                onClick={() => setIsSignup(!isSignup)}
+                onClick={() => {
+                  const newMode = !isSignup;
+                  setIsSignup(newMode);
+                  setAuthError(null); // Clear any errors when switching
+                  // Update URL to match the mode
+                  setLocationHook(newMode ? "/signup" : "/login");
+                }}
                 className="text-blue-600 hover:text-blue-500"
               >
                 {isSignup 
