@@ -26,18 +26,11 @@ import {
   Globe,
   CheckCircle,
   AlertCircle,
-  Loader2,
   Plus,
   Trash2,
-  Users,
   Building2,
   MapPin,
   Target,
-  UserPlus,
-  Database,
-  Brain,
-  Zap,
-  TrendingUp,
   Info
 } from "lucide-react";
 
@@ -105,8 +98,6 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Debug logging
-  console.log('🔍 PROFILE DEBUG: Component mounted', { userId, currentUser });
   
   // Use enhanced profile hook with provenance data
   const {
@@ -115,20 +106,26 @@ export default function Profile() {
     isOwnProfile,
     updateProfile,
     isUpdating,
-    enrichProfile,
-    isEnriching,
     getFieldProvenance,
     getFieldConfidence,
-    isFieldFromEnrichment,
-    getUnknownFields,
-    getCompleteness
+    isFieldFromEnrichment
   } = useProfile(userId);
+
+  // Extract values from profile objects
+  const getProfileValue = (field: any) => {
+    if (typeof field === 'object' && field?.value !== undefined) {
+      return field.value;
+    }
+    return field || '';
+  };
 
   // Debug profile data
   console.log('🔍 PROFILE DEBUG: Profile data', {
     profile,
     profileLoading,
     isOwnProfile,
+    firstName: getProfileValue(profile?.firstName),
+    lastName: getProfileValue(profile?.lastName),
     websiteUrls: profile?.websiteUrls,
     websiteUrlsType: typeof profile?.websiteUrls,
     websiteUrlsArray: Array.isArray(profile?.websiteUrls)
@@ -138,26 +135,8 @@ export default function Profile() {
   const [showAIBuilder, setShowAIBuilder] = useState(false);
   const [showPhotoCropper, setShowPhotoCropper] = useState(false);
   
-  // Local state for company and location fields with autosave
-  const [companyValue, setCompanyValue] = useState('');
-  const [locationValue, setLocationValue] = useState('');
-  const [lastSavedCompany, setLastSavedCompany] = useState('');
-  const [lastSavedLocation, setLastSavedLocation] = useState('');
-  const [companySaveState, setCompanySaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [locationSaveState, setLocationSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [companyAbortController, setCompanyAbortController] = useState<AbortController | null>(null);
-  const [locationAbortController, setLocationAbortController] = useState<AbortController | null>(null);
 
 
-  // Initialize local state values from profile data
-  useEffect(() => {
-    if (profile) {
-      setCompanyValue(profile.company || '');
-      setLocationValue(profile.location || '');
-      setLastSavedCompany(profile.company || '');
-      setLastSavedLocation(profile.location || '');
-    }
-  }, [profile]);
 
   // Helper to refresh profile data after AI builder updates
   const handleProfileUpdate = () => {
@@ -169,111 +148,6 @@ export default function Profile() {
     }
   };
 
-  // Save company field with proper state management and abort handling
-  const saveCompany = async (value: string) => {
-    if (value === lastSavedCompany) return;
-    
-    // Cancel any existing request
-    if (companyAbortController) {
-      companyAbortController.abort();
-    }
-    
-    const controller = new AbortController();
-    setCompanyAbortController(controller);
-    setCompanySaveState('saving');
-    
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ company: value }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      setLastSavedCompany(value);
-      setCompanySaveState('saved');
-      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-      
-      setTimeout(() => setCompanySaveState('idle'), 1000);
-      
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        setCompanySaveState('error');
-        setTimeout(() => setCompanySaveState('idle'), 2000);
-      }
-    } finally {
-      setCompanyAbortController(null);
-    }
-  };
-
-  // Save location field with proper state management and abort handling
-  const saveLocation = async (value: string) => {
-    if (value === lastSavedLocation) return;
-    
-    // Cancel any existing request
-    if (locationAbortController) {
-      locationAbortController.abort();
-    }
-    
-    const controller = new AbortController();
-    setLocationAbortController(controller);
-    setLocationSaveState('saving');
-    
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ location: value }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      setLastSavedLocation(value);
-      setLocationSaveState('saved');
-      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-      
-      setTimeout(() => setLocationSaveState('idle'), 1000);
-      
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        setLocationSaveState('error');
-        setTimeout(() => setLocationSaveState('idle'), 2000);
-      }
-    } finally {
-      setLocationAbortController(null);
-    }
-  };
-
-  // Handle field blur for company
-  const handleCompanyBlur = () => {
-    saveCompany(companyValue);
-  };
-
-  // Handle field blur for location
-  const handleLocationBlur = () => {
-    saveLocation(locationValue);
-  };
-
-  // Handle Enter key press
-  const handleKeyDown = (e: React.KeyboardEvent, field: 'company' | 'location') => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      (e.target as HTMLInputElement).blur();
-    }
-  };
 
   // Fixed update profile mutation with proper error handling
   const updateProfileMutation = useMutation({
@@ -402,7 +276,7 @@ export default function Profile() {
                   />
                 ) : (
                   <div className="rounded-full w-24 h-24 flex items-center justify-center bg-orange-400 text-white text-xl font-bold">
-                    {(profile?.firstName?.[0] || 'U')}{(profile?.lastName?.[0] || 'N')}
+                    {(getProfileValue(profile?.firstName)?.[0] || 'U')}{(getProfileValue(profile?.lastName)?.[0] || 'N')}
                   </div>
                 )}
                 
@@ -423,7 +297,7 @@ export default function Profile() {
                   <h1 className="text-3xl font-bold text-stak-black mb-2">
                     {isOwnProfile ? (
                       <Input
-                        value={`${profile?.firstName || ''} ${profile?.lastName || ''}`.trim()}
+                        value={`${getProfileValue(profile?.firstName)} ${getProfileValue(profile?.lastName)}`.trim()}
                         onChange={(e) => {
                           try {
                             const [firstName, ...lastNameParts] = e.target.value.split(' ');
@@ -442,7 +316,7 @@ export default function Profile() {
                         data-testid="input-user-name"
                       />
                     ) : (
-                      `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() || 'User Name'
+                      `${getProfileValue(profile?.firstName)} ${getProfileValue(profile?.lastName)}`.trim() || 'User Name'
                     )}
                   </h1>
                   
@@ -450,7 +324,7 @@ export default function Profile() {
                     {isOwnProfile ? (
                       <div className="flex items-center gap-2">
                         <Input
-                          value={profile?.title || ''}
+                          value={getProfileValue(profile?.title)}
                           onChange={(e) => updateProfile({ title: e.target.value })}
                           className="text-xl border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
                           placeholder="Your Job Title"
@@ -464,7 +338,7 @@ export default function Profile() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span>{profile?.title || 'Job Title'}</span>
+                        <span>{getProfileValue(profile?.title) || 'Job Title'}</span>
                         <ProvenanceBadge
                           fieldName="title"
                           getFieldProvenance={getFieldProvenance}
@@ -480,26 +354,15 @@ export default function Profile() {
                       {isOwnProfile ? (
                         <div className="flex items-center gap-1">
                           <Input
-                            value={companyValue}
-                            onChange={(e) => setCompanyValue(e.target.value)}
-                            onBlur={handleCompanyBlur}
-                            onKeyDown={(e) => handleKeyDown(e, 'company')}
+                            value={getProfileValue(profile?.company)}
+                            onChange={(e) => updateProfile({ company: e.target.value })}
                             className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
                             placeholder="Company"
                             data-testid="input-company"
                           />
-                          {companySaveState === 'saving' && (
-                            <span className="text-xs text-gray-400 ml-1">Saving…</span>
-                          )}
-                          {companySaveState === 'saved' && (
-                            <span className="text-xs text-green-500 ml-1">Saved</span>
-                          )}
-                          {companySaveState === 'error' && (
-                            <span className="text-xs text-red-500 ml-1">Error</span>
-                          )}
                         </div>
                       ) : (
-                        <span>{profile?.company || 'No company specified'}</span>
+                        <span>{getProfileValue(profile?.company) || 'No company specified'}</span>
                       )}
                     </div>
                     
@@ -508,26 +371,15 @@ export default function Profile() {
                       {isOwnProfile ? (
                         <div className="flex items-center gap-1">
                           <Input
-                            value={locationValue}
-                            onChange={(e) => setLocationValue(e.target.value)}
-                            onBlur={handleLocationBlur}
-                            onKeyDown={(e) => handleKeyDown(e, 'location')}
+                            value={getProfileValue(profile?.location)}
+                            onChange={(e) => updateProfile({ location: e.target.value })}
                             className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
                             placeholder="Location"
                             data-testid="input-location"
                           />
-                          {locationSaveState === 'saving' && (
-                            <span className="text-xs text-gray-400 ml-1">Saving…</span>
-                          )}
-                          {locationSaveState === 'saved' && (
-                            <span className="text-xs text-green-500 ml-1">Saved</span>
-                          )}
-                          {locationSaveState === 'error' && (
-                            <span className="text-xs text-red-500 ml-1">Error</span>
-                          )}
                         </div>
                       ) : (
-                        <span>{profile?.location || 'No location specified'}</span>
+                        <span>{getProfileValue(profile?.location) || 'No location specified'}</span>
                       )}
                     </div>
                   </div>
@@ -565,109 +417,6 @@ export default function Profile() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* Profile Enhancement Section */}
-            {isOwnProfile && profile && (
-              <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-purple-600" />
-                      <span>Zero-Friction Profile</span>
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                        {Math.round(getCompleteness() * 100)}% Complete
-                      </Badge>
-                    </div>
-                    <Button
-                      onClick={() => enrichProfile()}
-                      disabled={isEnriching}
-                      variant="outline"
-                      size="sm"
-                      className="border-purple-200 hover:bg-purple-50"
-                      data-testid="button-enrich-profile"
-                    >
-                      {isEnriching ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Enhancing...
-                        </>
-                      ) : (
-                        <>
-                          <Brain className="w-4 h-4 mr-2" />
-                          Enhance Profile
-                        </>
-                      )}
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Completeness Progress */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Profile Completeness</span>
-                        <span className="font-medium">{Math.round(getCompleteness() * 100)}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${getCompleteness() * 100}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Unknown Fields */}
-                    {getUnknownFields().length > 0 && (
-                      <div className="p-3 bg-white rounded-lg border border-purple-200">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">
-                          🎯 Missing Information ({getUnknownFields().length} fields)
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {getUnknownFields().slice(0, 6).map((field) => (
-                            <Badge
-                              key={field}
-                              variant="outline"
-                              className="text-xs border-orange-200 text-orange-700 bg-orange-50"
-                            >
-                              {field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                            </Badge>
-                          ))}
-                          {getUnknownFields().length > 6 && (
-                            <Badge variant="outline" className="text-xs border-gray-200 text-gray-500">
-                              +{getUnknownFields().length - 6} more
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Provenance Summary */}
-                    <div className="grid grid-cols-3 gap-3 text-sm">
-                      <div className="text-center p-2 bg-white rounded-lg border border-blue-200">
-                        <div className="flex items-center justify-center gap-1 text-blue-700 mb-1">
-                          <Database className="w-4 h-4" />
-                          <span className="font-medium">Account</span>
-                        </div>
-                        <div className="text-xs text-gray-600">Basic info from signup</div>
-                      </div>
-                      <div className="text-center p-2 bg-white rounded-lg border border-purple-200">
-                        <div className="flex items-center justify-center gap-1 text-purple-700 mb-1">
-                          <Brain className="w-4 h-4" />
-                          <span className="font-medium">AI Enhanced</span>
-                        </div>
-                        <div className="text-xs text-gray-600">Enriched from web sources</div>
-                      </div>
-                      <div className="text-center p-2 bg-white rounded-lg border border-green-200">
-                        <div className="flex items-center justify-center gap-1 text-green-700 mb-1">
-                          <UserIcon className="w-4 h-4" />
-                          <span className="font-medium">Verified</span>
-                        </div>
-                        <div className="text-xs text-gray-600">Manually confirmed</div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
             
             {/* Bio Section */}
             <Card>
@@ -688,15 +437,8 @@ export default function Profile() {
                 {isOwnProfile ? (
                   <div className="space-y-2">
                     <Textarea
-                      value={profile?.bio || ''}
-                      onChange={(e) => {
-                        try {
-                          console.log('🔍 PROFILE DEBUG: Updating bio');
-                          updateProfile({ bio: e.target.value });
-                        } catch (error) {
-                          console.error('🚨 PROFILE ERROR: Bio update failed', error);
-                        }
-                      }}
+                      value={getProfileValue(profile?.bio)}
+                      onChange={(e) => updateProfile({ bio: e.target.value })}
                       placeholder="Tell others about yourself, your experience, and what you're passionate about..."
                       className="min-h-[120px]"
                       data-testid="textarea-bio"
@@ -705,7 +447,7 @@ export default function Profile() {
                   </div>
                 ) : (
                   <p className="text-gray-700 leading-relaxed">
-                    {profile?.bio || "No bio provided."}
+                    {getProfileValue(profile?.bio) || "No bio provided."}
                   </p>
                 )}
               </CardContent>
@@ -723,15 +465,8 @@ export default function Profile() {
                 {isOwnProfile ? (
                   <div className="space-y-4">
                     <Textarea
-                      value={profile?.networkingGoal || ''}
-                      onChange={(e) => {
-                        try {
-                          console.log('🔍 PROFILE DEBUG: Updating networking goal');
-                          updateProfile({ networkingGoal: e.target.value });
-                        } catch (error) {
-                          console.error('🚨 PROFILE ERROR: Networking goal update failed', error);
-                        }
-                      }}
+                      value={getProfileValue(profile?.networkingGoal)}
+                      onChange={(e) => updateProfile({ networkingGoal: e.target.value })}
                       placeholder="What are you looking to achieve through networking? Who would you like to meet?"
                       className="min-h-[100px]"
                       data-testid="textarea-networking-goals"
@@ -739,7 +474,7 @@ export default function Profile() {
                   </div>
                 ) : (
                   <p className="text-gray-700 leading-relaxed">
-                    {profile?.networkingGoal || "No networking goals specified."}
+                    {getProfileValue(profile?.networkingGoal) || "No networking goals specified."}
                   </p>
                 )}
               </CardContent>
