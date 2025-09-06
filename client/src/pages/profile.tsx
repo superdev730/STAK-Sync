@@ -31,7 +31,8 @@ import {
   Building2,
   MapPin,
   Target,
-  Info
+  Info,
+  X
 } from "lucide-react";
 
 // Provenance Badge Component
@@ -469,8 +470,22 @@ export default function Profile() {
                 <div className="flex flex-wrap gap-2">
                   {getProfileValue(profile?.skills)?.length ? (
                     getProfileValue(profile?.skills).map((skill: string, index: number) => (
-                      <Badge key={index} variant="secondary" className="bg-stak-copper/10 text-stak-copper">
-                        {skill}
+                      <Badge key={index} variant="secondary" className="bg-stak-copper/10 text-stak-copper group hover:bg-stak-copper/20 transition-colors">
+                        <span className="mr-1">{skill}</span>
+                        {isOwnProfile && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const currentSkills = getProfileValue(profile?.skills) || [];
+                              const updatedSkills = currentSkills.filter((_: string, i: number) => i !== index);
+                              updateProfile({ skills: updatedSkills });
+                            }}
+                            className="ml-1 opacity-0 group-hover:opacity-100 hover:text-red-600 transition-all text-xs"
+                            data-testid={`button-delete-skill-${index}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
                       </Badge>
                     ))
                   ) : (
@@ -489,8 +504,22 @@ export default function Profile() {
                 <div className="flex flex-wrap gap-2">
                   {getProfileValue(profile?.industries)?.length ? (
                     getProfileValue(profile?.industries).map((industry: string, index: number) => (
-                      <Badge key={index} variant="outline" className="border-stak-copper text-stak-copper">
-                        {industry}
+                      <Badge key={index} variant="outline" className="border-stak-copper text-stak-copper group hover:bg-stak-copper/10 transition-colors">
+                        <span className="mr-1">{industry}</span>
+                        {isOwnProfile && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const currentIndustries = getProfileValue(profile?.industries) || [];
+                              const updatedIndustries = currentIndustries.filter((_: string, i: number) => i !== index);
+                              updateProfile({ industries: updatedIndustries });
+                            }}
+                            className="ml-1 opacity-0 group-hover:opacity-100 hover:text-red-600 transition-all text-xs"
+                            data-testid={`button-delete-industry-${index}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
                       </Badge>
                     ))
                   ) : (

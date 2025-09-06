@@ -68,6 +68,27 @@ export default function ConsolidatedAIProfileBuilder({
   const [editingProfile, setEditingProfile] = useState<Partial<User>>({});
   const [networkingGoalSuggestions, setNetworkingGoalSuggestions] = useState<string[]>([]);
   
+  // Check for LinkedIn connection success
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('linkedin') === 'success') {
+      toast({
+        title: "LinkedIn Connected",
+        description: "Your LinkedIn profile has been connected successfully!",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('linkedin_error') === 'true') {
+      toast({
+        title: "LinkedIn Connection Failed",
+        description: "There was an error connecting your LinkedIn profile. Please try again.",
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast]);
+
   // Initialize social sources from existing profile
   useEffect(() => {
     if (profile && isOpen) {
@@ -264,10 +285,39 @@ export default function ConsolidatedAIProfileBuilder({
           </TabsList>
 
           <TabsContent value="sources" className="mt-6 space-y-6">
-            {/* Social Media Sources */}
+            {/* LinkedIn OAuth Integration */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Social Media & Web Presence</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Linkedin className="h-5 w-5 text-blue-600" />
+                  Connect with LinkedIn
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-3">
+                    <Linkedin className="h-8 w-8 text-blue-600" />
+                    <div>
+                      <h3 className="font-medium text-gray-900">Import from LinkedIn</h3>
+                      <p className="text-sm text-gray-600">Automatically import your professional profile, experience, and skills</p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => window.open('/api/linkedin/auth', '_blank', 'width=600,height=700')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    data-testid="button-connect-linkedin"
+                  >
+                    <Linkedin className="h-4 w-4 mr-2" />
+                    Connect LinkedIn
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Manual Social Media Sources */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Manual Social Media & Web Links</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
