@@ -547,7 +547,7 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
 
   return (
     <Dialog open={true} onOpenChange={() => {}}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0">
+      <DialogContent className="max-w-4xl max-h-[95vh] p-0 gap-0 mx-2 sm:mx-4">
         <DialogHeader className="p-6 pb-4 border-b">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-3">

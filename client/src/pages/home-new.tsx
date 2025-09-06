@@ -229,25 +229,26 @@ export default function Home() {
       {/* Profile Completion Alert for users who haven't finished */}
       {profileCompleteness < 80 && hasSeenOnboarding && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="bg-gradient-to-r from-stak-copper/10 to-stak-copper/5 border border-stak-copper/30 rounded-lg p-4 mb-4">
-            <div className="flex items-center justify-between">
+          <div className="bg-gradient-to-r from-stak-copper/10 to-stak-copper/5 border border-stak-copper/30 rounded-lg p-3 sm:p-4 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
               <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-stak-copper" />
-                <div>
-                  <h4 className="font-semibold text-stak-black">Complete Your Profile ({profileCompleteness}%)</h4>
-                  <p className="text-sm text-gray-600">Add more details to get better AI matches and increase your networking success</p>
+                <AlertCircle className="w-5 h-5 text-stak-copper flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-semibold text-stak-black text-sm sm:text-base">Complete Your Profile ({profileCompleteness}%)</h4>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1">Add more details to get better AI matches and increase your networking success</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Progress value={profileCompleteness} className="w-24 h-2" />
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <Progress value={profileCompleteness} className="w-16 sm:w-24 h-2" />
                 <Button 
                   asChild 
                   size="sm"
-                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black whitespace-nowrap"
                 >
                   <Link href="/profile">
-                    <Wand2 className="w-4 h-4 mr-1" />
-                    Enhance Profile
+                    <Wand2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    <span className="hidden sm:inline">Enhance Profile</span>
+                    <span className="sm:hidden">Enhance</span>
                   </Link>
                 </Button>
               </div>
@@ -268,46 +269,51 @@ export default function Home() {
         </div>
 
         {/* AI Assistant Toolbar */}
-        <Card className="mb-8 bg-gradient-to-r from-stak-black to-gray-900 border-stak-copper/30">
+        <Card className="mb-6 sm:mb-8 bg-gradient-to-r from-stak-black to-gray-900 border-stak-copper/30 mx-2 sm:mx-0">
           <CardContent className="p-4 sm:p-6">
             {/* Header - Always visible */}
-            <div className="flex items-center space-x-2 mb-4 sm:mb-0">
-              <Bot className="w-6 h-6 text-stak-copper" />
-              <h3 className="text-lg font-semibold text-white">STAK Sync AI Assistant</h3>
+            <div className="flex items-center space-x-2 mb-3 sm:mb-4">
+              <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-stak-copper" />
+              <h3 className="text-base sm:text-lg font-semibold text-white">STAK Sync AI Assistant</h3>
             </div>
             
-            {/* Input Section - Full width on mobile, inline on desktop */}
-            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
-              <div className="flex-1 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
-                <Input
-                  placeholder="Ask me anything... 'What's new?', 'Find me matches', 'Improve my profile'"
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAiSubmit()}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 sm:h-10 text-base sm:text-sm px-4 py-3 sm:py-2"
-                  data-testid="ai-input"
-                />
-                <Button 
-                  onClick={handleAiSubmit}
-                  disabled={aiAssistantMutation.isPending || !aiInput.trim()}
-                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black h-12 sm:h-10 px-6 sm:px-4 text-base sm:text-sm font-medium"
-                  data-testid="ai-submit"
-                >
-                  {aiAssistantMutation.isPending ? (
-                    <div className="w-5 h-5 sm:w-4 sm:h-4 border-2 border-stak-black border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5 sm:w-4 sm:h-4" />
-                  )}
-                </Button>
-              </div>
+            {/* Input Section - Stack on mobile */}
+            <div className="flex flex-col space-y-3">
+              <Input
+                placeholder="Ask me anything... 'What's new?', 'Find matches', 'Improve profile'"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAiSubmit()}
+                className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 sm:h-10 text-base sm:text-sm px-4 py-3 sm:py-2"
+                data-testid="ai-input"
+              />
+              <Button 
+                onClick={handleAiSubmit}
+                disabled={aiAssistantMutation.isPending || !aiInput.trim()}
+                className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black h-12 sm:h-10 px-6 text-base sm:text-sm font-medium w-full sm:w-auto"
+                data-testid="ai-submit"
+              >
+                {aiAssistantMutation.isPending ? (
+                  <>
+                    <div className="w-5 h-5 sm:w-4 sm:h-4 border-2 border-stak-black border-t-transparent rounded-full animate-spin mr-2" />
+                    <span className="hidden sm:inline">Processing...</span>
+                    <span className="sm:hidden">AI Working...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5 sm:w-4 sm:h-4 mr-2 sm:mr-0" />
+                    <span className="sm:hidden">Ask AI Assistant</span>
+                  </>
+                )}
+              </Button>
             </div>
 
             {/* AI Response Window */}
             {isAiOpen && aiResponse && (
-              <div className="mt-4 p-4 bg-white/10 rounded-lg border border-white/20">
+              <div className="mt-4 p-3 sm:p-4 bg-white/10 rounded-lg border border-white/20">
                 <div className="flex items-start justify-between mb-2">
-                  <h4 className="text-sm font-medium text-stak-copper">AI Response:</h4>
-                  <div className="flex items-center gap-2">
+                  <h4 className="text-xs sm:text-sm font-medium text-stak-copper">AI Response:</h4>
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <Button
                       onClick={openChatWindow}
                       variant="ghost"
@@ -315,7 +321,7 @@ export default function Home() {
                       className="text-white/60 hover:text-white p-1 h-auto"
                       title="Open Chat History"
                     >
-                      <Maximize2 className="w-4 h-4" />
+                      <Maximize2 className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
                     <Button
                       onClick={() => setIsAiOpen(false)}
@@ -323,11 +329,11 @@ export default function Home() {
                       size="sm"
                       className="text-white/60 hover:text-white p-1 h-auto"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
                   </div>
                 </div>
-                <div className="text-white text-sm leading-relaxed whitespace-pre-wrap" data-testid="ai-response">
+                <div className="text-white text-xs sm:text-sm leading-relaxed whitespace-pre-wrap" data-testid="ai-response">
                   {aiResponse?.response || aiResponse}
                 </div>
                 
