@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { useProfile } from "@/hooks/useProfile";
+import { useProfile, type EnhancedProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
+import type { User } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,7 @@ import OnboardingWizard from "@/components/OnboardingWizard";
 import ProfilePhotoCropper from "@/components/ProfilePhotoCropper";
 import { apiRequest } from "@/lib/queryClient";
 import { 
-  User,
+  User as UserIcon,
   Camera,
   Wand2,
   Linkedin,
@@ -59,7 +60,7 @@ const ProvenanceBadge = ({ fieldName, getFieldProvenance, getFieldConfidence }: 
     switch (provenance.source) {
       case 'db': return <Database className="w-3 h-3" />;
       case 'enrichment': return <Brain className="w-3 h-3" />;
-      case 'user': return <User className="w-3 h-3" />;
+      case 'user': return <UserIcon className="w-3 h-3" />;
       default: return <Info className="w-3 h-3" />;
     }
   };
@@ -293,7 +294,7 @@ export default function Profile() {
 
   // Fixed update profile mutation with proper error handling
   const updateProfileMutation = useMutation({
-    mutationFn: async (updates: Partial<UserProfile>) => {
+    mutationFn: async (updates: Partial<User>) => {
       console.log('=== PROFILE UPDATE ATTEMPT ===');
       console.log('Updates:', updates);
       
@@ -398,13 +399,13 @@ export default function Profile() {
   const handlePhotoUploadSuccess = (imageUrl: string) => {
     // Update profile with new image URL and invalidate cache
     queryClient.setQueryData(
-      userId ? ["/api/profile", userId] : ["/api/profile"],
-      (oldData: UserProfile | undefined) => ({
+      userId ? ["/api/profile", userId] : ["/api/me"],
+      (oldData: EnhancedProfile | undefined) => ({
         ...oldData,
         profileImageUrl: imageUrl
       })
     );
-    queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+    queryClient.invalidateQueries({ queryKey: userId ? ["/api/profile", userId] : ["/api/me"] });
   };
 
   const addSocialSource = () => {
@@ -874,7 +875,7 @@ export default function Profile() {
                       </div>
                       <div className="text-center p-2 bg-white rounded-lg border border-green-200">
                         <div className="flex items-center justify-center gap-1 text-green-700 mb-1">
-                          <User className="w-4 h-4" />
+                          <UserIcon className="w-4 h-4" />
                           <span className="font-medium">Verified</span>
                         </div>
                         <div className="text-xs text-gray-600">Manually confirmed</div>
@@ -889,7 +890,7 @@ export default function Profile() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
+                  <UserIcon className="h-5 w-5" />
                   About
                   {isOwnProfile && (
                     <ProvenanceBadge

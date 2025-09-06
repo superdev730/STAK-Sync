@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
+import type { User } from "@shared/schema";
 
 export interface ProfileProvenance {
   source: 'db' | 'enrichment' | 'user';
@@ -9,23 +10,7 @@ export interface ProfileProvenance {
   lastUpdated?: string;
 }
 
-export interface EnhancedProfile {
-  id: string;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  title?: string;
-  company?: string;
-  bio?: string;
-  location?: string;
-  linkedinUrl?: string;
-  twitterUrl?: string;
-  githubUrl?: string;
-  websiteUrls?: string[];
-  skills?: string[];
-  industries?: string[];
-  networkingGoal?: string;
-  profileImageUrl?: string;
+export interface EnhancedProfile extends User {
   // Provenance information
   _provenance?: {
     [field: string]: ProfileProvenance;
@@ -52,10 +37,9 @@ export function useProfile(userId?: string) {
   const targetUserId = userId || currentUser?.id;
   const isOwnProfile = !userId || userId === currentUser?.id;
 
-  // Enhanced profile query using /api/me endpoint
+  // Enhanced profile query using /api/me endpoint  
   const profileQuery = useQuery<EnhancedProfile>({
-    queryKey: ['profile', targetUserId],
-    queryFn: () => apiRequest(`/api/me${userId ? `/${userId}` : ''}`),
+    queryKey: userId ? ['/api/profile', userId] : ['/api/me'],
     enabled: !!targetUserId,
     staleTime: 30000, // Profile data is relatively stable
   });
@@ -63,17 +47,12 @@ export function useProfile(userId?: string) {
   // Profile update mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: ProfileUpdateData) => {
-      return apiRequest('/api/profile', {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await apiRequest('/api/profile', 'PUT', updates);
+      return response.json();
     },
     onSuccess: () => {
       // Invalidate profile cache to refetch updated data
-      queryClient.invalidateQueries({ queryKey: ['profile', targetUserId] });
+      queryClient.invalidateQueries({ queryKey: userId ? ['/api/profile', userId] : ['/api/me'] });
       queryClient.invalidateQueries({ queryKey: ['/api/profile'] }); // Legacy cache
     },
     onError: (error) => {
@@ -84,13 +63,12 @@ export function useProfile(userId?: string) {
   // Manual enrichment mutation
   const enrichMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/enrich${userId ? `/${userId}` : ''}`, {
-        method: 'POST',
-      });
+      const response = await apiRequest(`/api/profile/ai/analyze${userId ? `/${userId}` : ''}`, 'POST');
+      return response.json();
     },
     onSuccess: () => {
       // Invalidate profile cache to show enriched data
-      queryClient.invalidateQueries({ queryKey: ['profile', targetUserId] });
+      queryClient.invalidateQueries({ queryKey: userId ? ['/api/profile', userId] : ['/api/me'] });
     },
     onError: (error) => {
       console.error('Profile enrichment failed:', error);
