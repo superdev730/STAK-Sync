@@ -548,87 +548,90 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
   return (
     <Dialog open={true} onOpenChange={() => {}}>
       <DialogContent className="max-w-4xl max-h-[95vh] p-0 gap-0 mx-2 sm:mx-4">
-        <DialogHeader className="p-6 pb-4 border-b">
+        <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b">
           <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-stak-copper/20 rounded-full flex items-center justify-center">
-                <Brain className="w-4 h-4 text-stak-copper" />
+            <DialogTitle className="flex items-center gap-2 sm:gap-3 text-sm sm:text-base">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-stak-copper/20 rounded-full flex items-center justify-center">
+                <Brain className="w-3 h-3 sm:w-4 sm:h-4 text-stak-copper" />
               </div>
-              Profile Setup - Step {currentStep + 1} of {steps.length}
+              <span className="hidden sm:inline">Profile Setup - Step {currentStep + 1} of {steps.length}</span>
+              <span className="sm:hidden">Step {currentStep + 1}/{steps.length}</span>
             </DialogTitle>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <div className="text-right">
-                <div className="text-sm text-gray-600">Profile Complete</div>
-                <div className="text-xl font-bold text-stak-copper">{profileCompleteness}%</div>
+                <div className="text-xs sm:text-sm text-gray-600 hidden sm:block">Profile Complete</div>
+                <div className="text-lg sm:text-xl font-bold text-stak-copper">{profileCompleteness}%</div>
               </div>
               <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={onSkip}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 p-1"
               >
                 <X className="w-4 h-4" />
               </Button>
             </div>
           </div>
-          
-          <div className="mt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm text-gray-600">Overall Progress</span>
-              <Badge className="bg-stak-copper text-stak-black">{overallProgress}%</Badge>
-            </div>
-            <Progress value={overallProgress} className="h-2" />
-          </div>
         </DialogHeader>
 
-        <div className="p-6 overflow-auto max-h-[60vh]">
+        <div className="p-4 sm:p-6 overflow-auto max-h-[60vh]">
           {currentStep === 0 && renderWelcomeStep()}
           {currentStep === 1 && renderLinkedinStep()}
           {currentStep === 2 && renderWebsiteStep()}
           {currentStep === 3 && renderAiAnalysisStep()}
         </div>
 
-        <div className="p-6 pt-4 border-t bg-gray-50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {steps.map((step, index) => (
-                <div key={step.id} className="flex items-center gap-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+        <div className="p-4 sm:p-6 pt-3 sm:pt-4 border-t bg-gray-50">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Simplified progress indicator */}
+            <div className="flex items-center gap-2 order-2 sm:order-1">
+              <span className="text-xs sm:text-sm text-gray-600">Step {currentStep + 1} of {steps.length}</span>
+              <div className="flex items-center gap-1">
+                {steps.map((step, index) => (
+                  <div key={step.id} className={`w-2 h-2 rounded-full ${
                     step.completed 
-                      ? 'bg-green-500 text-white' 
+                      ? 'bg-green-500' 
                       : index === currentStep 
-                        ? 'bg-stak-copper text-stak-black' 
-                        : 'bg-gray-200 text-gray-500'
-                  }`}>
-                    {step.completed ? <CheckCircle className="w-4 h-4" /> : index + 1}
-                  </div>
-                  {index < steps.length - 1 && (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  )}
-                </div>
-              ))}
+                        ? 'bg-stak-copper' 
+                        : 'bg-gray-300'
+                  }`} />
+                ))}
+              </div>
             </div>
             
-            <div className="flex gap-3">
+            {/* Single clear CTA */}
+            <div className="order-1 sm:order-2 w-full sm:w-auto">
               {currentStep === 0 && (
-                <Button onClick={nextStep} className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
+                <Button 
+                  onClick={nextStep} 
+                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black w-full sm:w-auto"
+                  size="lg"
+                >
                   Let's Get Started
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               )}
               
               {currentStep > 0 && currentStep < steps.length - 1 && (
-                <Button onClick={nextStep} className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
-                  Continue
+                <Button 
+                  onClick={nextStep} 
+                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black w-full sm:w-auto"
+                  size="lg"
+                >
+                  Continue Profile Building
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               )}
               
               {currentStep === steps.length - 1 && (
-                <Button onClick={onComplete} className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
+                <Button 
+                  onClick={onComplete} 
+                  className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black w-full sm:w-auto"
+                  size="lg"
+                >
                   <Trophy className="w-4 h-4 mr-2" />
-                  Start Networking!
+                  Complete Setup & Start Networking
                 </Button>
               )}
             </div>

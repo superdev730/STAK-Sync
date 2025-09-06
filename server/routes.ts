@@ -221,6 +221,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // LinkedIn OAuth endpoints
+  app.get('/api/linkedin/auth', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const state = Math.random().toString(36).substring(7);
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/linkedin/callback`;
+      
+      // Store state in session for security
+      req.session.linkedinState = state;
+      
+      const linkedinAuthUrl = `https://www.linkedin.com/oauth/v2/authorization?` +
+        `response_type=code&` +
+        `client_id=${process.env.LINKEDIN_CLIENT_ID}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `state=${state}&` +
+        `scope=profile%20email`;
+        
+      res.json({ authUrl: linkedinAuthUrl });
+    } catch (error) {
+      console.error('LinkedIn auth setup error:', error);
+      res.status(500).json({ error: 'Failed to setup LinkedIn authorization' });
+    }
+  });
+
+  app.get('/api/linkedin/callback', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { code, state } = req.query;
+      const user = req.user;
+
+      // Verify state parameter
+      if (!state || state !== req.session.linkedinState) {
+        return res.status(400).json({ error: 'Invalid state parameter' });
+      }
+
+      if (!code) {
+        return res.status(400).json({ error: 'Authorization code not provided' });
+      }
+
+      // Exchange authorization code for access token
+      const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code as string,
+          client_id: process.env.LINKEDIN_CLIENT_ID!,
+          client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+          redirect_uri: `${req.protocol}://${req.get('host')}/api/linkedin/callback`,
+        }),
+      });
+
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenResponse.ok) {
+        console.error('LinkedIn token error:', tokenData);
+        return res.status(400).json({ error: 'Failed to get access token' });
+      }
+
+      // Fetch user profile data
+      const profileResponse = await fetch('https://api.linkedin.com/v2/people/~?projection=(id,firstName,lastName,headline,publicProfileUrl,industry)', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+        },
+      });
+
+      const profileData = await profileResponse.json();
+
+      if (!profileResponse.ok) {
+        console.error('LinkedIn profile fetch error:', profileData);
+        return res.status(400).json({ error: 'Failed to fetch profile data' });
+      }
+
+      // Fetch email
+      const emailResponse = await fetch('https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+        },
+      });
+
+      let emailData = null;
+      if (emailResponse.ok) {
+        emailData = await emailResponse.json();
+      }
+
+      // Update user profile with LinkedIn data
+      const updateData: any = {
+        linkedinUrl: profileData.publicProfileUrl,
+        linkedinId: profileData.id,
+      };
+
+      if (profileData.firstName) {
+        updateData.firstName = profileData.firstName.localized?.en_US || profileData.firstName.preferredLocale?.country || '';
+      }
+      if (profileData.lastName) {
+        updateData.lastName = profileData.lastName.localized?.en_US || profileData.lastName.preferredLocale?.country || '';
+      }
+      if (profileData.headline) {
+        updateData.title = profileData.headline;
+      }
+      if (profileData.industry) {
+        updateData.industries = [profileData.industry];
+      }
+
+      await storage.updateUser(user.id, updateData);
+
+      // Clean up session
+      delete req.session.linkedinState;
+
+      res.redirect(`/profile?linkedin=success`);
+    } catch (error) {
+      console.error('LinkedIn callback error:', error);
+      res.status(500).json({ error: 'Failed to process LinkedIn authorization' });
+    }
+  });
+
   // AI Profile Analysis endpoints for onboarding
   app.post('/api/ai/analyze-profile', isAuthenticatedGeneral, async (req: any, res) => {
     try {
@@ -236,29 +352,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let analysisResult;
       
       if (type === 'linkedin') {
-        // Simulate LinkedIn profile analysis
+        // For LinkedIn, redirect to proper OAuth flow
+        const redirectUri = `${req.protocol}://${req.get('host')}/api/linkedin/callback`;
+        const state = Math.random().toString(36).substring(7);
+        
+        // Store state in session
+        req.session.linkedinState = state;
+        
+        const authUrl = `https://www.linkedin.com/oauth/v2/authorization?` +
+          `response_type=code&` +
+          `client_id=${process.env.LINKEDIN_CLIENT_ID}&` +
+          `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+          `state=${state}&` +
+          `scope=profile%20email`;
+        
         analysisResult = {
           success: true,
-          data: {
-            title: "Senior Software Engineer",
-            company: "Tech Innovations Inc",
-            location: "San Francisco, CA", 
-            skills: ["JavaScript", "React", "Node.js", "AI/ML"],
-            bio: "Experienced software engineer passionate about building AI-powered applications that solve real-world problems.",
-            industries: ["Technology", "Artificial Intelligence"]
-          }
+          requiresAuth: true,
+          authUrl: authUrl,
+          message: "Please authorize LinkedIn access to import your profile data"
         };
-        
-        // Update user profile with LinkedIn data
-        await storage.updateUser(user.id, {
-          linkedinUrl: url,
-          title: analysisResult.data.title,
-          company: analysisResult.data.company,
-          location: analysisResult.data.location,
-          bio: analysisResult.data.bio,
-          skills: analysisResult.data.skills,
-          industries: analysisResult.data.industries
-        });
         
       } else if (type === 'website') {
         // Simulate website analysis
