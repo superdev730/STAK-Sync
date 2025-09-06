@@ -33,7 +33,14 @@ export default function SignupPage() {
       lastName: "",
       email: "",
     },
+    mode: "onChange", // Enable real-time validation
   });
+
+  // Add form validation error logging
+  const formErrors = form.formState.errors;
+  if (Object.keys(formErrors).length > 0) {
+    console.log("🔍 FORM DEBUG: Validation errors", formErrors);
+  }
 
   const onSubmit = async (data: SignupForm) => {
     setIsSubmitting(true);
@@ -294,6 +301,11 @@ export default function SignupPage() {
                   className="w-full bg-[#CD853F] hover:bg-[#b8753a] text-white"
                   disabled={isSubmitting}
                   data-testid="button-signup"
+                  onClick={(e) => {
+                    console.log("🔍 FORM DEBUG: Submit button clicked");
+                    console.log("🔍 FORM DEBUG: Current form values", form.getValues());
+                    console.log("🔍 FORM DEBUG: Current form errors", form.formState.errors);
+                  }}
                 >
                   {isSubmitting ? (
                     <>
