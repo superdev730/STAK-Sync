@@ -7152,7 +7152,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   // Fact-based profile endpoints
   app.get('/api/profile/facts', isAuthenticatedGeneral, async (req, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -7167,7 +7167,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
 
   app.post('/api/profile/facts:refresh', isAuthenticatedGeneral, async (req, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -7219,7 +7219,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
 
   app.get('/api/profile/enrichment-runs', isAuthenticatedGeneral, async (req, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -7235,7 +7235,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   // AI Conversation endpoint for profile building
   app.post('/api/ai/conversation', isAuthenticatedGeneral, async (req, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
