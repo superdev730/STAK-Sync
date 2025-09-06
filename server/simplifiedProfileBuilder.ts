@@ -126,6 +126,23 @@ Rules:
 - Output EXACT JSON (array of connection_targets).
 `;
 
+// Enhanced user sponsor matcher with structured input
+export const USER_SPONSOR_MATCHER = (payload: {
+  me: any,
+  sponsors: Array<{sponsor_id: string, tags: string[], value_prop: string}>
+}) => `
+ME:
+${JSON.stringify(payload.me, null, 2)}
+
+SPONSOR_INDEX:
+${JSON.stringify(payload.sponsors, null, 2)}
+
+OUTPUT_SCHEMA:
+[
+  {"sponsor_id": null, "reason": "", "overlap_tags": []}
+]
+`;
+
 // System sponsor matcher for relevance-based sponsor recommendations  
 export const SYSTEM_SPONSOR_MATCHER = `
 You are a sponsor relevance engine.
@@ -662,34 +679,40 @@ Rules:
   }
 
   /**
-   * Generate sponsor targets focused on relevance (tooling, hiring, perks)
+   * Generate sponsor targets using enhanced structured matching
    */
   private async generateSponsorTargets(profile: ProfileOutput, input: BuilderInput) {
-    console.log('💼 Generating sponsor targets with relevance engine...');
+    console.log('💼 Generating sponsor targets with enhanced structured matcher...');
     
     try {
       // Get potential sponsors from STAK database (mock for now)
-      const potentialSponsors = await this.getPotentialSponsorsForMatching(profile, input);
+      const rawSponsors = await this.getPotentialSponsorsForMatching(profile, input);
       
-      if (potentialSponsors.length === 0) {
+      if (rawSponsors.length === 0) {
         console.log('No potential sponsors found for matching');
         return;
       }
 
-      const systemPrompt = SYSTEM_SPONSOR_MATCHER;
-      
-      const userPrompt = `MEMBER_PROFILE:
-${JSON.stringify({
-  person: profile.person,
-  industries: profile.person.industries,
-  skills_keywords: profile.person.skills_keywords,
-  interests_topics: profile.person.interests_topics,
-  current_role: profile.person.current_role,
-  goals: profile.stak_recos.goal_suggestions
-}, null, 2)}
+      // Transform sponsors to match the expected structure
+      const structuredSponsors = rawSponsors.map(sponsor => ({
+        sponsor_id: sponsor.sponsor_id,
+        tags: sponsor.category_tags,
+        value_prop: sponsor.short_value_prop
+      }));
 
-SPONSOR_INDEX:
-${JSON.stringify(potentialSponsors, null, 2)}`;
+      const systemPrompt = SYSTEM_SPONSOR_MATCHER;
+      const userPrompt = USER_SPONSOR_MATCHER({
+        me: {
+          person: profile.person,
+          industries: profile.person.industries,
+          skills_keywords: profile.person.skills_keywords,
+          interests_topics: profile.person.interests_topics,
+          current_role: profile.person.current_role,
+          goals: profile.stak_recos.goal_suggestions,
+          mission: profile.stak_recos.mission_pack
+        },
+        sponsors: structuredSponsors
+      });
 
       const response = await this.openai.chat.completions.create({
         model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
