@@ -324,26 +324,27 @@ export default function Profile() {
               
               {/* Profile Photo */}
               <div className="relative group">
-                <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
-                  <AvatarImage 
-                    src={profile?.profileImageUrl || undefined} 
-                    alt={`${profile?.firstName} ${profile?.lastName}`} 
-                  />
-                  <AvatarFallback className="text-2xl bg-stak-copper text-white">
-                    {(profile?.firstName?.[0] || 'U')}{(profile?.lastName?.[0] || 'N')}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="w-24 h-24 border-4 border-white shadow-lg rounded-full overflow-hidden">
+                  {profile?.profileImageUrl ? (
+                    <img 
+                      src={profile.profileImageUrl} 
+                      alt={`${profile?.firstName} ${profile?.lastName}`}
+                      className="rounded-full w-24 h-24 object-cover" 
+                    />
+                  ) : (
+                    <div className="w-24 h-24 bg-stak-copper text-white rounded-full flex items-center justify-center text-2xl font-semibold">
+                      {(profile?.firstName?.[0] || 'U')}{(profile?.lastName?.[0] || 'N')}
+                    </div>
+                  )}
+                </div>
                 
                 {isOwnProfile && (
                   <button
                     onClick={() => setShowPhotoCropper(true)}
-                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full cursor-pointer"
+                    className="absolute bottom-0 right-0 bg-stak-copper text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                     data-testid="button-edit-photo"
                   >
-                    <div className="text-center text-white">
-                      <Camera className="h-8 w-8 mx-auto mb-1" />
-                      <div className="text-xs font-medium">Change Photo</div>
-                    </div>
+                    <Camera className="h-4 w-4" />
                   </button>
                 )}
               </div>
