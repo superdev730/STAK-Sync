@@ -133,10 +133,10 @@ export class SimplifiedProfileBuilder {
   }
 
   /**
-   * Phase 1: Gather data from public sources
+   * Phase 1: Gather data from public sources (ToS-compliant only)
    */
   private async gatherPublicData(input: BuilderInput) {
-    console.log('📊 Gathering public data...');
+    console.log('📊 Gathering public data (ToS-compliant)...');
     
     const sources = {
       social: [] as any[],
@@ -144,24 +144,36 @@ export class SimplifiedProfileBuilder {
       emailDomain: null as any
     };
 
-    // Social media analysis from provided URLs
+    // Only analyze public, ToS-compliant sources
     if (input.social_urls?.length) {
       for (const url of input.social_urls) {
         try {
-          const socialData = await socialMediaCrawler.analyzeSocialProfile(url);
-          sources.social.push({ ...socialData, source_url: url });
+          // Skip LinkedIn HTML scraping - violates ToS
+          if (url.toLowerCase().includes('linkedin.com')) {
+            console.warn('Skipping LinkedIn HTML scraping - use LinkedIn API instead');
+            continue;
+          }
+          
+          // Only analyze truly public sources
+          const platform = this.detectPlatformFromUrl(url);
+          if (['github', 'website'].includes(platform)) {
+            const socialData = await socialMediaCrawler.analyzeSocialProfile(url);
+            sources.social.push({ ...socialData, source_url: url });
+          } else {
+            console.warn(`Skipping ${platform} - requires API access for ToS compliance`);
+          }
         } catch (error) {
           console.warn(`Failed to analyze ${url}:`, error);
         }
       }
     }
 
-    // Web search based on available info
+    // Web search based on available info (using public search engines)
     if (input.email) {
       const emailDomain = input.email.split('@')[1];
       sources.emailDomain = { domain: emailDomain, email: input.email };
       
-      // Use web search to find information about this person
+      // Use web search for publicly available information only
       try {
         sources.webSearch = await this.searchWebForPerson(input);
       } catch (error) {
@@ -186,63 +198,126 @@ export class SimplifiedProfileBuilder {
   }
 
   /**
-   * Phase 3: Generate AI enhancements
+   * Phase 3: AI Profile Normalization using STAK System Prompt
    */
   private async generateAIEnhancements(profile: ProfileOutput, input: BuilderInput) {
-    console.log('🧠 Generating AI enhancements...');
+    console.log('🧠 Normalizing profile with STAK AI system...');
     
-    const context = this.buildContextForAI(profile, input);
+    const rawData = this.buildRawDataForNormalizer(profile, input);
     
-    const prompt = `Based on the following data sources, enhance this professional profile:
+    const systemPrompt = `You are STAK Sync's Profile Normalizer.
 
-${context}
+Goal: Turn noisy public signals into a clean, minimal, high-confidence profile for event networking and recommendations.
 
-Generate enhancements for:
-1. Professional bio (2-3 compelling sentences)
-2. Industry keywords (relevant sectors)
-3. Skills keywords (technical and soft skills)
-4. Interest topics (professional interests)
+Hard rules:
+- Output EXACTLY the JSON in OUTPUT_SCHEMA. No extra text.
+- Do not invent facts. If unsure, set value to null and confidence to 0.
+- Provide up to 3 source_urls per field that support that field.
+- Keep "headline" ≤ 80 chars; "bio" ≤ 280 chars; tags are lowercase snake_case.
+- Prefer deterministic/vendor signals over inferred web snippets.
+- If conflicting facts appear, pick the one with the strongest source and explain briefly in the "reason" of stak_recos items where relevant.
+- Never scrape or rely on non-public or ToS-violating sources (e.g., LinkedIn HTML). Use vendor APIs or public pages only.`;
 
-Return as JSON with keys: bio, industries, skills, interests
-Each should be concise and professional.`;
+    const userPrompt = `Normalize this raw profile data into the STAK schema:
+
+RAW DATA:
+${rawData}
+
+OUTPUT_SCHEMA:
+{
+  "person": {
+    "name": {"value": null, "confidence": 0, "source_urls": []},
+    "email": {"value": null, "confidence": 1, "source_urls": []},
+    "avatar_url": {"value": null, "confidence": 0, "source_urls": []},
+    "headline": {"value": null, "confidence": 0, "source_urls": []},
+    "current_role": {
+      "title": {"value": null, "confidence": 0, "source_urls": []},
+      "company": {"value": null, "confidence": 0, "source_urls": []}
+    },
+    "geo": {"value": null, "confidence": 0, "source_urls": []},
+    "links": {
+      "website": null, "github": null, "x": null, "linkedin": null, "company": null
+    },
+    "industries": [],
+    "skills_keywords": [],
+    "interests_topics": [],
+    "bio": {"value": null, "confidence": 0, "source_urls": []}
+  },
+  "stak_recos": {
+    "goal_suggestions": ["", "", ""],
+    "mission_pack": ["", "", "", "", ""],
+    "connection_targets": [
+      {"member_id": null, "reason": "", "overlap_tags": []}
+    ],
+    "sponsor_targets": [
+      {"sponsor_id": null, "reason": "", "overlap_tags": []}
+    ]
+  }
+}
+
+Return ONLY the normalized JSON.`;
 
     try {
       const response = await this.openai.chat.completions.create({
         model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
         messages: [
-          { role: "system", content: "You are a professional profile writer for STAK Sync, a luxury networking platform." },
-          { role: "user", content: prompt }
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
-        max_tokens: 1000
+        temperature: 0.3, // Lower temperature for more consistent normalization
+        max_tokens: 2000
       });
 
-      const aiEnhancements = JSON.parse(response.choices[0].message.content || '{}');
+      const normalizedProfile = JSON.parse(response.choices[0].message.content || '{}');
       
-      // Apply AI enhancements with confidence scores
-      if (aiEnhancements.bio && !profile.person.bio.value) {
-        profile.person.bio = {
-          value: aiEnhancements.bio,
-          confidence: 0.8,
-          source_urls: ['ai_generated']
-        };
+      // Replace the current profile with the normalized version
+      if (normalizedProfile.person) {
+        Object.assign(profile.person, normalizedProfile.person);
+      }
+      
+      if (normalizedProfile.stak_recos) {
+        Object.assign(profile.stak_recos, normalizedProfile.stak_recos);
       }
 
-      if (aiEnhancements.industries) {
-        profile.person.industries = aiEnhancements.industries;
-      }
-
-      if (aiEnhancements.skills) {
-        profile.person.skills_keywords = aiEnhancements.skills;
-      }
-
-      if (aiEnhancements.interests) {
-        profile.person.interests_topics = aiEnhancements.interests;
-      }
+      console.log('✅ Profile normalized successfully');
 
     } catch (error) {
-      console.error('AI enhancement failed:', error);
+      console.error('❌ AI normalization failed:', error);
+      // Fallback to basic enhancement
+      this.applyBasicEnhancements(profile, input);
+    }
+  }
+
+  /**
+   * Fallback enhancement if AI normalization fails
+   */
+  private applyBasicEnhancements(profile: ProfileOutput, input: BuilderInput) {
+    console.log('🔧 Applying basic fallback enhancements...');
+    
+    // Basic bio if none exists
+    if (!profile.person.bio.value && (profile.person.name.value || profile.person.current_role.title.value)) {
+      const name = profile.person.name.value || 'Professional';
+      const title = profile.person.current_role.title.value || 'Leader';
+      const company = profile.person.current_role.company.value;
+      
+      let bio = `${name} is a ${title}`;
+      if (company) bio += ` at ${company}`;
+      bio += ' focused on driving innovation and building strategic partnerships.';
+      
+      profile.person.bio = {
+        value: bio.slice(0, 280), // Respect character limit
+        confidence: 0.5,
+        source_urls: ['fallback_generated']
+      };
+    }
+
+    // Basic networking goals based on role
+    if (profile.stak_recos.goal_suggestions.length === 0) {
+      profile.stak_recos.goal_suggestions = this.generateNetworkingGoals(
+        profile.person.current_role.title.value || '',
+        profile.person.current_role.company.value || ''
+      );
     }
   }
 
@@ -393,26 +468,40 @@ Each should be concise and professional.`;
     }
   }
 
-  private buildContextForAI(profile: ProfileOutput, input: BuilderInput): string {
-    const parts = [];
-    
-    if (profile.person.name.value) {
-      parts.push(`Name: ${profile.person.name.value}`);
+  private buildRawDataForNormalizer(profile: ProfileOutput, input: BuilderInput): string {
+    const rawData = {
+      input_provided: {
+        email: input.email || null,
+        linkedin_url: input.linkedin_url || null,
+        social_urls: input.social_urls || [],
+        manual_context: input.manual_context || null
+      },
+      extracted_data: {
+        person: profile.person,
+        sources_analyzed: []
+      }
+    };
+
+    // Add any sources that were successfully analyzed
+    if (input.social_urls?.length) {
+      input.social_urls.forEach(url => {
+        rawData.extracted_data.sources_analyzed.push({
+          url,
+          platform: this.detectPlatformFromUrl(url),
+          status: 'analyzed'
+        });
+      });
     }
-    
-    if (profile.person.current_role.title.value) {
-      parts.push(`Title: ${profile.person.current_role.title.value}`);
-    }
-    
-    if (profile.person.current_role.company.value) {
-      parts.push(`Company: ${profile.person.current_role.company.value}`);
-    }
-    
-    if (input.manual_context) {
-      parts.push(`Additional Context: ${input.manual_context}`);
-    }
-    
-    return parts.join('\n');
+
+    return JSON.stringify(rawData, null, 2);
+  }
+
+  private detectPlatformFromUrl(url: string): string {
+    const lower = url.toLowerCase();
+    if (lower.includes('linkedin.com')) return 'linkedin';
+    if (lower.includes('twitter.com') || lower.includes('x.com')) return 'twitter';
+    if (lower.includes('github.com')) return 'github';
+    return 'website';
   }
 
   private handleBuildError(profile: ProfileOutput, error: any): ProfileOutput {
