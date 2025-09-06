@@ -34,6 +34,9 @@ export const badgeTypeEnum = pgEnum("badge_type", [
 
 export const badgeTierEnum = pgEnum("badge_tier", ["bronze", "silver", "gold", "platinum", "diamond"]);
 
+// Profile field provenance enum for zero-friction onboarding
+export const provenanceEnum = pgEnum("provenance", ["db", "enrichment", "user"]);
+
 // Session storage table.
 export const sessions = pgTable(
   "sessions",
@@ -104,6 +107,45 @@ export const users = pgTable("users", {
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Profile field metadata for provenance tracking and zero-friction onboarding
+export const profileMetadata = pgTable("profile_metadata", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fieldName: varchar("field_name").notNull(), // firstName, lastName, company, location, etc.
+  provenance: provenanceEnum("provenance").notNull().default("user"),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).default("1.0"), // 0.0 to 1.0
+  sources: jsonb("sources"), // Array of source URLs/references
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserField: unique().on(table.userId, table.fieldName),
+}));
+
+// Profile enrichment results from external sources
+export const profileEnrichment = pgTable("profile_enrichment", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  payload: jsonb("payload").notNull(), // Enriched profile data with confidence scores
+  sources: jsonb("sources").notNull(), // Array of sources used for enrichment
+  enrichmentType: varchar("enrichment_type").notNull(), // 'initial', 'refresh', 'manual'
+  status: varchar("status").notNull().default("completed"), // 'pending', 'completed', 'failed'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Profile field change history for audit and rollback
+export const profileVersions = pgTable("profile_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fieldName: varchar("field_name").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  provenance: provenanceEnum("provenance").notNull(),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }),
+  sources: jsonb("sources"),
+  changedBy: varchar("changed_by"), // 'user', 'system', 'enrichment'
+  changedAt: timestamp("changed_at").defaultNow(),
 });
 
 // Profile recommendations from connections
@@ -494,6 +536,9 @@ export const usersRelations = relations(users, ({ many }) => ({
   tokenUsage: many(tokenUsage),
   billingAccount: many(billingAccounts),
   invoices: many(invoices),
+  profileMetadata: many(profileMetadata),
+  profileEnrichments: many(profileEnrichment),
+  profileVersions: many(profileVersions),
 }));
 
 export const eventsRelations = relations(events, ({ one, many }) => ({
@@ -673,6 +718,27 @@ export const matchesRelations = relations(matches, ({ one }) => ({
     fields: [matches.matchedUserId],
     references: [users.id],
     relationName: "matchedUser",
+  }),
+}));
+
+export const profileMetadataRelations = relations(profileMetadata, ({ one }) => ({
+  user: one(users, {
+    fields: [profileMetadata.userId],
+    references: [users.id],
+  }),
+}));
+
+export const profileEnrichmentRelations = relations(profileEnrichment, ({ one }) => ({
+  user: one(users, {
+    fields: [profileEnrichment.userId],
+    references: [users.id],
+  }),
+}));
+
+export const profileVersionsRelations = relations(profileVersions, ({ one }) => ({
+  user: one(users, {
+    fields: [profileVersions.userId],
+    references: [users.id],
   }),
 }));
 
@@ -1376,3 +1442,15 @@ export type InsertAIConversation = z.infer<typeof insertAIConversationSchema>;
 export type AIConversation = typeof aiConversations.$inferSelect;
 export type InsertAIMessage = z.infer<typeof insertAIMessageSchema>;
 export type AIMessage = typeof aiMessages.$inferSelect;
+
+// Profile metadata schemas for zero-friction onboarding
+export const insertProfileMetadataSchema = createInsertSchema(profileMetadata);
+export const insertProfileEnrichmentSchema = createInsertSchema(profileEnrichment);
+export const insertProfileVersionsSchema = createInsertSchema(profileVersions);
+
+export type InsertProfileMetadata = z.infer<typeof insertProfileMetadataSchema>;
+export type ProfileMetadata = typeof profileMetadata.$inferSelect;
+export type InsertProfileEnrichment = z.infer<typeof insertProfileEnrichmentSchema>;
+export type ProfileEnrichment = typeof profileEnrichment.$inferSelect;
+export type InsertProfileVersions = z.infer<typeof insertProfileVersionsSchema>;
+export type ProfileVersions = typeof profileVersions.$inferSelect;

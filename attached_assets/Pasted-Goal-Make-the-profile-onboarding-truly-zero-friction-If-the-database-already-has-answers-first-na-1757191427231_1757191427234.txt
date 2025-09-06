@@ -1,0 +1,138 @@
+Goal: Make the profile onboarding truly zero-friction. If the database already has answers (first_name, last_name, email, etc.), the app must prefill and NOT ask the user. Also review existing enrichment code (AI + public sources) and complete it so we auto-build a deep profile with minimal user input.
+
+Scope:
+1) CLIENT (Profile page + Signup flow)
+2) SERVER (account creation hook + enrichment pipeline)
+3) DATA (schema + caching + confidence)
+
+--------------------------------
+A) CLIENT: Profile Form Hydration & UX
+--------------------------------
+Fixes:
+- On profile page load, fetch the current user profile via `/api/me` and hydrate local state BEFORE rendering questions.
+- Any field with a non-empty value in the payload should:
+  - render as prefilled
+  - be marked as "known" and not prompt the user again
+  - show an "Edit" icon/pencil to allow change
+- Only render questions for fields that are NULL/empty AND not marked as "locked".
+- Remove required validation on fields that are already present from the DB.
+- Do NOT autosave on every keystroke. Save only onBlur or Enter (we already have a similar pattern in other parts—reuse it).
+- Add small status text under each field: "Prefilled from your account", "From public sources", or "You entered this."
+
+Acceptance:
+- First name, last name, and email are prefilled and not requested again if known.
+- If enrichment has filled headline/company/location, those show up as prefilled with provenance and are NOT re-asked unless edited.
+
+Tech notes:
+- Create a small `useProfile()` hook that returns `{ data, isLoading, refetch }` by calling `/api/me`.
+- Add a `FieldMeta` layer to each input: `{ provenance: 'db' | 'enrichment' | 'user', confidence?: number }`.
+- Add a `hiddenIfKnown` prop to the field renderer; it hides the input when `value` is present and confidence >= 0.5.
+
+--------------------------------
+B) SERVER: “Auto-Answer” + Enrichment Pipeline
+--------------------------------
+Fixes:
+- On signup (email, first_name, last_name), we already create `users` and `profiles`. Add a post-creation job that:
+  1) Stores the seed values to `profiles` (db provenance).
+  2) Launches an async enrichment task to fill additional fields (company, headline, location, links, industries, skills, interests, bio) with confidence + sources.
+- Add endpoint `GET /api/me` returning merged profile:
+  - Merge order: user-entered > db-seed > enrichment (by confidence)
+  - Include `source` and `confidence` per field.
+- Add endpoint `PATCH /api/profile` for per-field updates:
+  - When user edits, set provenance = 'user', confidence = 1.0, and archive the previous value in a `profile_versions` table.
+- Add endpoint `POST /api/enrich/:userId` to (re)run enrichment manually.
+
+Enrichment details:
+- Reuse our existing OpenAI + Perplexity integration. If we have Clearbit/PDL/etc., call them too.
+- Deterministic steps (no LLM yet):
+  - email domain → company candidate, company URL (fetch OG, schema.org), logo
+  - gravatar → avatar
+  - search burst → top 5–7 public URLs and snippets
+- LLM normalization:
+  - Use our existing “Profile Normalizer” prompt to produce:
+    - headline, current_role{title, company}, geo, links, industries[], skills_keywords[], interests_topics[], bio
+    - per-field confidence (0–1) and source_urls (max 3)
+- Store enrichment results in `profile_enrichment` table; do not overwrite user-entered fields.
+
+Acceptance:
+- Immediately after account creation, `/api/me` returns seed fields (email, first/last name).
+- Within seconds, enrichment populates headline/company/location/etc. with provenance = 'enrichment' and confidence.
+- Frontend renders newly enriched fields without asking the user to type them again.
+
+--------------------------------
+C) DATA: Schema & Merge Strategy
+--------------------------------
+Add/confirm columns in `profiles`:
+- first_name (text, provenance enum, confidence float, sources jsonb)
+- last_name (text, provenance, confidence, sources)
+- email (text, provenance, confidence, sources)
+- headline (text, provenance, confidence, sources)
+- current_title (text, provenance, confidence, sources)
+- current_company (text, provenance, confidence, sources)
+- location (text, provenance, confidence, sources)
+- avatar_url (text, provenance, confidence, sources)
+- links jsonb { website, github, x, linkedin, company } (+ provenance/confidence per subfield optional)
+- industries text[]
+- skills_keywords text[]
+- interests_topics text[]
+- bio (text, provenance, confidence, sources)
+
+Enums:
+- provenance: 'db' | 'enrichment' | 'user'
+
+Tables:
+- profile_enrichment (id, user_id, payload jsonb, created_at)
+- profile_versions (id, user_id, field, old_value, new_value, provenance, confidence, changed_by, changed_at)
+
+Merge logic:
+- Effective field value = highest-precedence:
+  1) provenance=user
+  2) provenance=db (signup seed)
+  3) provenance=enrichment with highest confidence
+- Include `effective_provenance` + `effective_confidence` in `/api/me` response per field.
+
+--------------------------------
+D) CODE CHANGES (SUGGESTED PATCHES)
+--------------------------------
+1) Create `/api/me` (server):
+- Returns merged profile as described; never returns null for known fields.
+
+2) Modify signup handler:
+- After account creation, queue an enrichment job (`enqueueEnrichment(userId)`).
+- Return the seed profile immediately.
+
+3) Create `enqueueEnrichment(userId)`:
+- Gather deterministic signals (domain, OG, gravatar, search).
+- Call Perplexity for URLs/snippets.
+- Call OpenAI Normalizer with our JSON schema.
+- Store results in `profile_enrichment`, and upsert fields into `profiles` where provenance is null and/or confidence improves.
+- Do NOT overwrite provenance='user' values.
+
+4) Frontend profile page:
+- On mount, call `/api/me`, set local state from the merged payload.
+- Render display-only rows for known fields with "Edit" option (click makes it an input).
+- Only render empty inputs for unknown fields.
+- Save onBlur/Enter only; show provenance badges.
+
+5) Add a small banner:
+- “We prefilled your profile from your account and public sources. Tap any field to edit.” with a link to view sources.
+
+--------------------------------
+E) TEST PLAN
+--------------------------------
+- New signup using email + first/last name:
+  - Navigate to profile page: first_name/last_name/email are prefilled, not asked.
+  - After enrichment finishes, headline/company/location auto-appear; no prompts shown for those.
+- Edit company → value persists, provenance becomes 'user', later enrich should NOT override it.
+- `/api/me` shows correct merged values and per-field provenance/confidence.
+- Rapid field edits only save on blur/enter (no autosave on keypress).
+- If enrichment fails, profile page still loads with seed values; user can edit normally.
+
+--------------------------------
+F) ACCEPTANCE CRITERIA (PASS/FAIL)
+--------------------------------
+- The app never asks for first name, last name, or email if already known.
+- Known values show as prefilled with provenance; unknown fields are the only ones asked.
+- Enrichment runs post-signup and fills additional fields automatically with sources/confidence.
+- User edits override enrichment and persist.
+- All saves occur on blur/enter (not each keystroke).
