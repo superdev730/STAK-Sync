@@ -311,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create live event for testing
   app.post('/api/create-test-live-event', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: 'Authentication required' });
       }
@@ -942,7 +942,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/profile/stats', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "Profile not found" });
@@ -1020,7 +1020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Profile analysis endpoint
   app.post('/api/profile/analyze', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -1049,7 +1049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Match analytics endpoint
   app.get('/api/matches/analytics', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userMatches = await storage.getMatches(userId);
       
       // Calculate analytics
@@ -1103,7 +1103,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin endpoint to get detailed user profile for analysis
   app.get('/api/admin/user/:userId', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const adminUser = await storage.getUser(req.user.claims.sub);
+      const currentUserId = getUserId(req);
+      const adminUser = await storage.getUser(currentUserId);
       if (!adminUser?.adminRole || !['admin', 'super_admin', 'owner'].includes(adminUser.adminRole)) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -1125,7 +1126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin endpoint to get user match analytics for analysis
   app.get('/api/admin/user/:userId/match-analytics', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const adminUser = await storage.getUser(req.user.claims.sub);
+      const currentUserId = getUserId(req);
+      const adminUser = await storage.getUser(currentUserId);
       if (!adminUser?.adminRole || !['admin', 'super_admin', 'owner'].includes(adminUser.adminRole)) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -1184,7 +1186,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin endpoint to get user matches for detailed analysis
   app.get('/api/admin/user/:userId/matches', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const adminUser = await storage.getUser(req.user.claims.sub);
+      const currentUserId = getUserId(req);
+      const adminUser = await storage.getUser(currentUserId);
       if (!adminUser?.adminRole || !['admin', 'super_admin', 'owner'].includes(adminUser.adminRole)) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -1204,7 +1207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate AI matches (authenticated)
   app.post('/api/matches/generate', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { generateMatches } = await import('./aiMatching');
       const newMatches = await generateMatches(userId, 5);
       
@@ -1222,7 +1225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI-powered match search endpoint
   app.post('/api/matches/ai-search', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { query } = req.body;
 
       if (!query || typeof query !== 'string') {
@@ -1334,7 +1337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI-powered connection message generation
   app.post('/api/ai/connection-message', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { matchId, targetUserId, matchData } = req.body;
 
       if (!matchId || !targetUserId || !matchData) {
@@ -1464,7 +1467,7 @@ Make it conversational and genuine.`;
   // AI-powered connection enhancement with profile building
   app.post('/api/ai/enhance-connection', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { matchId, targetUserId, profileAnswers, matchData } = req.body;
 
       if (!matchId || !targetUserId || !profileAnswers || !matchData) {
@@ -1668,7 +1671,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   app.post('/api/social/analyze', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { url, type } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       if (!url) {
         return res.status(400).json({ message: "URL is required" });
@@ -1700,7 +1703,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   app.post('/api/social/comprehensive-analysis', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { urls, currentProfile } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       if (!urls || urls.length === 0) {
         return res.status(400).json({ message: "At least one URL is required" });
@@ -1791,7 +1794,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   app.post('/api/profile/generate-brand-story', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { profileData } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       if (!profileData) {
         return res.status(400).json({ message: "Profile data is required" });
@@ -1826,12 +1829,13 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // Enhanced AI Profile Building endpoint with web search and peer feedback
   app.post("/api/profile/ai/build-enhanced", isAuthenticatedGeneral, async (req: any, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { socialSources, additionalContext, currentProfile } = req.body;
       
       console.log('Enhanced AI Profile Build Request:', { userId, sourcesCount: socialSources?.length || 0 });
@@ -1869,12 +1873,13 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // Profile recommendation system endpoints
   app.post("/api/profile/request-recommendations", isAuthenticatedGeneral, async (req: any, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { targetUserIds, customMessage } = req.body;
 
       if (!targetUserIds || !Array.isArray(targetUserIds)) {
@@ -1905,12 +1910,13 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   });
 
   app.post("/api/profile/submit-recommendation", isAuthenticatedGeneral, async (req: any, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
     try {
-      const recommenderId = req.user.claims.sub;
+      const recommenderId = getUserId(req);
       const { userId, responses } = req.body;
 
       if (!userId || !responses) {
@@ -1935,12 +1941,13 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   });
 
   app.get("/api/profile/recommendations", isAuthenticatedGeneral, async (req: any, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       const { profileRecommendationService } = await import('./profileRecommendationService');
       const feedback = await profileRecommendationService.getAggregatedFeedback(userId);
@@ -1961,12 +1968,13 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   });
 
   app.get("/api/profile/potential-recommenders", isAuthenticatedGeneral, async (req: any, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       const { profileRecommendationService } = await import('./profileRecommendationService');
       const potentialRecommenders = await profileRecommendationService.findPotentialRecommenders(userId);
@@ -1988,12 +1996,13 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // Simplified Profile Building endpoint (new schema-based approach)
   app.post("/api/profile/build-simplified", isAuthenticatedGeneral, async (req: any, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { email, linkedin_url, social_urls, manual_context } = req.body;
       
       console.log('Simplified Profile Build Request:', { userId, social_urls_count: social_urls?.length || 0 });
@@ -2035,7 +2044,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
     try {
       console.log('📝 Generating post-event connection summary...');
       
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const eventId = req.params.eventId;
       const interactionLogs = req.body;
       
@@ -2058,12 +2067,13 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // Complete AI Profile Building endpoint
   app.post("/api/profile/ai/build-complete", isAuthenticatedGeneral, async (req: any, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { socialSources, additionalContext, currentProfile } = req.body;
       
       console.log('AI Profile Build Request:', { userId, sourcesCount: socialSources?.length || 0 });
@@ -2099,7 +2109,8 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // AI Profile Enhancement endpoints (legacy support)
   app.post("/api/profile/ai/generate-bio", isAuthenticatedGeneral, async (req: any, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
@@ -2193,7 +2204,8 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // Social Media Analysis endpoint
   app.post("/api/profile/ai/analyze-social-media", isAuthenticatedGeneral, async (req, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
@@ -2268,7 +2280,8 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // Get connections for profile assistance - placeholder implementation
   app.get("/api/profile/connections-for-assistance", isAuthenticatedGeneral, async (req, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
@@ -2283,7 +2296,8 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // Request recommendations from connections - placeholder implementation
   app.post("/api/profile/request-recommendations", isAuthenticatedGeneral, async (req, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
@@ -2300,7 +2314,8 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // Get profile recommendations - placeholder implementation
   app.get("/api/profile/recommendations", isAuthenticatedGeneral, async (req, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
@@ -2315,7 +2330,8 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   // Use a recommendation in profile - placeholder implementation
   app.post("/api/profile/recommendations/:id/use", isAuthenticatedGeneral, async (req, res) => {
-    if (!req.user?.claims?.sub) {
+    const userId = getUserId(req);
+    if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
@@ -2346,7 +2362,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // Profile image update endpoint
   app.put('/api/user/profile-image', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { profileImageUrl } = req.body;
 
       if (!profileImageUrl) {
@@ -2372,7 +2388,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // Drill-down API endpoints for match statistics
   app.get('/api/user/matches-detailed', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const matches = await storage.getMatches(userId);
       // Transform matches to include detailed breakdown
       const detailedMatches = matches.map((match: any) => ({
@@ -2392,7 +2408,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   app.get('/api/user/connections-detailed', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const matches = await storage.getMatches(userId);
       const connectedMatches = matches
         .filter((match: any) => match.status === 'connected')
@@ -2413,7 +2429,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   app.get('/api/user/pending-detailed', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const matches = await storage.getMatches(userId);
       const pendingMatches = matches
         .filter((match: any) => match.status === 'pending')
@@ -2441,7 +2457,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
         return res.status(400).json({ error: "Field name is required" });
       }
       
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -2474,7 +2490,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   app.post('/api/profile/enhance-from-linkedin', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { linkedinUrl } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       if (!linkedinUrl) {
         return res.status(400).json({ message: "LinkedIn URL is required" });
@@ -2507,7 +2523,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // Generate AI-powered matches
   app.post('/api/matches/generate', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const currentUser = await storage.getUser(userId);
       if (!currentUser) {
         return res.status(404).json({ message: "User not found" });
@@ -2555,7 +2571,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // AI Profile Analysis routes
   app.post('/api/profile/analyze', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -2583,7 +2599,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   app.get('/api/matches/:matchId/analysis', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { matchId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Get match details with AI analysis
       const result = await db
@@ -2621,7 +2637,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // Initialize demo messages for the authenticated user
   app.post('/api/seed-messages', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "User not authenticated" });
       }
@@ -2696,7 +2712,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // Messages routes
   app.get('/api/conversations', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         console.error("No user ID found in request");
         return res.status(401).json({ message: "User not authenticated" });
@@ -2714,7 +2730,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   app.get('/api/conversations/:otherUserId', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "User not authenticated" });
       }
@@ -2732,7 +2748,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   app.post('/api/messages', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "User not authenticated" });
       }
@@ -2768,7 +2784,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // AI Quick Responses endpoint
   app.post('/api/messages/quick-responses', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "User not authenticated" });
       }
@@ -2799,7 +2815,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   app.put('/api/conversations/:otherUserId/read', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "User not authenticated" });
       }
@@ -2817,7 +2833,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // Meetups routes
   app.get('/api/meetups', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const meetups = await storage.getUserMeetups(userId);
       res.json(meetups);
     } catch (error) {
@@ -2828,7 +2844,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
   app.post('/api/meetups', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const meetupData = insertMeetupSchema.parse({
         ...req.body,
         organizerId: userId,
@@ -2857,7 +2873,7 @@ Make this message stand out by being genuinely thoughtful and specific.`;
   // Meeting scheduling endpoint with email integration
   app.post('/api/meetings/schedule', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "User not authenticated" });
       }
@@ -3060,7 +3076,7 @@ END:VCALENDAR`;
   app.get('/api/matches/:matchId/analysis', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { matchId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       
       if (!userId) {
         return res.status(401).json({ message: "User not authenticated" });
@@ -3121,7 +3137,7 @@ END:VCALENDAR`;
   app.get('/api/ai/common-ground/:userId', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { userId: targetUserId } = req.params;
-      const currentUserId = req.user?.claims?.sub;
+      const currentUserId = getUserId(req);
       
       if (!currentUserId) {
         return res.status(401).json({ message: "User not authenticated" });
@@ -3170,7 +3186,7 @@ END:VCALENDAR`;
   // Connection request endpoint
   app.post('/api/connections/request', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const currentUserId = req.user?.claims?.sub;
+      const currentUserId = getUserId(req);
       if (!currentUserId) {
         return res.status(401).json({ message: "User not authenticated" });
       }
@@ -3202,7 +3218,7 @@ END:VCALENDAR`;
   // Questionnaire routes
   app.post('/api/questionnaire', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const responseData = insertQuestionnaireResponseSchema.parse({
         userId,
         responses: req.body,
@@ -3218,7 +3234,7 @@ END:VCALENDAR`;
 
   app.get('/api/questionnaire', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const response = await storage.getUserQuestionnaireResponse(userId);
       res.json(response);
     } catch (error) {
@@ -3230,7 +3246,7 @@ END:VCALENDAR`;
   // Event API endpoints
   app.get('/api/events', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       
       // Get events with organizer info
       const eventsData = await db
@@ -3382,7 +3398,7 @@ END:VCALENDAR`;
   app.post('/api/events/:eventId/start-matchmaking', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
 
       if (!userId) {
         return res.status(401).json({ message: 'Please sign in to start matchmaking.' });
@@ -3457,7 +3473,7 @@ END:VCALENDAR`;
 
   app.post('/api/admin/events', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const eventData = { 
         ...req.body, 
         organizerId: userId,
@@ -3474,7 +3490,7 @@ END:VCALENDAR`;
   // Member event creation endpoint (requires approval)
   app.post('/api/events/member-proposal', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const eventData = { 
         ...req.body, 
         organizerId: userId,
@@ -3515,7 +3531,7 @@ END:VCALENDAR`;
   // Also add a general events endpoint for non-admin users (backwards compatibility)
   app.post('/api/events', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const eventData = { 
         ...req.body, 
         organizerId: userId,
@@ -3544,7 +3560,7 @@ END:VCALENDAR`;
     try {
       const { id } = req.params;
       const { action, notes, venueFee, revenueSharePercentage } = req.body;
-      const adminUserId = req.user?.claims?.sub;
+      const adminUserId = getUserId(req);
       
       if (!action || !['approve', 'reject'].includes(action)) {
         return res.status(400).json({ message: 'Invalid action. Must be "approve" or "reject"' });
@@ -3626,7 +3642,7 @@ END:VCALENDAR`;
   app.get('/api/events/:id/summary', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { id: eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
 
       if (!userId) {
         return res.status(401).json({ message: 'User not authenticated' });
@@ -3791,7 +3807,7 @@ END:VCALENDAR`;
   // Event feed for dashboard banner and discovery
   app.get('/api/events/feed', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
 
       if (!userId) {
         return res.status(401).json({ message: 'User not authenticated' });
@@ -4476,7 +4492,7 @@ END:VCALENDAR`;
 
   app.delete('/api/events/:eventId/register', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const { eventId } = req.params;
 
       await storage.unregisterFromEvent(eventId, userId);
@@ -4499,7 +4515,7 @@ END:VCALENDAR`;
 
   app.post('/api/rooms/:roomId/join', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const { roomId } = req.params;
 
       const participation = await storage.joinRoom({
@@ -4516,7 +4532,7 @@ END:VCALENDAR`;
 
   app.delete('/api/rooms/:roomId/join', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const { roomId } = req.params;
 
       await storage.leaveRoom(roomId, userId);
@@ -4529,7 +4545,7 @@ END:VCALENDAR`;
 
   app.get('/api/events/:eventId/matches', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const { eventId } = req.params;
 
       const matches = await storage.getEventMatches(eventId, userId);
@@ -4542,7 +4558,7 @@ END:VCALENDAR`;
 
   app.get('/api/user/events', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const registrations = await storage.getUserEventRegistrations(userId);
       res.json(registrations);
     } catch (error) {
@@ -4554,7 +4570,7 @@ END:VCALENDAR`;
   // CSV Import API endpoints
   app.post('/api/events/:eventId/import-csv', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { eventId } = req.params;
       const { csvContent, fileName } = req.body;
 
@@ -4614,7 +4630,7 @@ END:VCALENDAR`;
   // Speaker Messages API endpoints
   app.post('/api/events/:eventId/speaker-messages', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { eventId } = req.params;
       const messageData = insertSpeakerMessageSchema.parse({
         ...req.body,
@@ -4762,7 +4778,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   app.get('/api/events/:eventId/networking-goal', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
 
       const [goal] = await db
         .select()
@@ -4785,7 +4801,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   app.post('/api/events/:eventId/networking-goal', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       const validatedData = insertEventNetworkingGoalSchema.parse({
         ...req.body,
@@ -4838,7 +4854,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   app.get('/api/events/:eventId/connection-requests', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
 
       // Get incoming requests
       const incomingRequests = await db
@@ -4913,7 +4929,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     try {
       const { requestId } = req.params;
       const { status, responseMessage } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
 
       if (!['accepted', 'declined'].includes(status)) {
         return res.status(400).json({ message: 'Invalid status' });
@@ -4973,7 +4989,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   app.get('/api/events/:eventId/prep-stats', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
 
       // Get speaker messages count
       const [speakerMessageCount] = await db
@@ -5067,7 +5083,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.post('/api/events/:eventId/presence', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const { eventId } = req.params;
       const { status, location } = req.body;
 
@@ -5101,7 +5117,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.post('/api/events/:eventId/start-matchmaking', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const { eventId } = req.params;
       const { urgency, maxMatches, matchingCriteria, roomId } = req.body;
 
@@ -5151,7 +5167,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.get('/api/events/:eventId/live-matches', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const { eventId } = req.params;
       
       const matches = await storage.getLiveMatches(eventId, userId);
@@ -5740,7 +5756,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // User's billing dashboard (for end users)
   app.get('/api/user/billing', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: 'User not authenticated' });
       }
@@ -5770,7 +5786,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Token usage history for user
   app.get('/api/user/token-usage', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: 'User not authenticated' });
       }
@@ -5873,7 +5889,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Get user's own events
   app.get('/api/events/my-events', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
       }
@@ -5897,7 +5913,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Create new event
   app.post('/api/events/create', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         console.error('User not authenticated - no userId found');
         return res.status(401).json({ error: 'User not authenticated' });
@@ -5996,7 +6012,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Create new event
   app.post('/api/events/create', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       const eventData = req.body;
 
       // Create the event
@@ -6200,7 +6216,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Admin analytics endpoints
   app.get('/api/admin/analytics', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const timeRange = req.query.timeRange as '7d' | '30d' | '90d' || '30d';
       const analytics = await storage.getAdminAnalytics(timeRange);
@@ -6227,7 +6244,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Admin user management endpoints
   app.get('/api/admin/users', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -6279,7 +6297,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.post('/api/admin/users/:userId/status', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const adminUser = await storage.getUser(req.user.claims.sub);
+      const currentUserId = getUserId(req);
+      const adminUser = await storage.getUser(currentUserId);
 
       const { userId } = req.params;
       const { status, reason } = req.body;
@@ -6339,7 +6358,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.get('/api/admin/users/search', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const query = req.query.q as string;
       if (!query || query.length < 2) {
@@ -6357,7 +6377,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Admin user management routes
   app.post('/api/admin/users', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const adminUser = await storage.getUser(req.user.claims.sub);
+      const currentUserId = getUserId(req);
+      const adminUser = await storage.getUser(currentUserId);
       const { firstName, lastName, email, company, title, adminRole, isStakTeamMember } = req.body;
 
       if (!email) {
@@ -6371,9 +6392,9 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
       }
 
       // Create new user
-      const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const newUserId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const newUser = await storage.createUser({
-        id: userId,
+        id: newUserId,
         email,
         firstName,
         lastName,
@@ -6418,7 +6439,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.put('/api/admin/users/:userId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const adminUser = await storage.getUser(req.user.claims.sub);
+      const currentUserId = getUserId(req);
+      const adminUser = await storage.getUser(currentUserId);
       const { userId } = req.params;
       const { firstName, lastName, company, title, adminRole, isStakTeamMember } = req.body;
 
@@ -6464,7 +6486,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.delete('/api/admin/users/:userId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const adminUser = await storage.getUser(req.user.claims.sub);
+      const currentUserId = getUserId(req);
+      const adminUser = await storage.getUser(currentUserId);
       const { userId } = req.params;
 
       // Get existing user for logging
@@ -6504,7 +6527,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Password reset endpoint
   app.post('/api/admin/users/:userId/reset-password', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const adminUser = await storage.getUser(req.user.claims.sub);
+      const currentUserId = getUserId(req);
+      const adminUser = await storage.getUser(currentUserId);
       const { userId } = req.params;
       const { newPassword } = req.body;
 
@@ -6558,7 +6582,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Platform insights for stakeholders, investors, and advertisers
   app.get('/api/admin/platform-insights', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const timeRange = req.query.timeRange as string || '30d';
       
@@ -6647,7 +6672,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Urgent actions endpoint
   app.get('/api/admin/urgent-actions', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const urgentActions = [
         {
@@ -6704,7 +6730,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Drill-down endpoints for detailed metric data
   app.get('/api/admin/users-detailed', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const users = await storage.getAllUsers();
       const detailedUsers = users.users.map((u: any) => ({
@@ -6726,7 +6753,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.get('/api/admin/messages-detailed', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const messages = [
         {
@@ -6761,7 +6789,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.get('/api/admin/events-detailed', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const events = await storage.getEvents();
       const detailedEvents = events.map(event => ({
@@ -6781,7 +6810,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.get('/api/admin/matches-detailed', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const matches = [
         {
@@ -6820,7 +6850,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // User stats endpoint for dashboard
   app.get('/api/user/stats', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Get actual counts from database
       const [userMatches, userMeetups, userMessages] = await Promise.all([
@@ -6858,7 +6888,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Profile completion endpoint
   app.get('/api/user/profile-completion', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUserById(userId);
       
       if (!user) {
@@ -6912,7 +6942,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // User's registered events endpoint
   app.get('/api/user/registered-events', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       const [registeredEvents] = await db
         .select({
@@ -6938,7 +6968,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Event discovery with motivating stats
   app.get('/api/events/discovery', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Get upcoming public events that user hasn't registered for
       const upcomingEvents = await db
@@ -6994,7 +7024,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Match suggestions for home page  
   app.get('/api/user/match-suggestions', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Get high-quality matches for the user
       const matches = await storage.getMatches(userId);
@@ -7021,7 +7051,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Activity score calculation endpoint
   app.get('/api/user/activity-score', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Get user activity data
       const [userMatches, userMeetups, userMessages, userEvents] = await Promise.all([
@@ -7075,7 +7105,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Personal user drill-down endpoints
   app.get('/api/user/connections-detailed', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Get matches where user is connected
       const userMatches = await storage.getMatches(userId);
@@ -7100,7 +7130,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.get('/api/user/meetings-detailed', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Get meetups where user is organizer or attendee
       const userMeetups = await storage.getUserMeetups(userId);
@@ -7124,7 +7154,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.get('/api/user/messages-detailed', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Get messages where user is sender or receiver
       const userMessages = await storage.getConversations(userId);
@@ -7170,7 +7200,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
 
   app.get('/api/user/matches-detailed', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Get all matches for the user
       const userMatches = await storage.getMatches(userId);
@@ -7203,7 +7233,8 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Detailed advertising metrics for advertisers
   app.get('/api/admin/advertising-performance', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
 
       const timeRange = req.query.timeRange as string || '30d';
       
@@ -7262,7 +7293,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // Events API routes
   app.get('/api/events', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const events = await storage.getEvents();
       
       // Enrich events with registration data for the current user
@@ -7798,7 +7829,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   // Fix conversation read endpoint
   app.put('/api/conversations/:userId/read', isAuthenticatedGeneral, async (req: any, res) => {
     try {
-      const currentUserId = req.user?.claims?.sub;
+      const currentUserId = getUserId(req);
       const otherUserId = req.params.userId;
       
       await storage.markMessagesAsRead(currentUserId, otherUserId);
@@ -7853,7 +7884,8 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
 
   app.post('/api/admin/users', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
-      const adminUser = await storage.getUser(req.user.claims.sub);
+      const userId = getUserId(req);
+      const adminUser = await storage.getUser(userId);
       const userData = req.body;
 
       // Create the user
@@ -8038,7 +8070,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.post('/api/invite/:inviteCode/use', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { inviteCode } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
 
       const invite = await storage.getInvite(inviteCode);
       if (!invite) {
@@ -8309,7 +8341,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   // Get user's proximity settings
   app.get("/api/user/proximity-settings", isAuthenticatedGeneral, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -8335,7 +8367,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   // Update user's proximity settings
   app.put("/api/user/proximity-settings", isAuthenticatedGeneral, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { enabled, minMatchScore, alertRadius, allowNotifications, showOnlyMutualConnections, bluetoothDeviceId } = req.body;
 
       const updatedUser = await storage.updateUserProximitySettings(userId, {
@@ -8361,7 +8393,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   // Get nearby matches based on recent proximity detections
   app.get("/api/proximity/nearby-matches", isAuthenticatedGeneral, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       
       if (!user || !user.proximityEnabled) {
@@ -8406,7 +8438,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   // Report proximity detection (called by client when Bluetooth devices are detected)
   app.post("/api/proximity/detection", isAuthenticatedGeneral, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { deviceId, signalStrength, detectedUserId } = req.body;
 
       if (!deviceId || !signalStrength) {
@@ -8443,7 +8475,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.get('/api/events/:eventId/goals', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -8459,7 +8491,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.post('/api/events/:eventId/goals/suggestions', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -8475,7 +8507,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.post('/api/events/:eventId/goals', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -8497,7 +8529,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.put('/api/events/:eventId/goals/:goalId', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { goalId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -8513,7 +8545,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.delete('/api/events/:eventId/goals/:goalId', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { goalId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -8530,7 +8562,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.post('/api/events/:eventId/matchmaking/run', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -8552,7 +8584,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.get('/api/events/:eventId/pre-matches', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -8568,7 +8600,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.get('/api/events/:eventId/matchmaking/status', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -8593,7 +8625,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.post('/api/events/:eventId/notifications/schedule', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -8664,7 +8696,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   app.get('/api/events/:eventId/users-without-goals', isAuthenticatedGeneral, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
