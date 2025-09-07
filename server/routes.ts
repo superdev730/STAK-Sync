@@ -40,6 +40,7 @@ import {
   connectionRequests,
   adminSupplementalNotes,
   attendeeWatchlist,
+  eventMissionProgress,
   tokenUsage,
   billingAccounts,
   invoices,
@@ -59,6 +60,8 @@ import {
   type InsertAdminSupplementalNote,
   type AttendeeWatchlist,
   type InsertAttendeeWatchlist,
+  type EventMissionProgress,
+  type InsertEventMissionProgress,
   type ProfileMetadata,
   type ProfileEnrichment
 } from "@shared/schema";
@@ -4251,11 +4254,11 @@ END:VCALENDAR`;
     }
   });
 
-  // Update mission status
+  // Update mission status with proper data storage
   app.patch('/api/events/:id/missions/:missionId', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { id: eventId, missionId } = req.params;
-      const { status } = req.body;
+      const { status, submissionData } = req.body;
       
       // Get authenticated user ID
       const userId = getUserId(req);
@@ -4279,19 +4282,88 @@ END:VCALENDAR`;
         // Award points based on mission type
         const missionPoints = {
           'speak_to_speaker': 20,
-          'networking_goals': 15,
+          'set_networking_goals': 15,
           'meet_attendees': 10,
-          'program_content': 5,
-          'high_value_matches': 25,
-          'sponsors_partners': 10,
+          'see_program_content': 5,
+          'connect_matches': 25,
+          'visit_sponsors': 10,
           'share_insights': 15,
-          'sync_sessions': 20,
-          'crowd_intel': 15,
+          'schedule_sync': 20,
+          'contribute_crowd_intel': 15,
           'post_event_feedback': 10
         };
 
         pointsAwarded = missionPoints[missionId as keyof typeof missionPoints] || 0;
         message = `Mission completed! +${pointsAwarded} Sync Points`;
+
+        // Save mission-specific data to appropriate database tables
+        if (missionId === 'speak_to_speaker' && submissionData?.speakerMessage) {
+          try {
+            const speakerMessage = await db.insert(speakerMessages).values({
+              eventId,
+              userId,
+              speakerName: 'Event Speakers',
+              messageType: 'question',
+              messageContent: submissionData.speakerMessage,
+              isAnonymous: false,
+              isIncludedInSummary: true,
+              moderationStatus: 'approved'
+            }).returning();
+            console.log(`Saved speaker message:`, speakerMessage[0].id);
+          } catch (dbError) {
+            console.error('Failed to save speaker message:', dbError);
+          }
+        }
+
+        if (missionId === 'set_networking_goals' && submissionData?.networkingGoals) {
+          try {
+            const networkingGoal = await db.insert(eventNetworkingGoals).values({
+              eventId,
+              userId,
+              primaryGoal: 'networking',
+              specificObjectives: [submissionData.networkingGoals],
+              targetCompanyTypes: [],
+              targetRoles: [],
+              targetIndustries: [],
+              avoidancePreferences: [],
+              communicationStyle: 'balanced',
+              meetingPreference: 'mixed',
+              isActive: true
+            }).returning();
+            console.log(`Saved networking goal:`, networkingGoal[0].id);
+          } catch (dbError) {
+            console.error('Failed to save networking goal:', dbError);
+          }
+        }
+      }
+
+      // Store mission progress in database
+      try {
+        await db.insert(eventMissionProgress).values({
+          eventId,
+          userId,
+          missionId,
+          status,
+          pointsEarned: pointsAwarded,
+          submissionData: submissionData || {},
+          startedAt: status === 'in_progress' ? new Date() : undefined,
+          completedAt: status === 'completed' ? new Date() : undefined,
+          updatedAt: new Date()
+        }).onConflictDoUpdate({
+          target: [eventMissionProgress.eventId, eventMissionProgress.userId, eventMissionProgress.missionId],
+          set: {
+            status,
+            pointsEarned: pointsAwarded,
+            submissionData: submissionData || {},
+            startedAt: status === 'in_progress' ? new Date() : sql`COALESCE(${eventMissionProgress.startedAt}, ${new Date()})`,
+            completedAt: status === 'completed' ? new Date() : null,
+            updatedAt: new Date()
+          }
+        });
+        console.log(`Mission progress saved for user ${userId}, mission ${missionId}`);
+      } catch (dbError) {
+        console.error('Failed to save mission progress:', dbError);
+        // Don't fail the request for database storage issues
       }
 
       res.json({

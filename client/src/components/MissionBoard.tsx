@@ -86,8 +86,8 @@ export function MissionBoard({ eventId, missions, progress, onMissionStart }: Mi
 
   // Update mission status mutation
   const updateMissionMutation = useMutation({
-    mutationFn: async ({ missionId, status }: { missionId: string; status: string }) => {
-      return apiRequest(`/api/events/${eventId}/missions/${missionId}`, 'PATCH', { status });
+    mutationFn: async ({ missionId, status, submissionData }: { missionId: string; status: string; submissionData?: any }) => {
+      return apiRequest(`/api/events/${eventId}/missions/${missionId}`, 'PATCH', { status, submissionData });
     },
     onSuccess: (data: any) => {
       toast({
@@ -123,7 +123,18 @@ export function MissionBoard({ eventId, missions, progress, onMissionStart }: Mi
   };
 
   const handleMissionComplete = (missionId: string) => {
-    updateMissionMutation.mutate({ missionId, status: 'completed' });
+    const submissionData = missionInputs[missionId] ? {
+      speakerMessage: missionId === 'speak_to_speaker' ? missionInputs[missionId] : undefined,
+      networkingGoals: missionId === 'set_networking_goals' ? missionInputs[missionId] : undefined,
+      meetingNotes: missionId === 'meet_attendees' ? missionInputs[missionId] : undefined,
+      feedback: missionId === 'post_event_feedback' ? missionInputs[missionId] : undefined
+    } : undefined;
+
+    updateMissionMutation.mutate({ 
+      missionId, 
+      status: 'completed',
+      submissionData 
+    });
     setExpandedMission(null);
   };
 

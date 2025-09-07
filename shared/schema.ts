@@ -1012,6 +1012,28 @@ export const adminSupplementalNotes = pgTable("admin_supplemental_notes", {
   adminIndex: index("admin_notes_admin_idx").on(table.adminUserId),
 }));
 
+// Event mission progress tracking
+export const eventMissionProgress = pgTable("event_mission_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  missionId: varchar("mission_id").notNull(), // "speak_to_speaker", "set_networking_goals", etc.
+  status: varchar("status").notNull().default("not_started"), // "not_started", "in_progress", "completed"
+  pointsEarned: integer("points_earned").default(0),
+  completedAt: timestamp("completed_at"),
+  startedAt: timestamp("started_at"),
+  submissionData: jsonb("submission_data").$type<{
+    speakerMessage?: string;
+    networkingGoals?: string;
+    meetingNotes?: string;
+    feedback?: string;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserEventMission: unique().on(table.eventId, table.userId, table.missionId),
+}));
+
 // Event networking goals for AI moderation
 export const eventNetworkingGoals = pgTable("event_networking_goals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1285,6 +1307,10 @@ export type SpeakerMessage = typeof speakerMessages.$inferSelect;
 export type InsertSpeakerMessage = z.infer<typeof insertSpeakerMessageSchema>;
 export type AdminSupplementalNote = typeof adminSupplementalNotes.$inferSelect;
 export type InsertAdminSupplementalNote = z.infer<typeof insertAdminSupplementalNoteSchema>;
+
+export type EventMissionProgress = typeof eventMissionProgress.$inferSelect;
+export type InsertEventMissionProgress = typeof eventMissionProgress.$inferInsert;
+
 export type EventNetworkingGoal = typeof eventNetworkingGoals.$inferSelect;
 export type InsertEventNetworkingGoal = z.infer<typeof insertEventNetworkingGoalSchema>;
 export type ConnectionRequest = typeof connectionRequests.$inferSelect;
