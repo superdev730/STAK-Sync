@@ -6000,6 +6000,223 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     }
   });
 
+  // Profile completion endpoint
+  app.get('/api/user/profile-completion', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUserById(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Calculate profile completion based on key fields
+      const fields = [
+        { field: 'firstName', weight: 5, value: user.firstName },
+        { field: 'lastName', weight: 5, value: user.lastName },
+        { field: 'title', weight: 15, value: user.title },
+        { field: 'company', weight: 15, value: user.company },
+        { field: 'bio', weight: 20, value: user.bio },
+        { field: 'location', weight: 10, value: user.location },
+        { field: 'linkedinUrl', weight: 10, value: user.linkedinUrl },
+        { field: 'networkingGoal', weight: 20, value: user.networkingGoal }
+      ];
+
+      let completedWeight = 0;
+      let totalWeight = 0;
+      let missingFields = [];
+
+      fields.forEach(({ field, weight, value }) => {
+        totalWeight += weight;
+        if (value && value.trim().length > 0) {
+          completedWeight += weight;
+        } else {
+          missingFields.push(field);
+        }
+      });
+
+      const completionPercentage = Math.round((completedWeight / totalWeight) * 100);
+
+      res.json({
+        completionPercentage,
+        isComplete: completionPercentage >= 90,
+        missingFields,
+        suggestions: completionPercentage < 90 ? [
+          'Add a professional title and company',
+          'Write a compelling bio highlighting your expertise',
+          'Set your networking goals to improve AI matching',
+          'Connect your LinkedIn profile for enhanced networking'
+        ] : []
+      });
+    } catch (error) {
+      console.error('Error calculating profile completion:', error);
+      res.status(500).json({ message: 'Failed to calculate profile completion' });
+    }
+  });
+
+  // User's registered events endpoint
+  app.get('/api/user/registered-events', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const [registeredEvents] = await db
+        .select({
+          event: events,
+          registration: eventRegistrations,
+          attendeeCount: sql<number>`(
+            SELECT COUNT(*) FROM ${eventRegistrations} 
+            WHERE ${eventRegistrations.eventId} = ${events.id}
+          )`.as('attendeeCount')
+        })
+        .from(eventRegistrations)
+        .innerJoin(events, eq(eventRegistrations.eventId, events.id))
+        .where(eq(eventRegistrations.userId, userId))
+        .orderBy(desc(events.startDate));
+
+      res.json(registeredEvents || []);
+    } catch (error) {
+      console.error('Error fetching registered events:', error);
+      res.status(500).json({ message: 'Failed to fetch registered events' });
+    }
+  });
+
+  // Event discovery with motivating stats
+  app.get('/api/events/discovery', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get upcoming public events that user hasn't registered for
+      const upcomingEvents = await db
+        .select({
+          event: events,
+          attendeeCount: sql<number>`(
+            SELECT COUNT(*) FROM ${eventRegistrations} 
+            WHERE ${eventRegistrations.eventId} = ${events.id}
+          )`.as('attendeeCount'),
+          watchingCount: sql<number>`COALESCE((
+            SELECT COUNT(*) FROM ${eventMatches} 
+            WHERE ${eventMatches.eventId} = ${events.id}
+          ), 0)`.as('watchingCount')
+        })
+        .from(events)
+        .leftJoin(eventRegistrations, and(
+          eq(eventRegistrations.eventId, events.id),
+          eq(eventRegistrations.userId, userId)
+        ))
+        .where(and(
+          eq(events.isPublic, true),
+          gte(events.startDate, new Date().toISOString()),
+          isNull(eventRegistrations.id) // User not registered
+        ))
+        .orderBy(asc(events.startDate))
+        .limit(6);
+
+      // Enhance with match predictions and social proof
+      const eventsWithStats = upcomingEvents.map(({ event, attendeeCount, watchingCount }) => {
+        const percentFull = event.capacity ? Math.round((attendeeCount / event.capacity) * 100) : 0;
+        const weeklySignupDelta = Math.floor(Math.random() * 20) + 5; // Mock for now
+        const highValueMatches = Math.floor(Math.random() * 8) + 2; // Mock AI prediction
+        
+        return {
+          ...event,
+          attendeeCount,
+          watchingCount,
+          percentFull,
+          weeklySignupDelta,
+          highValueMatches,
+          urgencyLevel: percentFull >= 80 ? 'high' : percentFull >= 60 ? 'medium' : 'low',
+          socialProof: attendeeCount > 50 ? 'high' : attendeeCount > 20 ? 'medium' : 'low'
+        };
+      });
+
+      res.json(eventsWithStats);
+    } catch (error) {
+      console.error('Error fetching discovery events:', error);
+      res.status(500).json({ message: 'Failed to fetch discovery events' });
+    }
+  });
+
+  // Match suggestions for home page  
+  app.get('/api/user/match-suggestions', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get high-quality matches for the user
+      const matches = await storage.getMatches(userId);
+      const suggestions = matches
+        .filter(match => match.matchScore >= 85 && match.status === 'pending')
+        .slice(0, 5)
+        .map(match => ({
+          id: match.id,
+          matchedUser: match.matchedUser,
+          matchScore: match.matchScore,
+          matchReason: match.aiRecommendationReason || 'High compatibility based on professional goals',
+          commonInterests: match.sharedInterests || [],
+          connectionPotential: match.matchScore >= 95 ? 'exceptional' : 
+                              match.matchScore >= 90 ? 'high' : 'good'
+        }));
+
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error fetching match suggestions:', error);
+      res.status(500).json({ message: 'Failed to fetch match suggestions' });
+    }
+  });
+
+  // Activity score calculation endpoint
+  app.get('/api/user/activity-score', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get user activity data
+      const [userMatches, userMeetups, userMessages, userEvents] = await Promise.all([
+        storage.getMatches(userId),
+        storage.getUserMeetups(userId),
+        storage.getConversations(userId),
+        db.select().from(eventRegistrations).where(eq(eventRegistrations.userId, userId))
+      ]);
+
+      // Calculate activity score based on engagement
+      const connectionsScore = userMatches.filter(m => m.status === 'connected').length * 10;
+      const meetingsScore = userMeetups.length * 15;
+      const messagesScore = userMessages.length * 2;
+      const eventsScore = userEvents.length * 25;
+      
+      const totalScore = Math.min(connectionsScore + meetingsScore + messagesScore + eventsScore, 1000);
+      
+      let level = 'Starter';
+      let nextThreshold = 200;
+      
+      if (totalScore >= 800) {
+        level = 'Master';
+        nextThreshold = 1000;
+      } else if (totalScore >= 500) {
+        level = 'Expert';
+        nextThreshold = 800;
+      } else if (totalScore >= 200) {
+        level = 'Builder';
+        nextThreshold = 500;
+      }
+
+      res.json({
+        score: totalScore,
+        level,
+        nextThreshold,
+        breakdown: {
+          connections: connectionsScore,
+          meetings: meetingsScore,
+          messages: messagesScore,
+          events: eventsScore
+        },
+        badge: `Sync ${level}`,
+        progressToNext: Math.round(((totalScore % nextThreshold) / nextThreshold) * 100)
+      });
+    } catch (error) {
+      console.error('Error calculating activity score:', error);
+      res.status(500).json({ message: 'Failed to calculate activity score' });
+    }
+  });
+
   // Personal user drill-down endpoints
   app.get('/api/user/connections-detailed', isAuthenticatedGeneral, async (req: any, res) => {
     try {
