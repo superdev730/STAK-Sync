@@ -38,6 +38,7 @@ export function LiveEventBanner() {
   const [timeRemaining, setTimeRemaining] = useState<TimeRemaining | null>(null);
   const [isEventStarted, setIsEventStarted] = useState(false);
   const [isEventActive, setIsEventActive] = useState(false);
+  const [isWithinOneHour, setIsWithinOneHour] = useState(false);
   const isMobile = useIsMobile();
 
   // Fetch today's live events
@@ -89,6 +90,10 @@ export function LiveEventBanner() {
       setIsEventActive(false);
       const timeDiff = eventStart - now;
       
+      // Check if we're within 1 hour of event start
+      const oneHourInMs = 60 * 60 * 1000;
+      setIsWithinOneHour(timeDiff <= oneHourInMs);
+      
       const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
@@ -108,10 +113,24 @@ export function LiveEventBanner() {
   if (!liveEvent) return null;
 
   const handleJoinEvent = () => {
-    // Navigate to live event page
     if (liveEvent) {
-      window.location.href = `/events/live/${liveEvent.id}`;
+      if (isEventStarted) {
+        // Event has started - go to live event page
+        window.location.href = `/events/live/${liveEvent.id}`;
+      } else if (isWithinOneHour) {
+        // Less than 1 hour before event - enter event page
+        window.location.href = `/events/live/${liveEvent.id}`;
+      } else {
+        // More than 1 hour before event - go to preparation page
+        window.location.href = `/events/live/${liveEvent.id}/preparation`;
+      }
     }
+  };
+  
+  const getButtonText = () => {
+    if (isEventStarted) return isMobile ? 'Join' : 'Join Live Event';
+    if (isWithinOneHour) return 'Enter Event';
+    return 'Event Prep';
   };
 
   if (isMobile) {
@@ -144,7 +163,7 @@ export function LiveEventBanner() {
               size="sm"
               className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80 font-semibold px-4 py-2 flex-shrink-0"
             >
-              {isEventStarted ? 'Join' : 'Enter'}
+              {getButtonText()}
             </Button>
           </div>
 
@@ -207,21 +226,6 @@ export function LiveEventBanner() {
                 </div>
               </div>
               
-              {/* Event Prep Button for Mobile */}
-              {!isEventStarted && (
-                <div className="flex justify-center pt-2">
-                  <Button 
-                    asChild
-                    size="sm"
-                    className="bg-[#CD853F]/20 text-[#CD853F] border border-[#CD853F]/30 hover:bg-[#CD853F]/30 font-semibold"
-                  >
-                    <Link href={`/events/live/${liveEvent.id}/preparation`}>
-                      <Target className="w-3 h-3 mr-2" />
-                      Event Prep
-                    </Link>
-                  </Button>
-                </div>
-              )}
             </div>
           ) : null}
         </div>
@@ -339,25 +343,13 @@ export function LiveEventBanner() {
               </Button>
             )}
 
-            {/* Event Preparation Button */}
-            {!isEventStarted && (
-              <Button 
-                asChild
-                className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80 font-semibold px-6 py-2"
-              >
-                <Link href={`/events/live/${liveEvent.id}/preparation`}>
-                  <Target className="w-4 h-4 mr-2" />
-                  Event Prep
-                </Link>
-              </Button>
-            )}
-            
-            {/* Join Event Button */}
+            {/* Main Event Button */}
             <Button 
               onClick={handleJoinEvent}
-              className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80 font-semibold px-6 py-2"
+              className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80 font-semibold px-6 py-2 flex items-center gap-2"
             >
-              {isEventStarted ? 'Join Live Event' : 'Enter Early'}
+              {!isEventStarted && !isWithinOneHour && <Target className="w-4 h-4" />}
+              {getButtonText()}
             </Button>
           </div>
         </div>
