@@ -7628,5 +7628,68 @@ ${personalMessage || ''}
     }
   });
 
+  // Intel Collector - Process raw comments into structured facts
+  app.post('/api/intel/process-comment', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const processorUserId = req.user?.id;
+      if (!processorUserId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { rawText, contactId, memberId } = req.body;
+
+      if (!rawText || !contactId || !memberId) {
+        return res.status(400).json({ error: 'Raw text, contact ID, and member ID are required' });
+      }
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY!,
+      });
+
+      const processingPrompt = `You are STAK Sync's Intel Processor. Convert raw comments about professionals into structured, valuable facts.
+
+Extract the most significant accomplishment, strength, or notable fact from the comment. Focus on concrete, networking-valuable information.
+
+INPUT_COMMENT: "{raw_text_or_transcript}"
+CONTACT_ID: "{contact_id}"
+MEMBER_ID: "{member_id}"
+
+OUTPUT_SCHEMA:
+{
+  "member_id": "",
+  "contact_id": "",
+  "crowdsourced_fact": "",
+  "tags": [],
+  "confidence": 1.0
+}
+
+Tags should include: industries, skills, achievements, roles, or notable projects mentioned.
+Confidence should reflect how specific and verifiable the fact is (0.0-1.0).`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: 'system', content: processingPrompt },
+          { 
+            role: 'user', 
+            content: `INPUT_COMMENT: "${rawText}"
+CONTACT_ID: "${contactId}"
+MEMBER_ID: "${memberId}"`
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+        max_tokens: 400
+      });
+
+      const processedFact = JSON.parse(response.choices[0].message.content || '{}');
+      
+      res.json(processedFact);
+    } catch (error) {
+      console.error('Process comment error:', error);
+      res.status(500).json({ error: 'Failed to process comment' });
+    }
+  });
+
   return httpServer;
 }
