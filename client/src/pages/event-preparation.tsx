@@ -539,74 +539,141 @@ export default function EventPreparation() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-gray-600 mb-4">
-                    Manage incoming connection requests and boost your networking activity. Responding increases your visibility in AI recommendations.
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-600">
+                    Manage incoming requests and discover AI-recommended connections.
                   </p>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <span className="text-sm font-medium text-blue-800">Pending Requests</span>
-                      <span className="font-bold text-blue-900">{prepStats?.incomingConnectionRequests || 0}</span>
-                    </div>
-                    {(!prepStats?.incomingConnectionRequests || prepStats.incomingConnectionRequests === 0) && (
-                      <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">
-                        No incoming requests yet. The AI is working to promote your profile to high-quality matches.
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowRecommendations(!showRecommendations)}
+                    className="text-[#CD853F] border-[#CD853F] hover:bg-[#CD853F]/10"
+                    data-testid="button-show-recommendations"
+                  >
+                    <Star className="w-4 h-4 mr-2" />
+                    {showRecommendations ? 'Hide' : 'Show'} Recommendations
+                  </Button>
+                </div>
+
+                {/* AI Recommendations Section */}
+                {showRecommendations && (
+                  <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
+                    <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+                      <Zap className="w-4 h-4" />
+                      AI Recommended Connections
+                    </h4>
+                    {prepStats?.highQualityMatches && prepStats.highQualityMatches > 0 ? (
+                      <div className="space-y-3">
+                        {/* Mock high-quality recommendations */}
+                        {Array.from({ length: Math.min(5, prepStats.highQualityMatches) }, (_, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-white rounded border">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="w-8 h-8">
+                                <AvatarFallback>AI</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="text-sm font-medium">High-Quality Match #{i + 1}</div>
+                                <div className="text-xs text-gray-500">Match Score: {95 - i}%</div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                className="bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                                data-testid={`button-connect-recommendation-${i}`}
+                              >
+                                Connect
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                data-testid={`button-view-recommendation-${i}`}
+                              >
+                                View
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center p-4 bg-yellow-50 rounded border border-yellow-200">
+                        <AlertTriangle className="w-6 h-6 mx-auto text-yellow-600 mb-2" />
+                        <div className="text-sm text-yellow-800 font-medium">No High-Quality Matches Found</div>
+                        <div className="text-xs text-yellow-700 mt-1">
+                          Consider improving your profile for better AI recommendations
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="mt-3 text-yellow-700 border-yellow-400 hover:bg-yellow-100"
+                          data-testid="button-improve-profile"
+                        >
+                          Improve Profile
+                        </Button>
                       </div>
                     )}
                   </div>
-                </div>
-                <div className="space-y-4">
+                )}
+
+                {/* Incoming Requests */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-gray-900">Pending Requests</h4>
+                    <Badge variant="secondary">{prepStats?.incomingConnectionRequests || 0}</Badge>
+                  </div>
+                  
                   {connectionRequests?.incoming && connectionRequests.incoming.length > 0 ? (
                     <div className="space-y-3 max-h-60 overflow-y-auto">
                       {connectionRequests.incoming.map((request) => (
-                        <div key={request.id} className="p-3 border rounded-lg bg-white">
-                          <div className="flex items-start gap-3">
-                            <Avatar className="w-8 h-8">
+                        <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-10 h-10">
                               <AvatarImage src={request.fromUser.profileImageUrl} />
                               <AvatarFallback>{request.fromUser.firstName[0]}{request.fromUser.lastName[0]}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium">{request.fromUser.firstName} {request.fromUser.lastName}</div>
-                              <div className="text-xs text-gray-500 mb-2">Match Score: {request.matchScore}%</div>
+                              <div className="text-xs text-gray-500">Match: {request.matchScore}% • {request.aiRecommendationReason}</div>
                               {request.message && (
-                                <div className="text-xs text-gray-600 mb-2 italic">"{request.message}"</div>
+                                <div className="text-xs text-gray-600 mt-1 italic">"{request.message}"</div>
                               )}
-                              <div className="flex gap-2">
-                                <Button 
-                                  size="sm" 
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                  onClick={() => respondToRequestMutation.mutate({ 
-                                    requestId: request.id, 
-                                    status: 'accepted' 
-                                  })}
-                                  disabled={respondToRequestMutation.isPending}
-                                  data-testid={`button-accept-${request.id}`}
-                                >
-                                  Accept
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => respondToRequestMutation.mutate({ 
-                                    requestId: request.id, 
-                                    status: 'declined' 
-                                  })}
-                                  disabled={respondToRequestMutation.isPending}
-                                  data-testid={`button-decline-${request.id}`}
-                                >
-                                  Decline
-                                </Button>
-                              </div>
                             </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => respondToRequestMutation.mutate({ 
+                                requestId: request.id, 
+                                status: 'accepted' 
+                              })}
+                              disabled={respondToRequestMutation.isPending}
+                              data-testid={`button-accept-${request.id}`}
+                            >
+                              Accept
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => respondToRequestMutation.mutate({ 
+                                requestId: request.id, 
+                                status: 'declined' 
+                              })}
+                              disabled={respondToRequestMutation.isPending}
+                              data-testid={`button-decline-${request.id}`}
+                            >
+                              Decline
+                            </Button>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center p-6 bg-gray-50 rounded-lg">
+                    <div className="text-center p-6 bg-gray-50 rounded-lg border">
                       <Network className="w-8 h-8 mx-auto text-gray-400 mb-2" />
                       <div className="text-sm text-gray-600">No pending requests</div>
+                      <div className="text-xs text-gray-500 mt-1">AI is working to promote your profile to matches</div>
                     </div>
                   )}
                 </div>
