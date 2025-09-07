@@ -772,34 +772,97 @@ export default function EventPreparation() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-gray-600 mb-4">
-                    Schedule coffee chats or meetings with high-quality matches before the event starts. Maximize your networking ROI.
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-600">
+                    Schedule coffee chats or meetings with high-quality matches before the event starts.
                   </p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span>Available high-quality matches:</span>
-                      <span className="font-semibold">{prepStats?.highQualityMatches || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Meetings scheduled:</span>
-                      <span className="font-semibold">0</span>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <Button 
-                    className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMeetingScheduler(!showMeetingScheduler)}
+                    className="text-[#CD853F] border-[#CD853F] hover:bg-[#CD853F]/10"
                     disabled={!prepStats?.highQualityMatches || prepStats.highQualityMatches === 0}
-                    data-testid="button-schedule-meetings"
+                    data-testid="button-toggle-scheduler"
                   >
                     <Calendar className="w-4 h-4 mr-2" />
-                    Schedule Meetings
+                    {showMeetingScheduler ? 'Hide' : 'Schedule Meetings'}
                   </Button>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Feature available with 90%+ matches
-                  </p>
+                </div>
+
+                {/* Meeting Scheduler Interface */}
+                {showMeetingScheduler && (
+                  <div className="border rounded-lg p-4 bg-purple-50 border-purple-200">
+                    <h4 className="font-medium text-purple-900 mb-3 flex items-center gap-2">
+                      <Coffee className="w-4 h-4" />
+                      Pre-Event Meeting Scheduler
+                    </h4>
+                    {prepStats?.highQualityMatches && prepStats.highQualityMatches > 0 ? (
+                      <div className="space-y-3">
+                        {/* Available time slots */}
+                        <div className="text-sm text-purple-800 mb-2">
+                          Available Time Slots (Before {eventData?.startDate ? new Date(eventData.startDate).toLocaleDateString() : 'Event'}):
+                        </div>
+                        {["Tomorrow 2PM", "Tomorrow 4PM", "Day Before Event 10AM", "Day Before Event 2PM"].map((slot, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-white rounded border">
+                            <div className="flex items-center gap-3">
+                              <Clock className="w-4 h-4 text-purple-600" />
+                              <div>
+                                <div className="text-sm font-medium">{slot}</div>
+                                <div className="text-xs text-gray-500">30-45 min coffee chat</div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                className="bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                                data-testid={`button-book-slot-${i}`}
+                              >
+                                Book Slot
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                data-testid={`button-view-slot-${i}`}
+                              >
+                                View Matches
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center p-4 bg-yellow-50 rounded border border-yellow-200">
+                        <AlertTriangle className="w-6 h-6 mx-auto text-yellow-600 mb-2" />
+                        <div className="text-sm text-yellow-800 font-medium">No High-Quality Matches Available</div>
+                        <div className="text-xs text-yellow-700 mt-1">
+                          Complete more preparation tasks to unlock meeting scheduling
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Stats Summary */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>Available matches:</span>
+                    <span className="font-semibold">{prepStats?.highQualityMatches || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Meetings scheduled:</span>
+                    <span className="font-semibold">0</span>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-blue-900">Pro Tip</div>
+                      <div className="text-blue-700">Pre-event meetings lead to 3x more meaningful connections during the actual event.</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
