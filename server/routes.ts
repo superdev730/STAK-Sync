@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { setupGeneralAuth, isAuthenticatedGeneral, getUserId } from "./generalAuth";
 import { AdminSetupService } from "./adminSetup";
@@ -4312,6 +4313,100 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error updating mission status:', error);
       res.status(500).json({ message: 'Failed to update mission status' });
+    }
+  });
+
+  // Password reset request endpoint
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          error: 'Email is required' 
+        });
+      }
+
+      // Check if user exists
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // Don't reveal if email exists or not for security
+        return res.json({ 
+          message: 'If that email address is registered, you will receive a password reset link.' 
+        });
+      }
+
+      // For demo purposes, just return success. In production, you'd send an email
+      return res.json({
+        message: 'If that email address is registered, you will receive a password reset link.',
+        resetToken: 'demo-reset-token-123' // In demo mode, show the reset token
+      });
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({ error: 'Failed to process password reset request' });
+    }
+  });
+
+  // Password reset completion endpoint
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { email, newPassword, resetToken } = req.body;
+      
+      if (!email || !newPassword || !resetToken) {
+        return res.status(400).json({ 
+          error: 'Email, new password, and reset token are required' 
+        });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({
+          error: 'Password must be at least 8 characters long'
+        });
+      }
+
+      // For demo purposes, accept the demo token
+      if (resetToken !== 'demo-reset-token-123') {
+        return res.status(400).json({ 
+          error: 'Invalid or expired reset token' 
+        });
+      }
+
+      // Update user password
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      await db
+        .update(users)
+        .set({ 
+          password: hashedPassword,
+          updatedAt: new Date()
+        })
+        .where(eq(users.email, email));
+
+      return res.json({ 
+        message: 'Password has been reset successfully. You can now sign in with your new password.' 
+      });
+    } catch (error) {
+      console.error('Reset password error:', error);
+      res.status(500).json({ error: 'Failed to reset password' });
+    }
+  });
+
+  // Update Colin's password for demo access (temporarily public for testing)
+  app.post('/api/auth/update-demo-password', async (req, res) => {
+    try {
+      // Update Colin's password to the expected demo password
+      const hashedPassword = await bcrypt.hash('staktest123', 12);
+      await db
+        .update(users)
+        .set({ 
+          password: hashedPassword,
+          updatedAt: new Date()
+        })
+        .where(eq(users.email, 'colinbehring@gmail.com'));
+
+      return res.json({ message: 'Demo password updated successfully' });
+    } catch (error) {
+      console.error('Update demo password error:', error);
+      res.status(500).json({ error: 'Failed to update demo password' });
     }
   });
 

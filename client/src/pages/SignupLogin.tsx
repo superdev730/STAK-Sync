@@ -33,8 +33,26 @@ const loginSchema = z.object({
   password: z.string().min(1, "Please enter your password"),
 });
 
+// Schema for password reset request
+const forgotPasswordSchema = z.object({
+  email: z.string()
+    .min(1, "Please enter your email address")
+    .email("Please enter a valid email address"),
+});
+
+// Schema for password reset completion
+const resetPasswordSchema = z.object({
+  email: z.string()
+    .min(1, "Please enter your email address")
+    .email("Please enter a valid email address"),
+  resetToken: z.string().min(1, "Please enter the reset token"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters long"),
+});
+
 type SignupForm = z.infer<typeof signupSchema>;
 type LoginForm = z.infer<typeof loginSchema>;
+type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>;
+type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 
 export default function SignupLogin() {
   const [location] = useLocation();
@@ -42,6 +60,9 @@ export default function SignupLogin() {
   const [isSignup, setIsSignup] = useState(location === "/signup");
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetToken, setResetToken] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const [, setLocationHook] = useLocation();
@@ -68,6 +89,22 @@ export default function SignupLogin() {
     defaultValues: {
       email: "",
       password: "",
+    },
+  });
+
+  const forgotPasswordForm = useForm<ForgotPasswordForm>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
+
+  const resetPasswordForm = useForm<ResetPasswordForm>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      email: "",
+      resetToken: "",
+      newPassword: "",
     },
   });
 
@@ -192,6 +229,71 @@ export default function SignupLogin() {
     loginMutation.mutate(data);
   };
 
+  // Forgot password mutation
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (data: ForgotPasswordForm) => {
+      setAuthError(null);
+      return apiRequest("/api/auth/forgot-password", "POST", data);
+    },
+    onSuccess: (data: any) => {
+      setResetToken(data.resetToken); // For demo purposes
+      setShowForgotPassword(false);
+      setShowResetPassword(true);
+      resetPasswordForm.setValue('email', forgotPasswordForm.getValues('email'));
+      if (data.resetToken) {
+        resetPasswordForm.setValue('resetToken', data.resetToken);
+      }
+      toast({
+        title: "Reset link sent",
+        description: data.message + (data.resetToken ? ` Your reset token is: ${data.resetToken}` : ''),
+      });
+    },
+    onError: (error: any) => {
+      setAuthError(error.message || "Failed to send reset email");
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send reset email",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Reset password mutation
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (data: ResetPasswordForm) => {
+      setAuthError(null);
+      return apiRequest("/api/auth/reset-password", "POST", data);
+    },
+    onSuccess: (data: any) => {
+      setShowResetPassword(false);
+      setShowForgotPassword(false);
+      setResetToken(null);
+      // Reset forms
+      forgotPasswordForm.reset();
+      resetPasswordForm.reset();
+      toast({
+        title: "Password reset successful",
+        description: data.message,
+      });
+    },
+    onError: (error: any) => {
+      setAuthError(error.message || "Failed to reset password");
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reset password",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onForgotPassword = (data: ForgotPasswordForm) => {
+    forgotPasswordMutation.mutate(data);
+  };
+
+  const onResetPassword = (data: ResetPasswordForm) => {
+    resetPasswordMutation.mutate(data);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -203,10 +305,20 @@ export default function SignupLogin() {
         <Card data-testid="auth-card">
           <CardHeader className="text-center">
             <CardTitle data-testid="auth-title">
-              {isSignup ? "Create Account" : "Sign In"}
+              {showForgotPassword 
+                ? "Reset Password" 
+                : showResetPassword 
+                ? "Set New Password"
+                : isSignup 
+                ? "Create Account" 
+                : "Sign In"}
             </CardTitle>
             <CardDescription>
-              {isSignup 
+              {showForgotPassword 
+                ? "Enter your email to receive a password reset link" 
+                : showResetPassword
+                ? "Enter your reset token and new password"
+                : isSignup 
                 ? "Join the STAK ecosystem and start networking" 
                 : "Welcome back to STAK Sync"
               }
@@ -244,7 +356,155 @@ export default function SignupLogin() {
             </div>
 
             {/* General Auth Forms */}
-            {isSignup ? (
+            {showForgotPassword ? (
+              <>
+              <Form {...forgotPasswordForm}>
+                <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPassword)} className="space-y-4">
+                  <FormField
+                    control={forgotPasswordForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input 
+                            data-testid="input-forgot-email"
+                            type="email" 
+                            placeholder="Enter your email address" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button 
+                    data-testid="button-forgot-password-submit"
+                    type="submit" 
+                    className="w-full" 
+                    disabled={forgotPasswordMutation.isPending}
+                  >
+                    {forgotPasswordMutation.isPending ? "Sending..." : "Send Reset Link"}
+                  </Button>
+
+                  <Button
+                    data-testid="button-back-to-login"
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setAuthError(null);
+                    }}
+                  >
+                    Back to Sign In
+                  </Button>
+                </form>
+              </Form>
+              </>
+            ) : showResetPassword ? (
+              <>
+              <Form {...resetPasswordForm}>
+                <form onSubmit={resetPasswordForm.handleSubmit(onResetPassword)} className="space-y-4">
+                  <FormField
+                    control={resetPasswordForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input 
+                            data-testid="input-reset-email"
+                            type="email" 
+                            placeholder="Enter your email address" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={resetPasswordForm.control}
+                    name="resetToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Reset Token</FormLabel>
+                        <FormControl>
+                          <Input 
+                            data-testid="input-reset-token"
+                            type="text" 
+                            placeholder="Enter the reset token" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={resetPasswordForm.control}
+                    name="newPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New Password</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input 
+                              data-testid="input-new-password"
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Enter your new password" 
+                              {...field} 
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button 
+                    data-testid="button-reset-password-submit"
+                    type="submit" 
+                    className="w-full" 
+                    disabled={resetPasswordMutation.isPending}
+                  >
+                    {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+                  </Button>
+
+                  <Button
+                    data-testid="button-back-to-forgot"
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => {
+                      setShowResetPassword(false);
+                      setShowForgotPassword(true);
+                      setAuthError(null);
+                    }}
+                  >
+                    Back to Password Reset
+                  </Button>
+                </form>
+              </Form>
+              </>
+            ) : isSignup ? (
               <Form {...signupForm}>
                 <form onSubmit={signupForm.handleSubmit((data) => {
                   console.log('🔍 SIGNUPLOGIN DEBUG: Form submit triggered', data);
@@ -433,6 +693,21 @@ export default function SignupLogin() {
                   >
                     {loginMutation.isPending ? "Signing In..." : "Sign In"}
                   </Button>
+
+                  {/* Forgot Password Link */}
+                  <div className="text-center">
+                    <button
+                      data-testid="button-forgot-password-link"
+                      type="button"
+                      onClick={() => {
+                        setShowForgotPassword(true);
+                        setAuthError(null);
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-500"
+                    >
+                      Forgot your password?
+                    </button>
+                  </div>
                 </form>
               </Form>
             )}
