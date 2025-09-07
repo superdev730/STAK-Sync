@@ -25,6 +25,7 @@ import Questionnaire from "@/pages/questionnaire";
 import ProximityPage from "@/pages/proximity";
 import LiveEvent from "@/pages/LiveEvent";
 import EventPreparation from "@/pages/event-preparation";
+import EventSignup from "@/pages/event-signup";
 import Logout from "@/pages/logout";
 import NotFound from "@/pages/not-found";
 import Layout from "@/components/Layout";
@@ -62,6 +63,8 @@ function Router() {
             <Route path="/matches" component={Matches} />
             <Route path="/messages" component={Messages} />
             <Route path="/events" component={EventsNew} />
+            <Route path="/events/:eventId" component={EventSignup} />
+            <Route path="/events/:eventId/prep" component={EventPreparation} />
             <Route path="/events/live/:eventId" component={LiveEvent} />
             <Route path="/events/live/:eventId/preparation" component={EventPreparation} />
             <Route path="/live-dashboard" component={LiveDashboard} />
