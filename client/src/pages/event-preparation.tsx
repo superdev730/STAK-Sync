@@ -83,6 +83,15 @@ export default function EventPreparation() {
     aiModerationInstructions: ''
   });
 
+  // New inline functionality state
+  const [speakerMessage, setSpeakerMessage] = useState('');
+  const [networkingGoalText, setNetworkingGoalText] = useState('');
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [showMeetingScheduler, setShowMeetingScheduler] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [hasSentSpeakerMessage, setHasSentSpeakerMessage] = useState(false);
+  const [hasSetNetworkingGoal, setHasSetNetworkingGoal] = useState(false);
+
   // Sample speakers for the event
   const eventSpeakers = [
     {
@@ -166,6 +175,57 @@ export default function EventPreparation() {
       toast({
         title: "Error",
         description: "Failed to respond to connection request.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Send speaker message mutation
+  const sendSpeakerMessageMutation = useMutation({
+    mutationFn: async (messageData: any) => {
+      return apiRequest(`/api/events/${eventId}/speaker-messages`, 'POST', messageData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Message sent to speaker! (+5 Sync Points)",
+      });
+      setSpeakerMessage('');
+      setHasSentSpeakerMessage(true);
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/prep-stats`] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send message to speaker.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Send networking goal mutation  
+  const sendNetworkingGoalMutation = useMutation({
+    mutationFn: async (goalText: string) => {
+      return apiRequest(`/api/events/${eventId}/networking-goal`, 'POST', {
+        primaryGoal: 'ai_analyzed',
+        aiModerationInstructions: goalText,
+        communicationStyle: 'balanced'
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Networking goal analyzed and set! (+10 Sync Points)",
+      });
+      setNetworkingGoalText('');
+      setHasSetNetworkingGoal(true);
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/prep-stats`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/networking-goal`] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to analyze networking goal.",
         variant: "destructive",
       });
     }
@@ -298,44 +358,82 @@ export default function EventPreparation() {
                   Speak to the Speaker
                 </div>
                 <Badge className="bg-[#CD853F]/10 text-[#CD853F] border border-[#CD853F]/30">
-                  +5 pts per message
+                  +5 pts first message
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-gray-600 mb-4">
-                    Send voice notes, text messages, or questions to speakers. Our AI compiles all messages and delivers a summary to help speakers tailor their content.
-                  </p>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Messages sent:</span>
-                      <span className="font-semibold">{prepStats?.speakerMessages || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Sync Points earned:</span>
-                      <span className="font-semibold text-[#CD853F]">{(prepStats?.speakerMessages || 0) * 5}</span>
-                    </div>
+              <p className="text-gray-600 mb-4">
+                Send voice notes, text messages, or questions to speakers. Our AI compiles all messages and delivers a summary to help speakers tailor their content.
+              </p>
+              
+              {hasSentSpeakerMessage || (prepStats?.speakerMessages && prepStats.speakerMessages > 0) ? (
+                <div className="flex items-center gap-2 text-green-600 bg-green-50 p-4 rounded-lg border border-green-200">
+                  <CheckCircle className="w-5 h-5" />
+                  <div>
+                    <span className="text-sm font-medium">Great! Your messages are helping shape the content.</span>
+                    <div className="text-xs text-green-600 mt-1">You can send additional messages anytime</div>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <Button 
-                    onClick={() => setSpeakerModalOpen(true)}
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="What would you like to ask or tell the speaker? (e.g., questions about their topic, suggestions for content focus, expectations...)"
+                      value={speakerMessage}
+                      onChange={(e) => setSpeakerMessage(e.target.value)}
+                      className="flex-1 min-h-[80px]"
+                      data-testid="input-speaker-message"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="px-3 text-[#CD853F] border-[#CD853F] hover:bg-[#CD853F]/10"
+                      onClick={() => {
+                        if (!isRecording) {
+                          setIsRecording(true);
+                          // Voice recording would be implemented here
+                          toast({
+                            title: "Voice Recording",
+                            description: "Voice recording feature coming soon. Please use text for now.",
+                          });
+                          setIsRecording(false);
+                        }
+                      }}
+                      data-testid="button-voice-record"
+                    >
+                      <Mic className={`w-4 h-4 ${isRecording ? 'animate-pulse text-red-500' : ''}`} />
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      if (speakerMessage.trim()) {
+                        sendSpeakerMessageMutation.mutate({
+                          speakerName: eventSpeakers[0]?.name || 'Event Speaker',
+                          messageType: 'question',
+                          messageContent: speakerMessage,
+                          isIncludedInSummary: true
+                        });
+                      }
+                    }}
+                    disabled={!speakerMessage.trim() || sendSpeakerMessageMutation.isPending}
                     className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
-                    data-testid="button-speak-to-speaker"
+                    data-testid="button-send-speaker-message"
                   >
-                    <Mic className="w-4 h-4 mr-2" />
-                    Send Message to Speaker
+                    {sendSpeakerMessageMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                        Sending...
+                      </div>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Send Message to Speaker
+                      </>
+                    )}
                   </Button>
-                  {prepStats?.speakerMessages && prepStats.speakerMessages > 0 && (
-                    <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
-                      <CheckCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">Great! Your messages are helping shape the content.</span>
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
