@@ -119,7 +119,7 @@ export default function ProgramContent({ eventId, onMissionUpdate }: ProgramCont
   // Initialize user groups from API
   useEffect(() => {
     if ((myGroupsData as any)?.groups) {
-      const joinedGroupIds = new Set((myGroupsData as any).groups.map((g: any) => g.group_id as string));
+      const joinedGroupIds = new Set<string>((myGroupsData as any).groups.map((g: any) => g.group_id as string));
       setUserGroups(joinedGroupIds);
     }
   }, [myGroupsData]);
