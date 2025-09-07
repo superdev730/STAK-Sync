@@ -90,12 +90,21 @@ export function MissionBoard({ eventId, missions, progress, onMissionStart }: Mi
       return apiRequest(`/api/events/${eventId}/missions/${missionId}`, 'PATCH', { status, submissionData });
     },
     onSuccess: (data: any) => {
+      console.log(`✅ Mission update successful:`, data);
+      
       toast({
         title: "Success!",
         description: data.message,
       });
-      // Refresh missions data
+      
+      // Refresh missions data - invalidate all mission-related queries
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/missions`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/prep`] });
+      
+      // Also refetch immediately to ensure UI updates quickly
+      queryClient.refetchQueries({ queryKey: [`/api/events/${eventId}/missions`] }).then(() => {
+        console.log(`🔄 Mission data refetched successfully`);
+      });
     },
     onError: () => {
       toast({
@@ -129,6 +138,8 @@ export function MissionBoard({ eventId, missions, progress, onMissionStart }: Mi
       meetingNotes: missionId === 'meet_attendees' ? missionInputs[missionId] : undefined,
       feedback: missionId === 'post_event_feedback' ? missionInputs[missionId] : undefined
     } : undefined;
+
+    console.log(`🎯 Completing mission: ${missionId}`, { submissionData });
 
     updateMissionMutation.mutate({ 
       missionId, 
