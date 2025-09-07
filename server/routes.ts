@@ -4252,21 +4252,13 @@ END:VCALENDAR`;
   });
 
   // Update mission status
-  app.patch('/api/events/:id/missions/:missionId', async (req: any, res) => {
+  app.patch('/api/events/:id/missions/:missionId', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { id: eventId, missionId } = req.params;
       const { status } = req.body;
       
-      // Try to get authenticated user
-      let userId = null;
-      try {
-        if (req.user?.claims?.sub) {
-          userId = req.user.claims.sub;
-        }
-      } catch (error) {
-        return res.status(401).json({ message: 'Authentication required to update missions' });
-      }
-
+      // Get authenticated user ID
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: 'Authentication required to update missions' });
       }

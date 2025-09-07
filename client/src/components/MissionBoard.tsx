@@ -137,22 +137,35 @@ export function MissionBoard({ eventId, missions, progress, onMissionStart }: Mi
       case 'speak_to_speaker':
         return (
           <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <Textarea
-              placeholder="What would you like to ask or tell the speakers? (e.g., questions about their topic, suggestions for content focus...)"
-              className="mb-3"
-              value={missionInputs[mission.id] || ''}
-              onChange={(e) => setMissionInputs(prev => ({ ...prev, [mission.id]: e.target.value }))}
-              data-testid="input-speaker-message-mission"
-            />
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="w-4 h-4 text-gray-500" />
+                <span className="text-sm text-gray-600 dark:text-gray-300">
+                  Message for Speakers
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  <Mic className="w-3 h-3 mr-1" />
+                  Voice input supported
+                </Badge>
+              </div>
+              <Textarea
+                placeholder="What would you like to ask or tell the speakers? (e.g., questions about their topic, suggestions for content focus...)"
+                className="min-h-[80px]"
+                value={missionInputs[mission.id] || ''}
+                onChange={(e) => setMissionInputs(prev => ({ ...prev, [mission.id]: e.target.value }))}
+                data-testid="input-speaker-message-mission"
+              />
+            </div>
             <div className="flex gap-2">
               <Button 
                 size="sm" 
                 onClick={() => handleMissionComplete(mission.id)}
                 disabled={!missionInputs[mission.id]?.trim()}
-                data-testid="button-complete-speaker-mission"
+                data-testid="button-submit-speaker-message"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                <Mic className="w-4 h-4 mr-2" />
-                Send to Speakers
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Submit Message
               </Button>
               <Button 
                 size="sm" 
