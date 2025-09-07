@@ -344,9 +344,95 @@ export default function EventPreparation() {
           </CardContent>
         </Card>
 
+        {/* Event Activity Navigation */}
+        <Card className="mb-8">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
+              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
+                <Link href="/profile">
+                  <Briefcase className="w-4 h-4" />
+                  Profile
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
+                <Link href="/messages">
+                  <MessageSquare className="w-4 h-4" />
+                  Messages
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
+                <Link href="/discover">
+                  <Heart className="w-4 h-4" />
+                  Find Matches
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
+                <Link href={`/events/live/${event.id}`}>
+                  <Calendar className="w-4 h-4" />
+                  Event Details
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
+                <Link href="/contacts">
+                  <Network className="w-4 h-4" />
+                  My Network
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
+            {/* Pre-Event Planning - MOVED TO TOP */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-stak-copper mr-2" />
+                  Pre-Event Planning Checklist
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Button asChild className="w-full bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
+                      <Link href="/profile">
+                        <Briefcase className="w-4 h-4 mr-2" />
+                        Complete Profile
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" className="w-full border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
+                      <Link href="/discover">
+                        <Heart className="w-4 h-4 mr-2" />
+                        Review Matches
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" className="w-full border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
+                      <Link href="/messages">
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Connect with Attendees
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" className="w-full border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
+                      <Link href="/contacts">
+                        <Network className="w-4 h-4 mr-2" />
+                        Review Your Network
+                      </Link>
+                    </Button>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Event Readiness Progress:</span>
+                      <span className="font-semibold text-stak-copper">{preparationScore}% Complete</span>
+                    </div>
+                    <Progress value={preparationScore} className="h-2 mt-2" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Preliminary Matches */}
             <Card>
               <CardHeader>
@@ -555,32 +641,26 @@ export default function EventPreparation() {
               </CardContent>
             </Card>
 
-            {/* Action Items */}
+            {/* Quick Links */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-stak-copper mr-2" />
-                  Pre-Event Actions
+                  <Zap className="w-5 h-5 text-stak-copper mr-2" />
+                  Quick Links
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <Button asChild className="w-full bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
-                    <Link href="/profile">
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href={`/events/live/${event.id}`}>
                       <Eye className="w-4 h-4 mr-2" />
-                      Complete Profile
+                      View Event Details
                     </Link>
                   </Button>
                   <Button asChild variant="outline" className="w-full">
-                    <Link href="/discover">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Find More Matches
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link href="/messages">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Connect Early
+                    <Link href="/admin">
+                      <Building className="w-4 h-4 mr-2" />
+                      Event Analytics
                     </Link>
                   </Button>
                 </div>
