@@ -6061,8 +6061,9 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     try {
       const { eventId } = req.params;
       const { ticketTypeId, lineItemIds = [] } = req.body;
-      const userId = req.user?.claims?.sub;
-
+      
+      // Get authenticated user ID using the correct method
+      const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ message: 'Please sign in to register for events' });
       }
