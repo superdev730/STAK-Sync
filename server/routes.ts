@@ -17,6 +17,10 @@ import {
   insertEventSponsorSchema,
   insertEventAttendeeGoalSchema,
   insertSpeakerMessageSchema,
+  insertEventNetworkingGoalSchema,
+  insertConnectionRequestSchema,
+  insertAdminSupplementalNoteSchema,
+  insertAttendeeWatchlistSchema,
   matches, 
   users,
   events,
@@ -31,6 +35,10 @@ import {
   preEventMatches,
   eventNotifications,
   speakerMessages,
+  eventNetworkingGoals,
+  connectionRequests,
+  adminSupplementalNotes,
+  attendeeWatchlist,
   tokenUsage,
   billingAccounts,
   invoices,
@@ -42,6 +50,14 @@ import {
   type InsertEventAttendeeGoal,
   type SpeakerMessage,
   type InsertSpeakerMessage,
+  type EventNetworkingGoal,
+  type InsertEventNetworkingGoal,
+  type ConnectionRequest,
+  type InsertConnectionRequest,
+  type AdminSupplementalNote,
+  type InsertAdminSupplementalNote,
+  type AttendeeWatchlist,
+  type InsertAttendeeWatchlist,
   type ProfileMetadata,
   type ProfileEnrichment
 } from "@shared/schema";
@@ -3885,6 +3901,301 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     } catch (error) {
       console.error('Error generating speaker message summary:', error);
       res.status(500).json({ error: 'Failed to generate speaker message summary' });
+    }
+  });
+
+  // Event networking goals endpoints
+  app.get('/api/events/:eventId/networking-goal', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user.claims.sub;
+
+      const [goal] = await db
+        .select()
+        .from(eventNetworkingGoals)
+        .where(
+          and(
+            eq(eventNetworkingGoals.eventId, eventId),
+            eq(eventNetworkingGoals.userId, userId),
+            eq(eventNetworkingGoals.isActive, true)
+          )
+        );
+
+      res.json(goal || null);
+    } catch (error) {
+      console.error('Error fetching networking goal:', error);
+      res.status(500).json({ message: 'Failed to fetch networking goal' });
+    }
+  });
+
+  app.post('/api/events/:eventId/networking-goal', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const validatedData = insertEventNetworkingGoalSchema.parse({
+        ...req.body,
+        eventId,
+        userId,
+      });
+
+      // Deactivate existing goals for this event
+      await db
+        .update(eventNetworkingGoals)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(eventNetworkingGoals.eventId, eventId),
+            eq(eventNetworkingGoals.userId, userId)
+          )
+        );
+
+      // Create new goal
+      const [goal] = await db
+        .insert(eventNetworkingGoals)
+        .values(validatedData)
+        .returning();
+
+      // Award Sync Score points for goal setting
+      try {
+        await storage.updateSyncScore(userId, {
+          networkingGoal: 10 // Award 10 points for setting networking goals
+        });
+      } catch (scoreError) {
+        console.warn('Failed to update sync score:', scoreError);
+      }
+
+      res.status(201).json({
+        goal,
+        syncPointsAwarded: 10,
+        status: 'Networking goal set successfully'
+      });
+    } catch (error) {
+      console.error('Error creating networking goal:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: 'Invalid goal data', errors: error.issues });
+      } else {
+        res.status(500).json({ message: 'Failed to create networking goal' });
+      }
+    }
+  });
+
+  // Connection requests endpoints
+  app.get('/api/events/:eventId/connection-requests', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user.claims.sub;
+
+      // Get incoming requests
+      const incomingRequests = await db
+        .select({
+          id: connectionRequests.id,
+          fromUserId: connectionRequests.fromUserId,
+          message: connectionRequests.message,
+          matchScore: connectionRequests.matchScore,
+          aiRecommendationReason: connectionRequests.aiRecommendationReason,
+          status: connectionRequests.status,
+          createdAt: connectionRequests.createdAt,
+          expiresAt: connectionRequests.expiresAt,
+          fromUser: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            profileImageUrl: users.profileImageUrl,
+          }
+        })
+        .from(connectionRequests)
+        .leftJoin(users, eq(users.id, connectionRequests.fromUserId))
+        .where(
+          and(
+            eq(connectionRequests.toUserId, userId),
+            eq(connectionRequests.eventId, eventId),
+            eq(connectionRequests.status, 'pending')
+          )
+        )
+        .orderBy(desc(connectionRequests.createdAt));
+
+      // Get outgoing requests
+      const outgoingRequests = await db
+        .select({
+          id: connectionRequests.id,
+          toUserId: connectionRequests.toUserId,
+          message: connectionRequests.message,
+          matchScore: connectionRequests.matchScore,
+          status: connectionRequests.status,
+          createdAt: connectionRequests.createdAt,
+          respondedAt: connectionRequests.respondedAt,
+          responseMessage: connectionRequests.responseMessage,
+          toUser: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            profileImageUrl: users.profileImageUrl,
+          }
+        })
+        .from(connectionRequests)
+        .leftJoin(users, eq(users.id, connectionRequests.toUserId))
+        .where(
+          and(
+            eq(connectionRequests.fromUserId, userId),
+            eq(connectionRequests.eventId, eventId)
+          )
+        )
+        .orderBy(desc(connectionRequests.createdAt));
+
+      res.json({
+        incoming: incomingRequests,
+        outgoing: outgoingRequests,
+        incomingCount: incomingRequests.length,
+        outgoingCount: outgoingRequests.length
+      });
+    } catch (error) {
+      console.error('Error fetching connection requests:', error);
+      res.status(500).json({ message: 'Failed to fetch connection requests' });
+    }
+  });
+
+  app.post('/api/connection-requests/:requestId/respond', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { requestId } = req.params;
+      const { status, responseMessage } = req.body;
+      const userId = req.user.claims.sub;
+
+      if (!['accepted', 'declined'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+
+      // Verify request exists and is for this user
+      const [request] = await db
+        .select()
+        .from(connectionRequests)
+        .where(
+          and(
+            eq(connectionRequests.id, requestId),
+            eq(connectionRequests.toUserId, userId),
+            eq(connectionRequests.status, 'pending')
+          )
+        );
+
+      if (!request) {
+        return res.status(404).json({ message: 'Connection request not found' });
+      }
+
+      // Update request
+      const [updatedRequest] = await db
+        .update(connectionRequests)
+        .set({
+          status,
+          responseMessage,
+          respondedAt: new Date()
+        })
+        .where(eq(connectionRequests.id, requestId))
+        .returning();
+
+      // Award points for responding to connection requests
+      try {
+        if (status === 'accepted') {
+          await storage.updateSyncScore(userId, { connectionAccepted: 15 });
+          await storage.updateSyncScore(request.fromUserId, { connectionAccepted: 15 });
+        } else {
+          await storage.updateSyncScore(userId, { connectionResponded: 5 });
+        }
+      } catch (scoreError) {
+        console.warn('Failed to update sync score:', scoreError);
+      }
+
+      res.json({
+        request: updatedRequest,
+        syncPointsAwarded: status === 'accepted' ? 15 : 5,
+        status: `Connection request ${status} successfully`
+      });
+    } catch (error) {
+      console.error('Error responding to connection request:', error);
+      res.status(500).json({ message: 'Failed to respond to connection request' });
+    }
+  });
+
+  // Event preparation stats endpoint
+  app.get('/api/events/:eventId/prep-stats', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user.claims.sub;
+
+      // Get speaker messages count
+      const [speakerMessageCount] = await db
+        .select({ count: count() })
+        .from(speakerMessages)
+        .where(
+          and(
+            eq(speakerMessages.eventId, eventId),
+            eq(speakerMessages.userId, userId)
+          )
+        );
+
+      // Get networking goal status
+      const [networkingGoal] = await db
+        .select()
+        .from(eventNetworkingGoals)
+        .where(
+          and(
+            eq(eventNetworkingGoals.eventId, eventId),
+            eq(eventNetworkingGoals.userId, userId),
+            eq(eventNetworkingGoals.isActive, true)
+          )
+        );
+
+      // Get connection requests summary
+      const [incomingCount] = await db
+        .select({ count: count() })
+        .from(connectionRequests)
+        .where(
+          and(
+            eq(connectionRequests.toUserId, userId),
+            eq(connectionRequests.eventId, eventId),
+            eq(connectionRequests.status, 'pending')
+          )
+        );
+
+      // Get high-quality matches (90%+ and 85%+ fallback)
+      const [highQualityCount] = await db
+        .select({ count: count() })
+        .from(preEventMatches)
+        .where(
+          and(
+            eq(preEventMatches.eventId, eventId),
+            or(
+              eq(preEventMatches.user1Id, userId),
+              eq(preEventMatches.user2Id, userId)
+            ),
+            gte(preEventMatches.compatibilityScore, 90)
+          )
+        );
+
+      const [mediumQualityCount] = await db
+        .select({ count: count() })
+        .from(preEventMatches)
+        .where(
+          and(
+            eq(preEventMatches.eventId, eventId),
+            or(
+              eq(preEventMatches.user1Id, userId),
+              eq(preEventMatches.user2Id, userId)
+            ),
+            gte(preEventMatches.compatibilityScore, 85)
+          )
+        );
+
+      res.json({
+        speakerMessages: speakerMessageCount.count,
+        hasNetworkingGoal: !!networkingGoal,
+        incomingConnectionRequests: incomingCount.count,
+        highQualityMatches: highQualityCount.count,
+        mediumQualityMatches: mediumQualityCount.count,
+        networkingGoal
+      });
+    } catch (error) {
+      console.error('Error fetching prep stats:', error);
+      res.status(500).json({ message: 'Failed to fetch prep stats' });
     }
   });
 
