@@ -1721,3 +1721,58 @@ export type CrowdsourcedFact = typeof crowdsourcedFacts.$inferSelect;
 export type InsertCrowdsourcedFact = z.infer<typeof insertCrowdsourcedFactSchema>;
 export type ContributorReward = typeof contributorRewards.$inferSelect;
 export type InsertContributorReward = z.infer<typeof insertContributorRewardSchema>;
+
+// Event experience data contracts for cohesive event experience
+export interface EventStats {
+  event_id: string;
+  title: string;
+  start_iso: string;
+  end_iso: string;
+  venue?: string;
+  city?: string;
+  capacity?: number;
+  attending_count: number;
+  watching_count: number;
+  waitlist_count?: number;
+  weekly_signup_delta?: number;
+  percent_full?: number;
+  roles_breakdown?: Array<{role: string; count: number}>;
+  industries_breakdown?: Array<{industry: string; count: number}>;
+  companies?: Array<{name: string; logo_url?: string}>;
+  sessions_count?: number;
+  workshops_count?: number;
+  sponsors?: Array<{name: string; logo_url?: string; tier?: "gold"|"silver"|"community"}>;
+  perks?: string[];
+  last_event_outcomes?: { intros?: number; deals_started?: number; hires?: number };
+  countdown_seconds?: number;
+}
+
+export interface PersonalizationForMember {
+  member_id: string;
+  event_id: string;
+  high_value_matches_count: number;
+  top_matches: Array<{
+    member_id: string; 
+    name: string; 
+    company?: string; 
+    reason: string; 
+    overlap_tags: string[];
+  }>;
+  your_industry_count?: number;
+  your_role_count?: number;
+  your_goals_alignment?: Array<{goal: string; alignment_score: number}>;
+  is_waitlisted?: boolean;
+}
+
+export interface EventCompositeCard {
+  event: EventStats;
+  you?: PersonalizationForMember;
+}
+
+export interface EventPrepData {
+  event: EventStats;
+  you: PersonalizationForMember;
+  agenda?: Array<{time: string; title: string; speakers?: string[]; track?: string}>;
+  missions?: string[];
+  sponsors: EventStats["sponsors"];
+}

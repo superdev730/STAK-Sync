@@ -1,0 +1,145 @@
+Goal: Implement a cohesive, data-driven STAK Sync event experience across:
+1) Event Signup page
+2) Event Prep page
+3) Dashboard Event Banner (top of page)
+4) Event email campaign (first launch, 7 days out, 3 days before, 1 day before)
+
+Principles:
+- Personalize by member context: high-value matches, industry overlap, company logos, goals.
+- Marketable stats must signal FOMO (who’s going), ROI (who you’ll meet/why), and Urgency (time/% full).
+- Avoid fluff; all numbers should be real-time and/or cached every 5–10 min.
+
+--------------------------------
+A) DATA CONTRACTS (create/confirm)
+--------------------------------
+Create a normalized read model for event cards and personalization:
+
+TypeScript interfaces:
+- EventStats {
+    event_id: string;
+    title: string;
+    start_iso: string; end_iso: string; venue?: string; city?: string;
+    capacity?: number; attending_count: number; watching_count: number; waitlist_count?: number;
+    weekly_signup_delta?: number; percent_full?: number; 
+    roles_breakdown?: Array<{role: string; count: number}>;
+    industries_breakdown?: Array<{industry: string; count: number}>;
+    companies?: Array<{name: string; logo_url?: string}>;
+    sessions_count?: number; workshops_count?: number;
+    sponsors?: Array<{name: string; logo_url?: string; tier?: "gold"|"silver"|"community"}>;
+    perks?: string[]; // e.g., "VIP mixer", "free coworking day"
+    last_event_outcomes?: { intros?: number; deals_started?: number; hires?: number };
+    countdown_seconds?: number;
+}
+
+- PersonalizationForMember {
+    member_id: string;
+    event_id: string;
+    high_value_matches_count: number;
+    top_matches: Array<{member_id: string; name: string; company?: string; reason: string; overlap_tags: string[]}>;
+    your_industry_count?: number;
+    your_role_count?: number;
+    your_goals_alignment?: Array<{goal: string; alignment_score: number}>;
+    is_waitlisted?: boolean;
+}
+
+- EventCompositeCard { event: EventStats; you?: PersonalizationForMember }
+
+Server endpoints (create if missing):
+- GET /api/events/:id/summary -> EventCompositeCard
+- GET /api/events/feed -> Array<EventCompositeCard> (for dashboard banner + signup)
+- GET /api/events/:id/prep -> {
+    event: EventStats,
+    you: PersonalizationForMember,
+    agenda?: Array<{time: string; title: string; speakers?: string[]; track?: string}>,
+    missions?: string[], // personalized missions
+    sponsors: EventStats["sponsors"]
+  }
+
+Caching:
+- Recompute aggregates every 5–10 minutes; push real-time for attending_count if feasible.
+- Provide percent_full = round((attending_count / capacity) * 100).
+
+--------------------------------
+B) 1) EVENT SIGNUP PAGE (conversion-first)
+--------------------------------
+UI Elements (top fold):
+- Title, date/time, venue/city, countdown.
+- Big numbers row: 
+  * attending_count
+  * watching_count
+  * percent_full (with capacity bar)
+  * weekly_signup_delta (“+32 this week”)
+- Personalized row:
+  * “You have {high_value_matches_count} high-value matches attending”
+  * Avatars/logos of top 6 companies attending (capsule logos)
+- Proof & perks:
+  * last_event_outcomes (“Last time: {intros} intros, {deals_started} deals, {hires} hires”)
+  * perks badges (VIP, free coworking day, etc.)
+- CTA cluster:
+  * Primary: “Join Event”
+  * Secondary: “Watch” (interested), “Share with a teammate”
+
+Behavior:
+- If user is logged out: show social proof stats but hide personalized stats; prompt login for matches.
+- Show urgency: If percent_full >= 80, display “85% full – limited spots”.
+
+Acceptance:
+- Signup page renders both general stats + personalized matches if logged in.
+- All numbers pull from EventCompositeCard.
+
+--------------------------------
+C) 2) EVENT PREP PAGE (plan & ROI-oriented)
+--------------------------------
+Sections:
+1) “Your Matches”
+   - Show top_matches (up to 5) with reason (≤140 chars) and overlap_tags chips.
+   - Button: “Schedule Sync Session” (10-minute micro-meetings).
+2) “Your Missions”
+   - 5 missions personalized (e.g., “Meet 2 infra founders”, “Visit Sponsor X booth”).
+3) “Agenda Highlights”
+   - 3–5 highlighted sessions (aligned to your tags/goals).
+4) “Who’s Going”
+   - Roles breakdown (bar chips), industries breakdown, company logo wall (top 12).
+5) “Perks & Logistics”
+   - Perks list, venue map link, parking/transport tips.
+6) “Past Event Outcomes”
+   - last_event_outcomes with small icons.
+
+Acceptance:
+- Page consumes /api/events/:id/prep and includes matches, missions, agenda, perks, sponsors.
+- “Schedule Sync Session” routes to existing scheduling or creates new.
+
+--------------------------------
+D) 3) DASHBOARD EVENT BANNER (top of page)
+--------------------------------
+Hero banner (carousel if multiple upcoming):
+- Left: Event title, date/time, city; mini countdown.
+- Center: “{attending_count} attending · {your_matches} matches for you”
+- Right: Capsule logos of companies; pill “Trending: +{weekly_signup_delta} this week”
+- CTA: “See Details” / “Join Event”
+
+Responsive rules:
+- On mobile, stack title/date, then a compact metrics row.
+- Show “% full” bar only when ≥ 60%.
+
+Acceptance:
+- Pulls from /api/events/feed and the current member context.
+- If no personalization, omit matches line gracefully.
+
+--------------------------------
+E) 4) EVENT EMAIL CAMPAIGN (templates)
+--------------------------------
+Variables available:
+{{member.first_name}}
+{{event.title}}
+{{event.date_human}}
+{{event.city}}
+{{event.attending_count}}
+{{event.watching_count}}
+{{event.percent_full}}
+{{event.weekly_signup_delta}}
+{{event.last_event_outcomes.intros}}
+{{event.last_event_outcomes.deals_started}}
+{{event.last_event_outcomes.hires}}
+{{you.high_value_matches_count}}
+{{you.top_matches_
