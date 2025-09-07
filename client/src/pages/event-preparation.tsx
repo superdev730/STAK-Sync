@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Clock, Users, Target, CheckCircle, AlertTriangle, Star, MapPin, Calendar,
   MessageSquare, UserPlus, TrendingUp, Award, Coffee, Handshake, Network,
-  ArrowRight, Plus, Eye, BookOpen, Zap, Heart, Building, Briefcase
+  ArrowRight, Plus, Eye, BookOpen, Zap, Heart, Building, Briefcase, Send, Trophy
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
@@ -238,9 +238,9 @@ export default function EventPreparation() {
     )?.length || 0;
     networkingScore += Math.min(activeConversations * 3, 15); // 3 points per conversation, max 15
     
-    // Connection activity (based on actual matches)
-    const activeMatches = matches?.filter(m => m.status === 'connected')?.length || 0;
-    networkingScore += Math.min(activeMatches * 2, 10); // 2 points per connection, max 10
+    // Connection activity (based on preliminary matches)
+    const connectedMatches = preliminaryMatches?.filter(m => m.status === 'connected')?.length || 0;
+    networkingScore += Math.min(connectedMatches * 2, 10); // 2 points per connection, max 10
     score += networkingScore;
 
     // Event preparation tasks (25 points) - actionable items
@@ -269,7 +269,7 @@ export default function EventPreparation() {
     } else {
       setPreparationScore(finalScore);
     }
-  }, [eventData, user, conversations?.length, matches?.length, event.id]);
+  }, [eventData, user, conversations?.length, event.id, preliminaryMatches?.length]);
 
   if (isLoading) {
     return (
@@ -492,6 +492,179 @@ export default function EventPreparation() {
               </CardContent>
             </Card>
 
+            {/* Engagement Boost Tasks */}
+            <Card className="border-stak-copper/20">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <TrendingUp className="w-5 h-5 text-stak-copper mr-2" />
+                  Boost Your Sync Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Networking Goal Setting */}
+                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <Zap className="w-4 h-4 text-stak-copper mr-2" />
+                        <span className="font-medium text-gray-900">Set Your Networking Goal</span>
+                      </div>
+                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+9 points</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">Define what you want to achieve at this event</p>
+                    {localStorage.getItem(`goals_set_${event.id}`) ? (
+                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        <span className="text-sm font-medium">Goal Set! ✨</span>
+                      </div>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                        onClick={() => {
+                          localStorage.setItem(`goals_set_${event.id}`, 'true');
+                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
+                          window.location.reload();
+                        }}
+                      >
+                        <Target className="w-3 h-3 mr-1" />
+                        Set Goal
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Attendee Review */}
+                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <Eye className="w-4 h-4 text-stak-copper mr-2" />
+                        <span className="font-medium text-gray-900">Review Fellow Attendees</span>
+                      </div>
+                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+5 points</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">Browse profiles to identify potential connections</p>
+                    {localStorage.getItem(`reviewed_attendees_${event.id}`) ? (
+                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        <span className="text-sm font-medium">Attendees Reviewed! 👥</span>
+                      </div>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                        onClick={() => {
+                          localStorage.setItem(`reviewed_attendees_${event.id}`, 'true');
+                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
+                          window.location.reload();
+                        }}
+                      >
+                        <Users className="w-3 h-3 mr-1" />
+                        Start Reviewing
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Program Review */}
+                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <BookOpen className="w-4 h-4 text-stak-copper mr-2" />
+                        <span className="font-medium text-gray-900">Plan Your Schedule</span>
+                      </div>
+                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+5 points</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">Review sessions and identify networking opportunities</p>
+                    {localStorage.getItem(`reviewed_program_${event.id}`) ? (
+                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        <span className="text-sm font-medium">Schedule Planned! 📅</span>
+                      </div>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                        onClick={() => {
+                          localStorage.setItem(`reviewed_program_${event.id}`, 'true');
+                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
+                          window.location.reload();
+                        }}
+                      >
+                        <Calendar className="w-3 h-3 mr-1" />
+                        Plan Schedule
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Connection Outreach */}
+                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <Send className="w-4 h-4 text-stak-copper mr-2" />
+                        <span className="font-medium text-gray-900">Send Connection Requests</span>
+                      </div>
+                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+2 pts each</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">Reach out to potential matches before the event</p>
+                    {parseInt(localStorage.getItem(`connection_requests_${event.id}`) || '0') > 0 ? (
+                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        <span className="text-sm font-medium">{localStorage.getItem(`connection_requests_${event.id}`)} Requests Sent! 🤝</span>
+                      </div>
+                    ) : (
+                      <Button 
+                        asChild
+                        size="sm" 
+                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                      >
+                        <Link href="/discover">
+                          <Heart className="w-3 h-3 mr-1" />
+                          Find Connections
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Meeting Scheduling */}
+                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <Coffee className="w-4 h-4 text-stak-copper mr-2" />
+                        <span className="font-medium text-gray-900">Schedule Pre-Event Meeting</span>
+                      </div>
+                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+8 points</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">Set up coffee chats or calls before the event</p>
+                    {localStorage.getItem(`meeting_scheduled_${event.id}`) ? (
+                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        <span className="text-sm font-medium">Meeting Scheduled! ☕</span>
+                      </div>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                        onClick={() => {
+                          localStorage.setItem(`meeting_scheduled_${event.id}`, 'true');
+                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
+                          window.location.reload();
+                        }}
+                      >
+                        <Calendar className="w-3 h-3 mr-1" />
+                        Schedule Meeting
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6 p-3 bg-stak-copper/10 border border-stak-copper/20 rounded-lg">
+                  <div className="flex items-center text-stak-copper">
+                    <Trophy className="w-4 h-4 mr-2" />
+                    <span className="text-sm font-medium">Complete all tasks to maximize your networking success!</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Preliminary Matches */}
             <Card>
               <CardHeader>
@@ -527,7 +700,7 @@ export default function EventPreparation() {
                       </div>
                       <div className="flex flex-wrap gap-1 mb-3">
                         {match.industries.slice(0, 2).map((industry, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">{industry}</Badge>
+                          <Badge key={idx} className="text-xs bg-gray-100 text-gray-800 border border-gray-300">{industry}</Badge>
                         ))}
                       </div>
                       <Button asChild size="sm" className="w-full bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
@@ -563,7 +736,7 @@ export default function EventPreparation() {
                       <p className="text-sm font-medium text-gray-900 truncate">{attendee.firstName} {attendee.lastName}</p>
                       <p className="text-xs text-gray-500 truncate">{attendee.company}</p>
                       {attendee.isContact && (
-                        <Badge variant="secondary" className="text-xs mt-1">Connected</Badge>
+                        <Badge className="text-xs mt-1 bg-green-100 text-green-800 border border-green-300">Connected</Badge>
                       )}
                     </div>
                   ))}
@@ -607,10 +780,10 @@ export default function EventPreparation() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <Badge variant="outline" className={
-                            content.relevanceScore >= 80 ? "text-green-600 border-green-600" : 
-                            content.relevanceScore >= 60 ? "text-yellow-600 border-yellow-600" : 
-                            "text-gray-600 border-gray-600"
+                          <Badge className={
+                            content.relevanceScore >= 80 ? "bg-green-100 text-green-800 border border-green-600" : 
+                            content.relevanceScore >= 60 ? "bg-yellow-100 text-yellow-800 border border-yellow-600" : 
+                            "bg-gray-100 text-gray-800 border border-gray-600"
                           }>
                             {content.relevanceScore}% relevant
                           </Badge>
