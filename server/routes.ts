@@ -4163,6 +4163,413 @@ END:VCALENDAR`;
     }
   });
 
+  // Ranked attendees endpoint for Meet the Attendees mission
+  app.get('/api/events/:eventId/attendees/ranked', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { limit = '5' } = req.query;
+      
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Set cache headers for no caching (member-specific data)
+      res.set({
+        'Cache-Control': 'private, no-store, max-age=0',
+        'Pragma': 'no-cache'
+      });
+
+      // Get event registrations to find attendees
+      const eventAttendees = await db
+        .select({
+          userId: eventRegistrations.userId,
+          registeredAt: eventRegistrations.registeredAt
+        })
+        .from(eventRegistrations)
+        .where(eq(eventRegistrations.eventId, eventId));
+
+      if (eventAttendees.length === 0) {
+        return res.json({
+          event_id: eventId,
+          member_id: userId,
+          attendees: [],
+          generated_at: new Date().toISOString()
+        });
+      }
+
+      // Get user details and matches for all attendees (excluding self)
+      const attendeeIds = eventAttendees
+        .filter(a => a.userId !== userId)
+        .map(a => a.userId);
+
+      if (attendeeIds.length === 0) {
+        return res.json({
+          event_id: eventId,
+          member_id: userId,
+          attendees: [],
+          generated_at: new Date().toISOString()
+        });
+      }
+
+      // Get user profiles
+      const attendeeProfiles = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          title: users.title,
+          company: users.company,
+          profileImageUrl: users.profileImageUrl,
+          bio: users.bio,
+          industries: users.industries,
+          skills: users.skills
+        })
+        .from(users)
+        .where(inArray(users.id, attendeeIds));
+
+      // Get match scores from existing matches table
+      const userMatches = await db
+        .select({
+          matchedUserId: matches.matchedUserId,
+          matchScore: matches.matchScore,
+          compatibilityReasons: matches.compatibilityReasons
+        })
+        .from(matches)
+        .where(and(
+          eq(matches.userId, userId),
+          inArray(matches.matchedUserId, attendeeIds)
+        ));
+
+      // Create a map of match scores
+      const matchScoreMap = new Map();
+      userMatches.forEach(match => {
+        matchScoreMap.set(match.matchedUserId, {
+          score: parseFloat(match.matchScore?.toString() || '0') / 100, // Convert to 0-1 scale
+          reasons: match.compatibilityReasons || []
+        });
+      });
+
+      // Build ranked attendees list
+      const rankedAttendees = attendeeProfiles
+        .map(profile => {
+          const matchData = matchScoreMap.get(profile.id) || { score: 0.0, reasons: [] };
+          const name = `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
+          const headline = profile.title ? `${profile.title}${profile.company ? ` @ ${profile.company}` : ''}` : (profile.company || '');
+          
+          // Extract overlap tags from skills and industries
+          const overlapTags = [
+            ...(profile.skills || []).slice(0, 2),
+            ...(profile.industries || []).slice(0, 1)
+          ].filter(Boolean);
+
+          return {
+            member_id: profile.id,
+            name: name || 'Unknown',
+            headline: headline || 'Professional',
+            company: profile.company || '',
+            avatar_url: profile.profileImageUrl || '',
+            match_score: matchData.score,
+            overlap_tags: overlapTags,
+            reasons: matchData.reasons.slice(0, 2), // Top 2 reasons
+            actions: {
+              profile_url: `/members/${profile.id}`,
+              message_url: `/messages/new?to=${profile.id}`,
+              sync_url: `/events/${eventId}/sync/new?with=${profile.id}`
+            }
+          };
+        })
+        .sort((a, b) => b.match_score - a.match_score) // Sort by match score desc
+        .slice(0, parseInt(limit.toString()));
+
+      const response = {
+        event_id: eventId,
+        member_id: userId,
+        attendees: rankedAttendees,
+        generated_at: new Date().toISOString()
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('Error fetching ranked attendees:', error);
+      res.status(500).json({ error: 'Failed to fetch ranked attendees' });
+    }
+  });
+
+  // Full attendees directory endpoint
+  app.get('/api/events/:eventId/attendees', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { 
+        page = '1', 
+        page_size = '25', 
+        sort = 'match_score',
+        search = '',
+        industry = '',
+        role = ''
+      } = req.query;
+      
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Set cache headers with short TTL
+      res.set({
+        'Cache-Control': 'private, max-age=120',
+        'ETag': `"attendees-${eventId}-${userId}-${Date.now()}"`
+      });
+
+      const pageNum = parseInt(page.toString());
+      const pageSize = parseInt(page_size.toString());
+      const offset = (pageNum - 1) * pageSize;
+
+      // Get event attendees with filtering
+      let attendeesQuery = db
+        .select({
+          userId: eventRegistrations.userId,
+          user: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            title: users.title,
+            company: users.company,
+            profileImageUrl: users.profileImageUrl,
+            industries: users.industries,
+            skills: users.skills
+          }
+        })
+        .from(eventRegistrations)
+        .innerJoin(users, eq(eventRegistrations.userId, users.id))
+        .where(and(
+          eq(eventRegistrations.eventId, eventId),
+          ne(users.id, userId) // Exclude self
+        ));
+
+      // Add search filter
+      if (search) {
+        attendeesQuery = attendeesQuery.where(
+          or(
+            ilike(users.firstName, `%${search}%`),
+            ilike(users.lastName, `%${search}%`),
+            ilike(users.company, `%${search}%`),
+            ilike(users.title, `%${search}%`)
+          )
+        );
+      }
+
+      const attendeesResult = await attendeesQuery
+        .limit(pageSize)
+        .offset(offset);
+
+      // Get match scores for sorting
+      const attendeeIds = attendeesResult.map(a => a.user.id);
+      const userMatches = await db
+        .select({
+          matchedUserId: matches.matchedUserId,
+          matchScore: matches.matchScore
+        })
+        .from(matches)
+        .where(and(
+          eq(matches.userId, userId),
+          inArray(matches.matchedUserId, attendeeIds)
+        ));
+
+      const matchScoreMap = new Map();
+      userMatches.forEach(match => {
+        matchScoreMap.set(match.matchedUserId, parseFloat(match.matchScore?.toString() || '0') / 100);
+      });
+
+      // Build response with sorting
+      let attendeesList = attendeesResult.map(result => {
+        const user = result.user;
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        const headline = user.title ? `${user.title}${user.company ? ` @ ${user.company}` : ''}` : (user.company || '');
+        
+        return {
+          member_id: user.id,
+          name: name || 'Unknown',
+          headline: headline || 'Professional',
+          company: user.company || '',
+          avatar_url: user.profileImageUrl || '',
+          match_score: matchScoreMap.get(user.id) || 0.0,
+          industries: user.industries || [],
+          skills: user.skills || [],
+          actions: {
+            profile_url: `/members/${user.id}`,
+            message_url: `/messages/new?to=${user.id}`,
+            sync_url: `/events/${eventId}/sync/new?with=${user.id}`
+          }
+        };
+      });
+
+      // Apply sorting
+      switch (sort) {
+        case 'match_score':
+          attendeesList.sort((a, b) => b.match_score - a.match_score);
+          break;
+        case 'company':
+          attendeesList.sort((a, b) => a.company.localeCompare(b.company));
+          break;
+        case 'role':
+          attendeesList.sort((a, b) => a.headline.localeCompare(b.headline));
+          break;
+        case 'recently_active':
+          // Would need activity data - for now use registration order
+          break;
+      }
+
+      // Get total count for pagination
+      const totalCount = await db
+        .select({ count: sql`count(*)` })
+        .from(eventRegistrations)
+        .innerJoin(users, eq(eventRegistrations.userId, users.id))
+        .where(and(
+          eq(eventRegistrations.eventId, eventId),
+          ne(users.id, userId)
+        ));
+
+      const response = {
+        event_id: eventId,
+        member_id: userId,
+        attendees: attendeesList,
+        pagination: {
+          page: pageNum,
+          page_size: pageSize,
+          total: parseInt(totalCount[0]?.count?.toString() || '0'),
+          total_pages: Math.ceil(parseInt(totalCount[0]?.count?.toString() || '0') / pageSize)
+        },
+        generated_at: new Date().toISOString()
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('Error fetching attendees directory:', error);
+      res.status(500).json({ error: 'Failed to fetch attendees directory' });
+    }
+  });
+
+  // Mission telemetry endpoint for tracking completion
+  app.post('/api/events/:eventId/missions/meet_attendees/telemetry', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { action, target_member_id } = req.body;
+      
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Validate action
+      const validActions = ['view_profile', 'message_sent', 'sync_created'];
+      if (!validActions.includes(action)) {
+        return res.status(400).json({ error: 'Invalid action' });
+      }
+
+      if (!target_member_id) {
+        return res.status(400).json({ error: 'target_member_id required' });
+      }
+
+      // Check if mission already completed
+      const existingProgress = await db
+        .select()
+        .from(eventMissionProgress)
+        .where(and(
+          eq(eventMissionProgress.eventId, eventId),
+          eq(eventMissionProgress.userId, userId),
+          eq(eventMissionProgress.missionId, 'meet_attendees')
+        ))
+        .limit(1);
+
+      if (existingProgress[0]?.status === 'completed') {
+        return res.status(204).send(); // Already completed
+      }
+
+      // Get or create mission telemetry data
+      let telemetryData = existingProgress[0]?.submissionData || {};
+      const actions = telemetryData.actions || [];
+      
+      // Add new action
+      actions.push({
+        action,
+        target_member_id,
+        timestamp: new Date().toISOString()
+      });
+
+      // Check completion criteria
+      let isCompleted = false;
+      const uniqueProfileViews = new Set(
+        actions.filter(a => a.action === 'view_profile').map(a => a.target_member_id)
+      );
+      const syncCreated = actions.some(a => a.action === 'sync_created');
+      const messageSent = actions.some(a => a.action === 'message_sent');
+
+      // Mission completion rules:
+      // A) User views ≥ 3 distinct attendee profiles, OR
+      // B) User schedules ≥ 1 Sync session, OR  
+      // C) User sends ≥ 1 message
+      if (uniqueProfileViews.size >= 3 || syncCreated || messageSent) {
+        isCompleted = true;
+      }
+
+      // Update mission progress
+      const updatedData = { actions };
+      const status = isCompleted ? 'completed' : 'in_progress';
+      const pointsEarned = isCompleted ? 15 : 0;
+
+      await db
+        .insert(eventMissionProgress)
+        .values({
+          eventId,
+          userId,
+          missionId: 'meet_attendees',
+          status,
+          pointsEarned,
+          submissionData: updatedData,
+          startedAt: existingProgress[0]?.startedAt || new Date(),
+          completedAt: isCompleted ? new Date() : null,
+          updatedAt: new Date()
+        })
+        .onConflictDoUpdate({
+          target: [eventMissionProgress.eventId, eventMissionProgress.userId, eventMissionProgress.missionId],
+          set: {
+            status,
+            pointsEarned,
+            submissionData: updatedData,
+            completedAt: isCompleted ? new Date() : null,
+            updatedAt: new Date()
+          }
+        });
+
+      // Log completion
+      if (isCompleted) {
+        console.log('Mission "meet_attendees" completed', {
+          event_id: eventId,
+          member_id: userId,
+          completion_reason: uniqueProfileViews.size >= 3 ? 'profile_views' : 
+                           syncCreated ? 'sync_created' : 'message_sent',
+          profile_views_count: uniqueProfileViews.size
+        });
+
+        // TODO: Emit real-time event for mission completion
+        // wsServer.broadcast(`events:${eventId}:members:${userId}`, {
+        //   type: "MISSION_UPDATED",
+        //   missionId: "meet_attendees",
+        //   status: "completed",
+        //   points_earned: 15
+        // });
+      }
+
+      res.status(204).send();
+
+    } catch (error) {
+      console.error('Error tracking mission telemetry:', error);
+      res.status(500).json({ error: 'Failed to track mission progress' });
+    }
+  });
+
   // Event missions API endpoint
   app.get('/api/events/:id/missions', isAuthenticatedGeneral, async (req: any, res) => {
     try {
