@@ -100,17 +100,23 @@ export default function EventPreparation() {
     }
   ];
 
-  // Mock event preparation data since API endpoint doesn't exist yet
+  // Get real event data from API
+  const { data: apiEventData, isLoading: eventLoading } = useQuery({
+    queryKey: [`/api/events/${eventId}`],
+    enabled: !!eventId,
+  });
+
+  // Use API data or fallback to minimal structure for preparation features
   const eventData: EventPreparationData = {
-    event: {
-      id: eventId || 'mock-event',
-      title: 'STAK Summit 2025',
-      startDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
-      endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
-      location: 'San Francisco, CA',
-      description: 'Premier networking event for VCs and startup founders',
+    event: apiEventData || {
+      id: eventId || 'unknown',
+      title: 'Loading Event...',
+      startDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      location: 'TBD',
+      description: 'Event details loading...',
       isVirtual: false,
-      attendeeCount: 250,
+      attendeeCount: 0,
     },
     attendees: [
       {
@@ -328,57 +334,7 @@ export default function EventPreparation() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Event Header with Countdown */}
-      <div className="bg-gradient-to-r from-stak-black to-gray-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center">
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">{event.title}</h1>
-            <p className="text-lg text-gray-300 mb-6">Event Preparation Dashboard</p>
-            
-            {/* Countdown Timer */}
-            {countdown && (
-              <div className="flex justify-center items-center gap-6 mb-6">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-stak-copper">{countdown.days}</div>
-                  <div className="text-sm text-gray-400">DAYS</div>
-                </div>
-                <div className="text-stak-copper text-2xl">:</div>
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-stak-copper">{countdown.hours.toString().padStart(2, '0')}</div>
-                  <div className="text-sm text-gray-400">HRS</div>
-                </div>
-                <div className="text-stak-copper text-2xl">:</div>
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-stak-copper">{countdown.minutes.toString().padStart(2, '0')}</div>
-                  <div className="text-sm text-gray-400">MIN</div>
-                </div>
-                <div className="text-stak-copper text-2xl">:</div>
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-stak-copper">{countdown.seconds.toString().padStart(2, '0')}</div>
-                  <div className="text-sm text-gray-400">SEC</div>
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <div className="flex items-center text-gray-300">
-                <Calendar className="w-4 h-4 mr-2" />
-                {new Date(event.startDate).toLocaleDateString()} - {new Date(event.endDate).toLocaleDateString()}
-              </div>
-              <div className="flex items-center text-gray-300">
-                <MapPin className="w-4 h-4 mr-2" />
-                {event.location}
-              </div>
-              <div className="flex items-center text-gray-300">
-                <Users className="w-4 h-4 mr-2" />
-                {event.attendeeCount} attendees
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* STAK Sync Score */}
         <Card className="mb-8 border-stak-copper/20">
           <CardHeader>
