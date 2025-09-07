@@ -4101,6 +4101,21 @@ END:VCALENDAR`;
       };
 
       if (userId) {
+        // Get completed missions from the database
+        const missionProgress = await db
+          .select({ missionId: eventMissionProgress.missionId })
+          .from(eventMissionProgress)
+          .where(and(
+            eq(eventMissionProgress.eventId, eventId),
+            eq(eventMissionProgress.userId, userId),
+            eq(eventMissionProgress.status, 'completed')
+          ));
+        
+        // Add all completed missions to the set
+        missionProgress.forEach(mission => {
+          completedMissions.add(mission.missionId);
+        });
+
         // Check networking goals
         const goals = await db
           .select()
@@ -4134,7 +4149,7 @@ END:VCALENDAR`;
         );
         userStats.highValueMatchesCount = highValueMatches.length;
 
-        // Add completed missions based on user actions
+        // Also add completed missions based on user actions (for backwards compatibility)
         if (userStats.hasNetworkingGoal) completedMissions.add('set_networking_goals');
         if (userStats.hasSentSpeakerMessage) completedMissions.add('speak_to_speaker');
       }
