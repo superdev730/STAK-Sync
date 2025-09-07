@@ -681,53 +681,77 @@ export default function EventPreparation() {
             </CardContent>
           </Card>
 
-          {/* Priority 4: Review Attendees */}
+          {/* Priority 4: Meet the Attendees */}
           <Card className="border-l-4 border-l-[#CD853F]">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-[#CD853F] text-white flex items-center justify-center font-bold text-sm">4</div>
-                  <Eye className="h-5 w-5 text-[#CD853F]" />
-                  Review Attendees
+                  <Users className="h-5 w-5 text-[#CD853F]" />
+                  Meet the Attendees
                 </div>
                 <Badge className="bg-[#CD853F]/10 text-[#CD853F] border border-[#CD853F]/30">
-                  High-quality matches
+                  +2 pts per view
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <p className="text-gray-600 mb-4">
-                    Browse attendees with high compatibility scores to identify strategic networking opportunities.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-green-50 rounded-lg border border-green-200 text-center">
-                      <Star className="w-6 h-6 mx-auto text-green-600 mb-2" />
-                      <div className="text-2xl font-bold text-green-700">{prepStats?.highQualityMatches || 0}</div>
-                      <div className="text-sm text-green-600">90%+ Matches</div>
-                    </div>
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 text-center">
-                      <TrendingUp className="w-6 h-6 mx-auto text-blue-600 mb-2" />
-                      <div className="text-2xl font-bold text-blue-700">{prepStats?.mediumQualityMatches || 0}</div>
-                      <div className="text-sm text-blue-600">85%+ Matches</div>
-                    </div>
+              <div className="space-y-4">
+                <p className="text-gray-600">
+                  Discover and connect with high-match attendees. Focus on 90%+ matches for the highest quality networking opportunities.
+                </p>
+                
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-900">High-Quality Matches</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-green-600">90%+ compatibility</span>
+                    <Badge className="bg-green-600 text-white">{prepStats?.highQualityMatches || 0}</Badge>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <Button 
-                    className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
-                    data-testid="button-review-attendees"
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    Review High-Quality Matches
-                  </Button>
-                  {(!prepStats?.highQualityMatches || prepStats.highQualityMatches < 5) && (
-                    <div className="text-xs text-gray-500 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <AlertTriangle className="w-4 h-4 inline mr-1" />
-                      Consider improving your profile for better matches. Our AI team can help boost your visibility.
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span>Profiles viewed:</span>
+                      <span className="font-semibold">{prepStats?.attendeeProfileViews || 0}</span>
                     </div>
-                  )}
+                    <div className="flex items-center justify-between">
+                      <span>Total attendees:</span>
+                      <span className="font-semibold">{eventData?.attendeeCount || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Sync Points earned:</span>
+                      <span className="font-semibold text-[#CD853F]">{(prepStats?.attendeeProfileViews || 0) * 2}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Link href={`/events/${eventId}/attendees?filter=high-match`}>
+                      <Button className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black" size="sm" data-testid="button-view-high-matches">
+                        <Star className="w-4 h-4 mr-2" />
+                        View High Matches (90%+)
+                      </Button>
+                    </Link>
+                    <Link href={`/events/${eventId}/attendees`}>
+                      <Button variant="outline" className="w-full" size="sm" data-testid="button-view-all-attendees">
+                        <Users className="w-4 h-4 mr-2" />
+                        Browse All Attendees
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-blue-900">Smart Tip</div>
+                      <div className="text-blue-700">Focus on 90%+ matches for the highest quality connections and networking ROI.</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
