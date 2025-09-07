@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bell, LogOut, User, Settings, Menu, X } from "lucide-react";
+import { Bell, LogOut, User, Settings, Menu, X, Lightbulb, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -13,11 +13,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackType, setFeedbackType] = useState("feature");
+  const [feedbackText, setFeedbackText] = useState("");
+  const [contactInfo, setContactInfo] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
   // Get notification counts
   const { data: conversations } = useQuery({
@@ -62,6 +74,60 @@ export default function Header() {
   if (user?.email?.includes('admin') || user?.email?.includes('behring')) {
     navigation.push({ name: "Admin", href: "/admin" });
   }
+
+  // Handle feedback submission
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackText.trim()) {
+      toast({
+        title: "Please share your thoughts!",
+        description: "We'd love to hear what you have in mind.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      // For now, we'll store feedback locally or send to a simple endpoint
+      // In a real app, this would send to your feedback collection service
+      const feedbackData = {
+        type: feedbackType,
+        text: feedbackText,
+        contact: contactInfo || user?.email,
+        user: {
+          id: user?.id,
+          name: `${user?.firstName} ${user?.lastName}`,
+          email: user?.email,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      // Store in localStorage as a simple solution for early beta
+      const existingFeedback = JSON.parse(localStorage.getItem('stakSync_feedback') || '[]');
+      existingFeedback.push(feedbackData);
+      localStorage.setItem('stakSync_feedback', JSON.stringify(existingFeedback));
+
+      // Reset form
+      setFeedbackText("");
+      setContactInfo("");
+      setFeedbackType("feature");
+      setFeedbackOpen(false);
+      
+      toast({
+        title: "Thank you for helping us build!",
+        description: feedbackType === "feature" ? "Your feature idea has been captured and will help shape STAK Sync!" : "Your feedback helps us create a better networking experience!",
+      });
+    } catch (error) {
+      toast({
+        title: "Couldn't save your feedback",
+        description: "Please try again or reach out to us directly.",
+        variant: "destructive",
+      });
+    }
+
+    setIsSubmitting(false);
+  };
 
   if (!isAuthenticated) {
     return (
@@ -117,6 +183,102 @@ export default function Header() {
               </nav>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Help Us Build Button - Desktop Only */}
+              <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="hidden sm:flex items-center gap-2 text-stak-light-gray hover:text-stak-copper border border-stak-copper/30 hover:border-stak-copper/60 bg-stak-copper/5 hover:bg-stak-copper/10 transition-all duration-200"
+                    data-testid="feedback-button"
+                  >
+                    <Lightbulb className="h-4 w-4" />
+                    <span className="text-sm font-medium">Help Us Build</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Lightbulb className="h-5 w-5 text-stak-copper" />
+                      Help Us Build STAK Sync
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                      As an early member, your ideas help shape the future of professional networking. What would make STAK Sync even better?
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <Label htmlFor="feedback-type">What would you like to share?</Label>
+                      <RadioGroup value={feedbackType} onValueChange={setFeedbackType}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="feature" id="feature" />
+                          <Label htmlFor="feature" className="text-sm">💡 Feature idea or enhancement</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="improvement" id="improvement" />
+                          <Label htmlFor="improvement" className="text-sm">✨ General feedback or improvement</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="experience" id="experience" />
+                          <Label htmlFor="experience" className="text-sm">🎯 User experience feedback</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="feedback-text">Your thoughts</Label>
+                      <Textarea
+                        id="feedback-text"
+                        placeholder="Share your idea, suggestion, or feedback...\n\nExample: 'It would be great if I could...' or 'I love how... but it could be even better if...'"
+                        value={feedbackText}
+                        onChange={(e) => setFeedbackText(e.target.value)}
+                        rows={4}
+                        className="resize-none"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="contact-info">How can we follow up? (optional)</Label>
+                      <Input
+                        id="contact-info"
+                        placeholder={user?.email || "your.email@example.com"}
+                        value={contactInfo}
+                        onChange={(e) => setContactInfo(e.target.value)}
+                        className="text-sm"
+                      />
+                    </div>
+                    
+                    <div className="flex gap-3 pt-2">
+                      <Button 
+                        onClick={handleFeedbackSubmit} 
+                        disabled={isSubmitting}
+                        className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-stak-black border-t-transparent rounded-full animate-spin mr-2" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Share Feedback
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setFeedbackOpen(false)}
+                        disabled={isSubmitting}
+                      >
+                        Later
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
               {/* Mobile menu button */}
               <Button
                 variant="ghost"
@@ -226,6 +388,20 @@ export default function Header() {
                   </div>
                 </div>
               </Link>
+              
+              {/* Mobile Help Us Build button */}
+              <div
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setFeedbackOpen(true);
+                }}
+                className="block px-3 py-2 rounded-md text-base font-medium cursor-pointer transition-colors text-stak-light-gray hover:bg-stak-gray hover:text-stak-copper border border-stak-copper/30 hover:border-stak-copper/60 bg-stak-copper/5 hover:bg-stak-copper/10 mx-2 my-2"
+              >
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4" />
+                  <span>Help Us Build</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
