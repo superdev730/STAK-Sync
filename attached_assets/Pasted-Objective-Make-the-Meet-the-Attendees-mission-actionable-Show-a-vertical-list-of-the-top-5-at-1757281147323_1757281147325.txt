@@ -1,0 +1,148 @@
+Objective
+Make the “Meet the Attendees” mission actionable:
+- Show a vertical list of the top 5 attendees sorted by match_score (desc).
+- Provide a “See All” button to a full attendees page with filters/sorting.
+- Define mission completion rules and wire real-time status updates.
+
+Summary of Work
+1) Back-end: endpoints + data shape
+2) Front-end: mission card UI (top 5 list + See All)
+3) Attendees page: full directory with Sync scores
+4) Mission completion rules + telemetry
+5) Empty/loading states, caching, acceptance tests
+
+---------------------------------------
+1) API: ranked attendees & details
+---------------------------------------
+Create/confirm endpoints:
+
+GET /api/events/:eventId/attendees/ranked?member_id=ME&limit=5
+- Returns the top N attendees for ME sorted by match_score desc.
+- Excludes ME; exclude blocked/hidden per privacy rules.
+- Response example:
+{
+  "event_id": "evt_123",
+  "member_id": "usr_abc",
+  "attendees": [
+    {
+      "member_id": "usr_001",
+      "name": "Ava Lee",
+      "headline": "Founder @ SynthOps",
+      "company": "SynthOps",
+      "avatar_url": "...",
+      "match_score": 0.91,              // 0..1
+      "overlap_tags": ["ai_infra","mlops"],
+      "reasons": ["seeking design partners","raised seed in 2024"],
+      "actions": {
+        "profile_url": "/members/usr_001",
+        "message_url": "/messages/new?to=usr_001",
+        "sync_url": "/events/evt_123/sync/new?with=usr_001"
+      }
+    },
+    ...
+  ],
+  "generated_at": "2025-09-07T19:20:00Z"
+}
+
+GET /api/events/:eventId/attendees?member_id=ME&page=1&page_size=25&sort=match_score
+- Paged directory for full “See All” view; supports sort by match_score, company, role, recently_active.
+
+Notes:
+- match_score produced by current matcher; fall back to 0.0 if unknown.
+- Add cache key: cache:eventAttendeesRanked:${eventId}:${memberId}:${limit}
+- Invalidate on updates to member_event_matches or on new joins.
+
+---------------------------------------
+2) Mission card UI (Meet the Attendees)
+---------------------------------------
+Replace the current “empty” mission UI with:
+
+- Title row: “Meet the Attendees” + points badge + START/VIEW pill.
+- Expanded content (default expanded on first visit):
+  • Vertical list of 5 cards:
+     - avatar | name • company (headline)
+     - Match chip: “Sync Score 91”
+     - overlap_tags chips
+     - Quick actions: [View] [Message] [Schedule Sync]
+  • “See All” button → /events/:eventId/attendees
+
+Component contract:
+<MissionMeetAttendees
+  eventId
+  meId
+  onCompleted={() => mutateMissions()}
+>
+
+Data:
+- Fetch top 5 from /attendees/ranked.
+- Skeleton while loading; error toast on failure.
+
+---------------------------------------
+3) Full Attendees page
+---------------------------------------
+Route: /events/:eventId/attendees
+- Header: search input + sort dropdown (Match Score, Company, Role, Recently Active).
+- Filters: industries, roles, companies, goals.
+- Grid or stacked list. Each row shows avatar, name, company, Sync score, tags, quick actions.
+- Infinite scroll or pagination.
+
+Tracking:
+- data-click for “view_profile”, “send_message”, “create_sync”, with {eventId, targetMemberId, matchScore}.
+
+---------------------------------------
+4) Mission completion logic
+---------------------------------------
+Define clear, idempotent rules (complete when ANY is true):
+A) User views ≥ 3 distinct attendee profiles from this mission AND spends ≥ 10s total on those profile pages, OR
+B) User schedules ≥ 1 Sync session with an attendee from the list, OR
+C) User sends ≥ 1 message to a listed attendee.
+
+Implementation:
+- Client emits lightweight events to POST /api/events/:eventId/missions/meet_attendees/telemetry with {action, target_member_id, ts}.
+  Accepted actions: "view_profile", "message_sent", "sync_created".
+- Server aggregates per event/member and, when threshold met, performs:
+  - Upsert event_member_missions (status='completed', points_earned=mission.points) in a transaction.
+  - Publish real-time event: {type:"MISSION_UPDATED", missionId:"meet_attendees", status:"completed", points_earned, progress}
+  - Return 204.
+
+Edge cases:
+- Multiple quick submits should be idempotent (do not double-award points).
+- If user already completed before, return 204 and no state change.
+
+---------------------------------------
+5) Empty/loading states & guidance
+---------------------------------------
+- If API returns 0 attendees or all scores = null:
+  Show an inline state:
+  “No ranked matches yet. Set your networking goals to unlock personalized matches.”
+  CTA: “Set Networking Goals” → /events/:eventId/goals
+- Loading: 5 skeleton rows matching final layout.
+- Error: retry button + fallback to unranked first 5 (GET /attendees?sort=recently_active).
+
+---------------------------------------
+6) Caching & freshness
+---------------------------------------
+- ranked endpoint: private, max-age=0, Cache-Control: no-store.
+- Full directory: private, max-age=120 with ETag; revalidate on focus.
+- After any telemetry that completes the mission, invalidate missions cache key and refetch.
+
+---------------------------------------
+7) Acceptance criteria (must pass)
+---------------------------------------
+- Mission card displays 5 attendees sorted by match_score desc with Quick actions.
+- “See All” opens full attendees directory with scores and filters.
+- Completing defined actions marks mission completed, updates progress/points immediately (optimistic + server reconcile).
+- Real-time update received on the page (progress banner increments).
+- Empty state directs member to goals to enable ranking.
+- Analytics events are emitted for actions.
+
+---------------------------------------
+8) QA steps
+---------------------------------------
+- With seeded attendees and match scores, verify ordering and display.
+- Click View on 3 unique profiles -> mission completes; refresh persists state.
+- Create a Sync from the mission row -> mission completes.
+- Simulate network failure -> optimistic UI rolls back; mission remains not completed.
+- Verify cache invalidation & no stale reads for member-specific data.
+
+Please implement the API endpoints, mission card, attendees page, mission completion telemetry, and real-time updates as specified. Reuse existing matcher and Sync scheduling flows where possible. 

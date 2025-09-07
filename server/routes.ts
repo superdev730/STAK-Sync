@@ -4189,6 +4189,9 @@ END:VCALENDAR`;
         connectionsCount: 0
       };
 
+      // Initialize mission status map (available for both authenticated and guest users)
+      const missionStatusMap = new Map();
+
       if (userId) {
         // Get all mission progress from the database
         const allMissionProgress = await db
@@ -4204,7 +4207,6 @@ END:VCALENDAR`;
           ));
         
         // Add completed missions to the set and track all statuses
-        const missionStatusMap = new Map();
         allMissionProgress.forEach(mission => {
           missionStatusMap.set(mission.missionId, mission.status);
           if (mission.status === 'completed') {
