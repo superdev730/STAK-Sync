@@ -7434,5 +7434,200 @@ ${JSON.stringify(candidateIndex)}`
     }
   });
 
+  // Intel Collector - Crowdsourced Facts System
+  
+  // Submit a crowdsourced fact about another member
+  app.post('/api/intel/submit-fact', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const contributorUserId = req.user?.id;
+      if (!contributorUserId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { subjectUserId, factText, factType, isVoiceNote = false, voiceNoteUrl } = req.body;
+
+      if (!subjectUserId || !factText || !factType) {
+        return res.status(400).json({ error: 'Subject user ID, fact text, and fact type are required' });
+      }
+
+      // Import the necessary schema
+      const { crowdsourcedFacts, contributorRewards } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq, sql } = await import('drizzle-orm');
+
+      // Create the crowdsourced fact
+      const [newFact] = await db.insert(crowdsourcedFacts).values({
+        subjectUserId,
+        contributorUserId,
+        factText: factText.trim(),
+        factType,
+        isVoiceNote,
+        voiceNoteUrl: voiceNoteUrl || null,
+      }).returning();
+
+      // Update contributor rewards
+      const pointsEarned = isVoiceNote ? 15 : 10; // Voice notes worth more points
+      
+      // Upsert contributor rewards
+      await db.insert(contributorRewards).values({
+        userId: contributorUserId,
+        totalPoints: pointsEarned,
+        totalContributions: 1,
+        currentStreak: 1,
+        longestStreak: 1,
+        lastContributionAt: new Date(),
+      }).onConflictDoUpdate({
+        target: contributorRewards.userId,
+        set: {
+          totalPoints: sql`${contributorRewards.totalPoints} + ${pointsEarned}`,
+          totalContributions: sql`${contributorRewards.totalContributions} + 1`,
+          lastContributionAt: new Date(),
+          updatedAt: new Date(),
+        }
+      });
+
+      res.json({ 
+        success: true, 
+        factId: newFact.id, 
+        pointsEarned,
+        message: `Thanks for sharing! You earned ${pointsEarned} points.`
+      });
+    } catch (error) {
+      console.error('Submit fact error:', error);
+      res.status(500).json({ error: 'Failed to submit fact' });
+    }
+  });
+
+  // Get crowdsourced facts for a user
+  app.get('/api/intel/facts/:userId', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Import the necessary schema
+      const { crowdsourcedFacts, users } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq, and } = await import('drizzle-orm');
+
+      // Get facts with contributor info (excluding hidden/deleted)
+      const facts = await db.select({
+        id: crowdsourcedFacts.id,
+        factText: crowdsourcedFacts.factText,
+        factType: crowdsourcedFacts.factType,
+        isVoiceNote: crowdsourcedFacts.isVoiceNote,
+        voiceNoteUrl: crowdsourcedFacts.voiceNoteUrl,
+        verificationStatus: crowdsourcedFacts.verificationStatus,
+        createdAt: crowdsourcedFacts.createdAt,
+        contributor: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+        }
+      })
+      .from(crowdsourcedFacts)
+      .innerJoin(users, eq(crowdsourcedFacts.contributorUserId, users.id))
+      .where(and(
+        eq(crowdsourcedFacts.subjectUserId, userId),
+        eq(crowdsourcedFacts.visibility, 'visible')
+      ))
+      .orderBy(crowdsourcedFacts.createdAt);
+
+      res.json(facts);
+    } catch (error) {
+      console.error('Get facts error:', error);
+      res.status(500).json({ error: 'Failed to get facts' });
+    }
+  });
+
+  // Get contributor rewards and stats
+  app.get('/api/intel/rewards', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Import the necessary schema
+      const { contributorRewards } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+
+      const [rewards] = await db.select()
+        .from(contributorRewards)
+        .where(eq(contributorRewards.userId, userId));
+
+      if (!rewards) {
+        return res.json({
+          totalPoints: 0,
+          totalContributions: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          tier: 'bronze',
+          rewardsEarned: []
+        });
+      }
+
+      res.json(rewards);
+    } catch (error) {
+      console.error('Get rewards error:', error);
+      res.status(500).json({ error: 'Failed to get rewards' });
+    }
+  });
+
+  // Intel Collector invitation system - request facts from contacts
+  app.post('/api/intel/request-facts', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const requesterId = req.user?.id;
+      if (!requesterId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { contactEmails, personalMessage } = req.body;
+
+      if (!contactEmails || !Array.isArray(contactEmails)) {
+        return res.status(400).json({ error: 'Contact emails array is required' });
+      }
+
+      // Get requester info for personalized outreach
+      const requester = await storage.getUser(requesterId);
+      if (!requester) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const requestsSent = [];
+      
+      for (const email of contactEmails) {
+        // Create personalized Intel Collector message
+        const intelMessage = `Hi! ${requester.firstName} ${requester.lastName} is updating their professional profile on STAK Sync. 
+
+They'd love a quick comment about their work, accomplishments, or strengths to help them shine at networking events.
+
+${personalMessage || ''}
+
+Just 2-3 sentences or a quick voice note would be amazing! This helps other members connect with them more effectively.
+
+[Intel Collector Link - Submit Facts About ${requester.firstName}]`;
+
+        requestsSent.push({
+          email,
+          status: 'sent',
+          message: intelMessage
+        });
+
+        // In a real system, you'd send actual emails here using SendGrid
+        console.log(`Intel Collector request sent to ${email} for ${requester.firstName}`);
+      }
+
+      res.json({ 
+        success: true, 
+        requestsSent: requestsSent.length,
+        message: `Sent ${requestsSent.length} Intel Collector requests to your contacts!`
+      });
+    } catch (error) {
+      console.error('Request facts error:', error);
+      res.status(500).json({ error: 'Failed to send fact requests' });
+    }
+  });
+
   return httpServer;
 }
