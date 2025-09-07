@@ -229,7 +229,7 @@ export default function EventPreparation() {
     if (localStorage.getItem(`reviewed_program_${eventData.event.id}`)) eventActions += 5;
     score += eventActions;
 
-    // Active networking (25 points) - real user engagement
+    // Active networking (35 points) - real user engagement
     let networkingScore = 0;
     // Conversation activity (based on actual API data)
     const activeConversations = conversations?.filter(conv => 
@@ -240,7 +240,12 @@ export default function EventPreparation() {
     
     // Connection activity (based on preliminary matches - simulated)
     const connectedMatches = eventData.preliminaryMatches?.filter(m => m.isContact)?.length || 0;
-    networkingScore += Math.min(connectedMatches * 2, 10); // 2 points per connection, max 10
+    networkingScore += Math.min(connectedMatches * 2, 8); // 2 points per connection, max 8
+    
+    // Interactive engagement with matches (new scoring for Connect/Schedule/Pass actions)
+    const engagementInteractions = parseInt(localStorage.getItem('engagement_interactions') || '0');
+    networkingScore += Math.min(engagementInteractions * 2, 12); // 2 points per interaction, max 12
+    
     score += networkingScore;
 
     // Event preparation tasks (25 points) - actionable items
@@ -269,7 +274,7 @@ export default function EventPreparation() {
     } else {
       setPreparationScore(finalScore);
     }
-  }, [eventData, user, conversations?.length, eventData?.event?.id, eventData?.preliminaryMatches?.length]);
+  }, [eventData, user, conversations?.length, eventData?.event?.id, eventData?.preliminaryMatches?.length, localStorage.getItem('engagement_interactions')]);
 
   if (isLoading) {
     return (
