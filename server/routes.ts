@@ -29,6 +29,9 @@ import {
   eventTicketTypes,
   eventLineItems,
   eventHosts,
+  eventComponents,
+  eventRooms,
+  roomParticipants,
   sponsors,
   eventSponsors,
   eventAttendeeGoals,
@@ -4451,6 +4454,114 @@ END:VCALENDAR`;
     }
   });
 
+  // Mission telemetry endpoint for "see_program_content" mission
+  app.post('/api/events/:eventId/missions/see_program_content/telemetry', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { action, component_id, group_id } = req.body;
+      
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      console.log('📋 PROGRAM CONTENT TELEMETRY:', { 
+        eventId, 
+        userId, 
+        action, 
+        component_id, 
+        group_id 
+      });
+
+      // Get or create mission progress entry
+      let [missionProgress] = await db.select()
+        .from(eventMissionProgress)
+        .where(and(
+          eq(eventMissionProgress.eventId, eventId),
+          eq(eventMissionProgress.userId, userId),
+          eq(eventMissionProgress.missionId, 'see_program_content')
+        ))
+        .limit(1);
+
+      // Initialize progress entry if not exists
+      if (!missionProgress) {
+        [missionProgress] = await db.insert(eventMissionProgress)
+          .values({
+            eventId,
+            userId,
+            missionId: 'see_program_content',
+            status: 'in_progress',
+            pointsEarned: 0,
+            startedAt: new Date(),
+            submissionData: { telemetry: [] }
+          })
+          .returning();
+      }
+
+      // Track the action in submission data
+      const currentTelemetry = (missionProgress.submissionData as any)?.telemetry || [];
+      const newEntry = {
+        action,
+        component_id,
+        group_id,
+        timestamp: new Date().toISOString()
+      };
+      
+      const updatedTelemetry = [...currentTelemetry, newEntry];
+
+      // Check completion criteria
+      let isCompleted = false;
+      const actions = updatedTelemetry.map((t: any) => t.action);
+      const uniqueGroups = new Set(updatedTelemetry.filter((t: any) => t.group_id).map((t: any) => t.group_id));
+      const uniqueComponents = new Set(updatedTelemetry.filter((t: any) => t.component_id).map((t: any) => t.component_id));
+
+      // Completion rules:
+      // A) View agenda for 20s+ AND open 1+ component details, OR
+      // B) Join 1+ Sync Group, OR
+      // C) RSVP to 1+ program component (optional)
+      
+      const hasViewedAgenda = actions.includes('view_agenda');
+      const hasOpenedComponent = actions.includes('open_component') && uniqueComponents.size >= 1;
+      const hasJoinedGroup = actions.includes('join_group') && uniqueGroups.size >= 1;
+      
+      isCompleted = (hasViewedAgenda && hasOpenedComponent) || hasJoinedGroup;
+
+      // Update mission progress
+      const newStatus = isCompleted ? 'completed' : 'in_progress';
+      const pointsEarned = isCompleted ? 20 : 0;
+
+      await db.update(eventMissionProgress)
+        .set({
+          status: newStatus,
+          pointsEarned: pointsEarned,
+          completedAt: isCompleted ? new Date() : null,
+          submissionData: { telemetry: updatedTelemetry },
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(eventMissionProgress.eventId, eventId),
+          eq(eventMissionProgress.userId, userId),
+          eq(eventMissionProgress.missionId, 'see_program_content')
+        ));
+
+      if (isCompleted) {
+        console.log('✅ Mission "see_program_content" completed!', {
+          event_id: eventId,
+          member_id: userId,
+          completion_reason: hasJoinedGroup ? 'joined_group' : 'viewed_agenda_and_component',
+          groups_joined: uniqueGroups.size,
+          components_opened: uniqueComponents.size
+        });
+      }
+
+      res.status(204).send();
+
+    } catch (error) {
+      console.error('Error tracking program content telemetry:', error);
+      res.status(500).json({ error: 'Failed to track program mission progress' });
+    }
+  });
+
   // Mission telemetry endpoint for tracking completion
   app.post('/api/events/:eventId/missions/meet_attendees/telemetry', isAuthenticatedGeneral, async (req: any, res) => {
     try {
@@ -4567,6 +4678,229 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error tracking mission telemetry:', error);
       res.status(500).json({ error: 'Failed to track mission progress' });
+    }
+  });
+
+  // Get event agenda (program components)
+  app.get('/api/events/:eventId/agenda', async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+
+      // Check event exists  
+      const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      // Get agenda components sorted by start time
+      const components = await db.select().from(eventComponents)
+        .where(eq(eventComponents.eventId, eventId))
+        .orderBy(eventComponents.startTs, eventComponents.orderIndex);
+
+      res.set('Cache-Control', 'public, max-age=120');
+      res.json({
+        event_id: eventId,
+        components: components.map(component => ({
+          id: component.id,
+          kind: component.kind,
+          title: component.title,
+          description: component.description,
+          start_ts: component.startTs,
+          end_ts: component.endTs,
+          location: component.location,
+          speakers: component.speakers || [],
+          tags: component.tags || [],
+          order_index: component.orderIndex
+        }))
+      });
+    } catch (error) {
+      console.error("Error fetching event agenda:", error);
+      res.status(500).json({ error: "Failed to fetch agenda" });
+    }
+  });
+
+  // Get event groups (sync groups)
+  app.get('/api/events/:eventId/groups', async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+
+      // Check event exists
+      const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      // Get sync groups with member counts
+      const groupsWithCounts = await db.select({
+        id: eventRooms.id,
+        slug: eventRooms.slug,
+        name: eventRooms.name,
+        description: eventRooms.description,
+        is_active: eventRooms.isActive,
+        planned_start_ts: eventRooms.plannedStartTs,
+        planned_end_ts: eventRooms.plannedEndTs,
+        location: eventRooms.location,
+        member_count: sql<number>`COALESCE(COUNT(${roomParticipants.id}), 0)`
+      })
+      .from(eventRooms)
+      .leftJoin(roomParticipants, eq(eventRooms.id, roomParticipants.roomId))
+      .where(and(
+        eq(eventRooms.eventId, eventId),
+        eq(eventRooms.roomType, 'sync_group')
+      ))
+      .groupBy(eventRooms.id)
+      .orderBy(desc(sql`member_count`), eventRooms.name);
+
+      res.set('Cache-Control', 'max-age=60');
+      res.json({
+        event_id: eventId,
+        groups: groupsWithCounts
+      });
+    } catch (error) {
+      console.error("Error fetching event groups:", error);
+      res.status(500).json({ error: "Failed to fetch groups" });
+    }
+  });
+
+  // Join a sync group
+  app.post('/api/events/:eventId/groups/:groupId/join', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId, groupId } = req.params;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Verify group exists and belongs to event
+      const [group] = await db.select().from(eventRooms)
+        .where(and(
+          eq(eventRooms.id, groupId),
+          eq(eventRooms.eventId, eventId),
+          eq(eventRooms.roomType, 'sync_group')
+        ))
+        .limit(1);
+
+      if (!group) {
+        return res.status(404).json({ error: "Sync group not found" });
+      }
+
+      // Check if already joined
+      const [existingMembership] = await db.select().from(roomParticipants)
+        .where(and(
+          eq(roomParticipants.roomId, groupId),
+          eq(roomParticipants.userId, userId)
+        ))
+        .limit(1);
+
+      if (existingMembership) {
+        // Get current member count
+        const [{ count: memberCount }] = await db.select({ count: sql<number>`COUNT(*)` })
+          .from(roomParticipants)
+          .where(eq(roomParticipants.roomId, groupId));
+
+        return res.json({
+          ok: true,
+          member_count: memberCount,
+          joined: true,
+          message: "Already a member of this group"
+        });
+      }
+
+      // Add to group
+      await db.insert(roomParticipants).values({
+        roomId: groupId,
+        userId: userId
+      });
+
+      // Get updated member count
+      const [{ count: memberCount }] = await db.select({ count: sql<number>`COUNT(*)` })
+        .from(roomParticipants)
+        .where(eq(roomParticipants.roomId, groupId));
+
+      res.json({
+        ok: true,
+        member_count: memberCount,
+        joined: true
+      });
+    } catch (error) {
+      console.error("Error joining sync group:", error);
+      res.status(500).json({ error: "Failed to join group" });
+    }
+  });
+
+  // Leave a sync group
+  app.delete('/api/events/:eventId/groups/:groupId/join', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId, groupId } = req.params;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Verify group exists
+      const [group] = await db.select().from(eventRooms)
+        .where(and(
+          eq(eventRooms.id, groupId),
+          eq(eventRooms.eventId, eventId),
+          eq(eventRooms.roomType, 'sync_group')
+        ))
+        .limit(1);
+
+      if (!group) {
+        return res.status(404).json({ error: "Sync group not found" });
+      }
+
+      // Remove from group
+      await db.delete(roomParticipants)
+        .where(and(
+          eq(roomParticipants.roomId, groupId),
+          eq(roomParticipants.userId, userId)
+        ));
+
+      // Get updated member count
+      const [{ count: memberCount }] = await db.select({ count: sql<number>`COUNT(*)` })
+        .from(roomParticipants)
+        .where(eq(roomParticipants.roomId, groupId));
+
+      res.json({
+        ok: true,
+        member_count: memberCount,
+        joined: false
+      });
+    } catch (error) {
+      console.error("Error leaving sync group:", error);
+      res.status(500).json({ error: "Failed to leave group" });
+    }
+  });
+
+  // Get user's joined groups for an event
+  app.get('/api/events/:eventId/groups/mine', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const userGroups = await db.select({
+        group_id: eventRooms.id,
+        joined_at: roomParticipants.createdAt || sql<Date>`NOW()`
+      })
+      .from(roomParticipants)
+      .innerJoin(eventRooms, eq(roomParticipants.roomId, eventRooms.id))
+      .where(and(
+        eq(roomParticipants.userId, userId),
+        eq(eventRooms.eventId, eventId),
+        eq(eventRooms.roomType, 'sync_group')
+      ));
+
+      res.set('Cache-Control', 'no-store');
+      res.json({
+        groups: userGroups
+      });
+    } catch (error) {
+      console.error("Error fetching user groups:", error);
+      res.status(500).json({ error: "Failed to fetch user groups" });
     }
   });
 
