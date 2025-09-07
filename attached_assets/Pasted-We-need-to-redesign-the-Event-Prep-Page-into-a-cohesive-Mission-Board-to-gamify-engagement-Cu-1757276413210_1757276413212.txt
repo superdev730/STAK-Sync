@@ -1,0 +1,53 @@
+We need to redesign the Event Prep Page into a cohesive “Mission Board” to gamify engagement. 
+
+Current problems:
+- Missions are shown in one section, while other key engagement items (“Speak to the Speaker”, “Set Networking Goals”) are separated below.
+- This fragments the experience and reduces the game-like effect.
+- Members should see ALL engagement items as part of the same mission list.
+
+Required changes:
+1. Combine all engagement items into a single mission list. Each mission = one row or card with:
+   - Title
+   - Short 1-line description
+   - Points offered (badge)
+   - CTA pill button “START”
+   - Status indicator (Not Started / In Progress / Completed)
+
+2. Core missions to include (initial list):
+   - Speak to the Speaker (submit requests, suggestions, or comments before the event).
+   - Set Networking Goals (AI will adjust in real time and suggest high-value matches).
+   - Meet the Attendees (explore connections, matches, and attendee profiles).
+   - See Program Content (agenda, sessions, speakers).
+   - Connect with High-Value Matches (AI-selected).
+   - Visit Sponsors & Partners (explore booths, perks, or offers).
+   - Share Insights or Questions (post to event feed or LinkedIn).
+   - Schedule Sync Sessions (set up quick 1:1 meetings).
+   - Contribute Crowd Intel (share comments about colleagues/friends to enrich profiles).
+   - Post-Event Feedback Mission (quick review that earns points and feeds data back into AI).
+
+3. Add gamification elements:
+   - Total points progress bar across all missions.
+   - Badges or streaks when completing multiple missions.
+   - Leaderboard (optional toggle to see how you compare to others).
+
+4. UI improvements:
+   - Replace long content blocks with collapsible mission cards (title + CTA visible by default).
+   - When user clicks “START”, expand inline or navigate to the engagement flow.
+   - Keep the right-hand sidebar but adjust:
+     * Top Matches, Companies Attending, Alignment should also link back to relevant missions.
+     * Example: “Your Top Matches (3)” → links directly to “Connect with Matches” mission.
+
+5. Tech implementation:
+   - Unify the missions into one data-driven array. Each mission is defined with {id, title, description, points, ctaUrl, status}.
+   - API: GET /api/events/:id/missions should return all missions with status for the user.
+   - Component: <MissionBoard> renders each mission card consistently.
+   - Status updates on completion should PATCH /api/events/:id/missions/:missionId with {status: "completed"}.
+
+6. Acceptance Criteria:
+   - The Event Prep page shows ONE cohesive mission board with all key engagement items.
+   - Each mission displays title, points, and START CTA.
+   - User can track progress via points bar and mission status.
+   - Sidebar components link into missions (not duplicate content).
+   - New mission types can be added without redesigning the page.
+
+Please refactor the Event Prep page into this mission-board style layout, implement the mission API contract, and gamify engagement as described.

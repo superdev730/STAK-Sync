@@ -4050,6 +4050,282 @@ END:VCALENDAR`;
     }
   });
 
+  // Event missions API endpoint
+  app.get('/api/events/:id/missions', async (req: any, res) => {
+    try {
+      const { id: eventId } = req.params;
+      
+      // Try to get authenticated user
+      let userId = null;
+      try {
+        if (req.user?.claims?.sub) {
+          userId = req.user.claims.sub;
+        }
+      } catch (error) {
+        console.log('No authenticated user for missions');
+      }
+
+      // Get event data
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      // Check user's mission completion status (if authenticated)
+      let completedMissions = new Set<string>();
+      let userStats = {
+        hasNetworkingGoal: false,
+        hasSentSpeakerMessage: false,
+        highValueMatchesCount: 0,
+        connectionsCount: 0
+      };
+
+      if (userId) {
+        // Check networking goals
+        const goals = await db
+          .select()
+          .from(eventAttendeeGoals)
+          .where(and(
+            eq(eventAttendeeGoals.eventId, eventId),
+            eq(eventAttendeeGoals.userId, userId)
+          ));
+        userStats.hasNetworkingGoal = goals.length > 0;
+
+        // Check speaker messages  
+        const messages = await db
+          .select()
+          .from(speakerMessages)
+          .where(and(
+            eq(speakerMessages.eventId, eventId),
+            eq(speakerMessages.userId, userId)
+          ));
+        userStats.hasSentSpeakerMessage = messages.length > 0;
+
+        // Get user matches for this event
+        const userMatches = await storage.getMatches(userId);
+        const eventAttendees = await db
+          .select({ userId: eventRegistrations.userId })
+          .from(eventRegistrations)
+          .where(eq(eventRegistrations.eventId, eventId));
+        
+        const attendeeIds = new Set(eventAttendees.map(a => a.userId));
+        const highValueMatches = userMatches.filter(match => 
+          match.matchScore >= 85 && attendeeIds.has(match.matchedUserId)
+        );
+        userStats.highValueMatchesCount = highValueMatches.length;
+
+        // Add completed missions based on user actions
+        if (userStats.hasNetworkingGoal) completedMissions.add('networking_goals');
+        if (userStats.hasSentSpeakerMessage) completedMissions.add('speak_to_speaker');
+      }
+
+      // Define all available missions
+      const missions = [
+        {
+          id: 'speak_to_speaker',
+          title: 'Speak to the Speaker',
+          description: 'Submit requests, suggestions, or comments before the event',
+          points: 20,
+          ctaUrl: '#speaker',
+          status: completedMissions.has('speak_to_speaker') ? 'completed' : 'not_started',
+          category: 'engagement'
+        },
+        {
+          id: 'networking_goals',
+          title: 'Set Networking Goals',
+          description: 'AI will adjust in real time and suggest high-value matches',
+          points: 15,
+          ctaUrl: '#networking',
+          status: completedMissions.has('networking_goals') ? 'completed' : 'not_started',
+          category: 'strategy'
+        },
+        {
+          id: 'meet_attendees',
+          title: 'Meet the Attendees',
+          description: 'Explore connections, matches, and attendee profiles',
+          points: 10,
+          ctaUrl: '#attendees',
+          status: 'not_started',
+          category: 'networking'
+        },
+        {
+          id: 'program_content',
+          title: 'See Program Content',
+          description: 'Review agenda, sessions, and speaker details',
+          points: 5,
+          ctaUrl: '#agenda',
+          status: 'not_started',
+          category: 'preparation'
+        },
+        {
+          id: 'high_value_matches',
+          title: 'Connect with High-Value Matches',
+          description: `${userStats.highValueMatchesCount} AI-selected matches available`,
+          points: 25,
+          ctaUrl: '#matches',
+          status: 'not_started',
+          category: 'networking'
+        },
+        {
+          id: 'sponsors_partners',
+          title: 'Visit Sponsors & Partners',
+          description: 'Explore booths, perks, and partnership opportunities',
+          points: 10,
+          ctaUrl: '#sponsors',
+          status: 'not_started',
+          category: 'exploration'
+        },
+        {
+          id: 'share_insights',
+          title: 'Share Insights or Questions',
+          description: 'Post to event feed or share on LinkedIn',
+          points: 15,
+          ctaUrl: '#insights',
+          status: 'not_started',
+          category: 'engagement'
+        },
+        {
+          id: 'sync_sessions',
+          title: 'Schedule Sync Sessions',
+          description: 'Set up quick 1:1 meetings with other attendees',
+          points: 20,
+          ctaUrl: '#sessions',
+          status: 'not_started',
+          category: 'networking'
+        },
+        {
+          id: 'crowd_intel',
+          title: 'Contribute Crowd Intel',
+          description: 'Share insights about colleagues to enrich profiles',
+          points: 15,
+          ctaUrl: '#intel',
+          status: 'not_started',
+          category: 'community'
+        },
+        {
+          id: 'post_event_feedback',
+          title: 'Post-Event Feedback Mission',
+          description: 'Quick review that earns points and improves AI',
+          points: 10,
+          ctaUrl: '#feedback',
+          status: 'not_started',
+          category: 'feedback',
+          availableAfter: event.endDate // This mission only available after event
+        }
+      ];
+
+      // Filter missions based on availability
+      const now = new Date().toISOString();
+      const availableMissions = missions.filter(mission => {
+        if (mission.availableAfter && now < mission.availableAfter) {
+          return false;
+        }
+        return true;
+      });
+
+      // Calculate total points and progress
+      const totalPoints = availableMissions.reduce((sum, mission) => sum + mission.points, 0);
+      const completedPoints = availableMissions
+        .filter(mission => mission.status === 'completed')
+        .reduce((sum, mission) => sum + mission.points, 0);
+      
+      const progressPercentage = totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0;
+
+      // Group missions by category for better organization
+      const missionsByCategory = availableMissions.reduce((acc, mission) => {
+        if (!acc[mission.category]) {
+          acc[mission.category] = [];
+        }
+        acc[mission.category].push(mission);
+        return acc;
+      }, {} as Record<string, typeof missions>);
+
+      const response = {
+        eventId,
+        missions: availableMissions,
+        missionsByCategory,
+        stats: {
+          totalMissions: availableMissions.length,
+          completedMissions: availableMissions.filter(m => m.status === 'completed').length,
+          totalPoints,
+          completedPoints,
+          progressPercentage
+        },
+        userStats
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error('Error fetching event missions:', error);
+      res.status(500).json({ message: 'Failed to fetch event missions' });
+    }
+  });
+
+  // Update mission status
+  app.patch('/api/events/:id/missions/:missionId', async (req: any, res) => {
+    try {
+      const { id: eventId, missionId } = req.params;
+      const { status } = req.body;
+      
+      // Try to get authenticated user
+      let userId = null;
+      try {
+        if (req.user?.claims?.sub) {
+          userId = req.user.claims.sub;
+        }
+      } catch (error) {
+        return res.status(401).json({ message: 'Authentication required to update missions' });
+      }
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required to update missions' });
+      }
+
+      // Validate status
+      if (!['not_started', 'in_progress', 'completed'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+
+      // For now, we'll store mission progress in a simple way
+      // In production, you'd want a proper missions_progress table
+      
+      // Handle specific mission completion logic
+      let pointsAwarded = 0;
+      let message = `Mission status updated to ${status}`;
+
+      if (status === 'completed') {
+        // Award points based on mission type
+        const missionPoints = {
+          'speak_to_speaker': 20,
+          'networking_goals': 15,
+          'meet_attendees': 10,
+          'program_content': 5,
+          'high_value_matches': 25,
+          'sponsors_partners': 10,
+          'share_insights': 15,
+          'sync_sessions': 20,
+          'crowd_intel': 15,
+          'post_event_feedback': 10
+        };
+
+        pointsAwarded = missionPoints[missionId as keyof typeof missionPoints] || 0;
+        message = `Mission completed! +${pointsAwarded} Sync Points`;
+      }
+
+      res.json({
+        success: true,
+        message,
+        pointsAwarded,
+        missionId,
+        status
+      });
+
+    } catch (error) {
+      console.error('Error updating mission status:', error);
+      res.status(500).json({ message: 'Failed to update mission status' });
+    }
+  });
+
   app.delete('/api/events/:eventId/register', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
