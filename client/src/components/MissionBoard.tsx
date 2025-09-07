@@ -28,6 +28,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { MeetAttendeesContent } from './MeetAttendeesContent';
 
 interface Mission {
   id: string;
@@ -252,28 +253,11 @@ export function MissionBoard({ eventId, missions, progress, onMissionStart }: Mi
 
       case 'meet_attendees':
         return (
-          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-              Connect with top attendees to complete this mission and earn {mission.points} Sync Points
-            </p>
-            <div className="flex gap-2">
-              <Button 
-                size="sm" 
-                onClick={() => handleMissionComplete(mission.id)}
-                data-testid={`button-complete-${mission.id}`}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                View Attendees
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => setExpandedMission(null)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
+          <MeetAttendeesContent 
+            eventId={eventId} 
+            mission={mission} 
+            onMissionUpdate={() => queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/missions`] })}
+          />
         );
 
       default:
