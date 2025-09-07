@@ -1,0 +1,112 @@
+{
+  "event_id": "evt_12345",
+  "member_id": "usr_67890",
+  "missions": [
+    {
+      "id": "speak_to_speaker",
+      "title": "Speak to the Speaker",
+      "description": "Send your requests, suggestions, or comments to help speakers tailor content.",
+      "points": 20,
+      "status": "not_started",
+      "cta_label": "START",
+      "cta_url": "/events/evt_12345/speakers",
+      "category": "engagement"
+    },
+    {
+      "id": "set_networking_goals",
+      "title": "Set Your Networking Goals",
+      "description": "Tell us what you want to achieve; our AI will suggest quality matches in real time.",
+      "points": 15,
+      "status": "in_progress",
+      "cta_label": "START",
+      "cta_url": "/events/evt_12345/goals",
+      "category": "networking"
+    },
+    {
+      "id": "meet_attendees",
+      "title": "Meet the Attendees",
+      "description": "See who’s going, explore matches, and learn about other members.",
+      "points": 15,
+      "status": "not_started",
+      "cta_label": "START",
+      "cta_url": "/events/evt_12345/attendees",
+      "category": "connections"
+    },
+    {
+      "id": "see_program_content",
+      "title": "See Program Content",
+      "description": "Check the agenda, sessions, and speakers before the event.",
+      "points": 10,
+      "status": "completed",
+      "cta_label": "VIEW",
+      "cta_url": "/events/evt_12345/agenda",
+      "category": "content"
+    },
+    {
+      "id": "connect_matches",
+      "title": "Connect with Matches",
+      "description": "Review your high-value matches and schedule intros.",
+      "points": 25,
+      "status": "not_started",
+      "cta_label": "START",
+      "cta_url": "/events/evt_12345/matches",
+      "category": "connections"
+    },
+    {
+      "id": "visit_sponsors",
+      "title": "Visit Sponsors & Partners",
+      "description": "Engage with sponsor booths and discover perks or offers.",
+      "points": 15,
+      "status": "not_started",
+      "cta_label": "START",
+      "cta_url": "/events/evt_12345/sponsors",
+      "category": "sponsors"
+    },
+    {
+      "id": "share_insights",
+      "title": "Share Insights",
+      "description": "Post questions, insights, or thoughts to the event feed.",
+      "points": 10,
+      "status": "not_started",
+      "cta_label": "START",
+      "cta_url": "/events/evt_12345/feed",
+      "category": "engagement"
+    },
+    {
+      "id": "schedule_sync",
+      "title": "Schedule Sync Sessions",
+      "description": "Book 10-minute micro-meetings with other attendees.",
+      "points": 20,
+      "status": "not_started",
+      "cta_label": "START",
+      "cta_url": "/events/evt_12345/sync",
+      "category": "connections"
+    },
+    {
+      "id": "contribute_crowd_intel",
+      "title": "Contribute Crowd Intel",
+      "description": "Share quick comments about colleagues or partners to enrich profiles.",
+      "points": 15,
+      "status": "not_started",
+      "cta_label": "START",
+      "cta_url": "/events/evt_12345/crowd-intel",
+      "category": "engagement"
+    },
+    {
+      "id": "post_event_feedback",
+      "title": "Give Event Feedback",
+      "description": "Complete a quick review to help us improve and earn rewards.",
+      "points": 15,
+      "status": "locked", 
+      "cta_label": "UNLOCKS AFTER EVENT",
+      "cta_url": null,
+      "category": "feedback"
+    }
+  ],
+  "progress": {
+    "points_earned": 10,
+    "points_total": 160,
+    "missions_completed": 1,
+    "missions_total": 10
+  }
+}

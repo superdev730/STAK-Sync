@@ -18,30 +18,24 @@ interface Mission {
   title: string;
   description: string;
   points: number;
-  ctaUrl: string;
-  status: 'not_started' | 'in_progress' | 'completed';
+  cta_label: string;
+  cta_url: string | null;
+  status: 'not_started' | 'in_progress' | 'completed' | 'locked';
   category: string;
 }
 
-interface MissionStats {
-  totalMissions: number;
-  completedMissions: number;
-  totalPoints: number;
-  completedPoints: number;
-  progressPercentage: number;
+interface Progress {
+  points_earned: number;
+  points_total: number;
+  missions_completed: number;
+  missions_total: number;
 }
 
 interface MissionResponse {
-  eventId: string;
+  event_id: string;
+  member_id: string;
   missions: Mission[];
-  missionsByCategory: Record<string, Mission[]>;
-  stats: MissionStats;
-  userStats: {
-    hasNetworkingGoal: boolean;
-    hasSentSpeakerMessage: boolean;
-    highValueMatchesCount: number;
-    connectionsCount: number;
-  };
+  progress: Progress;
 }
 
 interface EventPrepData {
@@ -181,7 +175,7 @@ export default function EventPreparation() {
             <MissionBoard
               eventId={eventId || ''}
               missions={missionsData.missions}
-              stats={missionsData.stats}
+              progress={missionsData.progress}
               onMissionStart={handleMissionStart}
             />
           </div>
@@ -200,7 +194,7 @@ export default function EventPreparation() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => handleSidebarLinkClick('high_value_matches')}
+                  onClick={() => handleSidebarLinkClick('connect_matches')}
                   data-testid="sidebar-link-matches"
                 >
                   <Star className="w-4 h-4 mr-2 text-yellow-500" />
@@ -218,7 +212,7 @@ export default function EventPreparation() {
                 <Button
                   variant="outline"
                   className="w-full justify-start" 
-                  onClick={() => handleSidebarLinkClick('sponsors_partners')}
+                  onClick={() => handleSidebarLinkClick('visit_sponsors')}
                   data-testid="sidebar-link-sponsors"
                 >
                   <Building className="w-4 h-4 mr-2 text-purple-500" />
@@ -251,7 +245,7 @@ export default function EventPreparation() {
                       <div 
                         key={match.member_id} 
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                        onClick={() => handleSidebarLinkClick('high_value_matches')}
+                        onClick={() => handleSidebarLinkClick('connect_matches')}
                       >
                         <Avatar className="w-8 h-8">
                           <AvatarFallback className="text-xs">
@@ -342,7 +336,7 @@ export default function EventPreparation() {
                       variant="outline"
                       size="sm"
                       className="w-full mt-2"
-                      onClick={() => handleSidebarLinkClick('sponsors_partners')}
+                      onClick={() => handleSidebarLinkClick('visit_sponsors')}
                     >
                       Visit Sponsor Booths
                     </Button>
@@ -375,7 +369,7 @@ export default function EventPreparation() {
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  onClick={() => handleSidebarLinkClick('networking_goals')}
+                  onClick={() => handleSidebarLinkClick('set_networking_goals')}
                 >
                   Optimize My Experience
                 </Button>

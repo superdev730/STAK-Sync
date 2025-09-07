@@ -4115,143 +4115,132 @@ END:VCALENDAR`;
         userStats.highValueMatchesCount = highValueMatches.length;
 
         // Add completed missions based on user actions
-        if (userStats.hasNetworkingGoal) completedMissions.add('networking_goals');
+        if (userStats.hasNetworkingGoal) completedMissions.add('set_networking_goals');
         if (userStats.hasSentSpeakerMessage) completedMissions.add('speak_to_speaker');
       }
 
-      // Define all available missions
+      // Define all available missions following exact schema
       const missions = [
         {
           id: 'speak_to_speaker',
           title: 'Speak to the Speaker',
-          description: 'Submit requests, suggestions, or comments before the event',
+          description: 'Send your requests, suggestions, or comments to help speakers tailor content.',
           points: 20,
-          ctaUrl: '#speaker',
           status: completedMissions.has('speak_to_speaker') ? 'completed' : 'not_started',
+          cta_label: 'START',
+          cta_url: `/events/${eventId}/speakers`,
           category: 'engagement'
         },
         {
-          id: 'networking_goals',
-          title: 'Set Networking Goals',
-          description: 'AI will adjust in real time and suggest high-value matches',
+          id: 'set_networking_goals',
+          title: 'Set Your Networking Goals',
+          description: 'Tell us what you want to achieve; our AI will suggest quality matches in real time.',
           points: 15,
-          ctaUrl: '#networking',
-          status: completedMissions.has('networking_goals') ? 'completed' : 'not_started',
-          category: 'strategy'
+          status: completedMissions.has('set_networking_goals') ? 'completed' : 'not_started',
+          cta_label: 'START',
+          cta_url: `/events/${eventId}/goals`,
+          category: 'networking'
         },
         {
           id: 'meet_attendees',
           title: 'Meet the Attendees',
-          description: 'Explore connections, matches, and attendee profiles',
-          points: 10,
-          ctaUrl: '#attendees',
+          description: 'See who\'s going, explore matches, and learn about other members.',
+          points: 15,
           status: 'not_started',
-          category: 'networking'
+          cta_label: 'START',
+          cta_url: `/events/${eventId}/attendees`,
+          category: 'connections'
         },
         {
-          id: 'program_content',
+          id: 'see_program_content',
           title: 'See Program Content',
-          description: 'Review agenda, sessions, and speaker details',
-          points: 5,
-          ctaUrl: '#agenda',
-          status: 'not_started',
-          category: 'preparation'
-        },
-        {
-          id: 'high_value_matches',
-          title: 'Connect with High-Value Matches',
-          description: `${userStats.highValueMatchesCount} AI-selected matches available`,
-          points: 25,
-          ctaUrl: '#matches',
-          status: 'not_started',
-          category: 'networking'
-        },
-        {
-          id: 'sponsors_partners',
-          title: 'Visit Sponsors & Partners',
-          description: 'Explore booths, perks, and partnership opportunities',
+          description: 'Check the agenda, sessions, and speakers before the event.',
           points: 10,
-          ctaUrl: '#sponsors',
           status: 'not_started',
-          category: 'exploration'
+          cta_label: 'VIEW',
+          cta_url: `/events/${eventId}/agenda`,
+          category: 'content'
+        },
+        {
+          id: 'connect_matches',
+          title: 'Connect with Matches',
+          description: 'Review your high-value matches and schedule intros.',
+          points: 25,
+          status: 'not_started',
+          cta_label: 'START',
+          cta_url: `/events/${eventId}/matches`,
+          category: 'connections'
+        },
+        {
+          id: 'visit_sponsors',
+          title: 'Visit Sponsors & Partners',
+          description: 'Engage with sponsor booths and discover perks or offers.',
+          points: 15,
+          status: 'not_started',
+          cta_label: 'START',
+          cta_url: `/events/${eventId}/sponsors`,
+          category: 'sponsors'
         },
         {
           id: 'share_insights',
-          title: 'Share Insights or Questions',
-          description: 'Post to event feed or share on LinkedIn',
-          points: 15,
-          ctaUrl: '#insights',
+          title: 'Share Insights',
+          description: 'Post questions, insights, or thoughts to the event feed.',
+          points: 10,
           status: 'not_started',
+          cta_label: 'START',
+          cta_url: `/events/${eventId}/feed`,
           category: 'engagement'
         },
         {
-          id: 'sync_sessions',
+          id: 'schedule_sync',
           title: 'Schedule Sync Sessions',
-          description: 'Set up quick 1:1 meetings with other attendees',
+          description: 'Book 10-minute micro-meetings with other attendees.',
           points: 20,
-          ctaUrl: '#sessions',
           status: 'not_started',
-          category: 'networking'
+          cta_label: 'START',
+          cta_url: `/events/${eventId}/sync`,
+          category: 'connections'
         },
         {
-          id: 'crowd_intel',
+          id: 'contribute_crowd_intel',
           title: 'Contribute Crowd Intel',
-          description: 'Share insights about colleagues to enrich profiles',
+          description: 'Share quick comments about colleagues or partners to enrich profiles.',
           points: 15,
-          ctaUrl: '#intel',
           status: 'not_started',
-          category: 'community'
+          cta_label: 'START',
+          cta_url: `/events/${eventId}/crowd-intel`,
+          category: 'engagement'
         },
         {
           id: 'post_event_feedback',
-          title: 'Post-Event Feedback Mission',
-          description: 'Quick review that earns points and improves AI',
-          points: 10,
-          ctaUrl: '#feedback',
-          status: 'not_started',
-          category: 'feedback',
-          availableAfter: event.endDate // This mission only available after event
+          title: 'Give Event Feedback',
+          description: 'Complete a quick review to help us improve and earn rewards.',
+          points: 15,
+          status: new Date() > new Date(event.endDate) ? 'not_started' : 'locked',
+          cta_label: new Date() > new Date(event.endDate) ? 'START' : 'UNLOCKS AFTER EVENT',
+          cta_url: new Date() > new Date(event.endDate) ? `/events/${eventId}/feedback` : null,
+          category: 'feedback'
         }
       ];
 
-      // Filter missions based on availability
-      const now = new Date().toISOString();
-      const availableMissions = missions.filter(mission => {
-        if (mission.availableAfter && now < mission.availableAfter) {
-          return false;
-        }
-        return true;
-      });
-
-      // Calculate total points and progress
-      const totalPoints = availableMissions.reduce((sum, mission) => sum + mission.points, 0);
-      const completedPoints = availableMissions
+      // Calculate progress stats
+      const totalPoints = missions.reduce((sum, mission) => sum + mission.points, 0);
+      const completedPoints = missions
         .filter(mission => mission.status === 'completed')
         .reduce((sum, mission) => sum + mission.points, 0);
-      
-      const progressPercentage = totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0;
+      const completedCount = missions.filter(m => m.status === 'completed').length;
 
-      // Group missions by category for better organization
-      const missionsByCategory = availableMissions.reduce((acc, mission) => {
-        if (!acc[mission.category]) {
-          acc[mission.category] = [];
-        }
-        acc[mission.category].push(mission);
-        return acc;
-      }, {} as Record<string, typeof missions>);
-
+      // Response following exact schema specification
       const response = {
-        eventId,
-        missions: availableMissions,
-        missionsByCategory,
-        stats: {
-          totalMissions: availableMissions.length,
-          completedMissions: availableMissions.filter(m => m.status === 'completed').length,
-          totalPoints,
-          completedPoints,
-          progressPercentage
-        },
-        userStats
+        event_id: eventId,
+        member_id: userId || 'guest',
+        missions: missions,
+        progress: {
+          points_earned: completedPoints,
+          points_total: totalPoints,
+          missions_completed: completedCount,
+          missions_total: missions.length
+        }
       };
 
       res.json(response);

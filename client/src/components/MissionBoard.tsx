@@ -34,36 +34,36 @@ interface Mission {
   title: string;
   description: string;
   points: number;
-  ctaUrl: string;
-  status: 'not_started' | 'in_progress' | 'completed';
+  cta_label: string;
+  cta_url: string | null;
+  status: 'not_started' | 'in_progress' | 'completed' | 'locked';
   category: string;
 }
 
-interface MissionStats {
-  totalMissions: number;
-  completedMissions: number;
-  totalPoints: number;
-  completedPoints: number;
-  progressPercentage: number;
+interface Progress {
+  points_earned: number;
+  points_total: number;
+  missions_completed: number;
+  missions_total: number;
 }
 
 interface MissionBoardProps {
   eventId: string;
   missions: Mission[];
-  stats: MissionStats;
+  progress: Progress;
   onMissionStart: (missionId: string) => void;
 }
 
 const MISSION_ICONS = {
   'speak_to_speaker': Mic,
-  'networking_goals': Network,
+  'set_networking_goals': Network,
   'meet_attendees': Users,
-  'program_content': Calendar,
-  'high_value_matches': Star,
-  'sponsors_partners': Building,
+  'see_program_content': Calendar,
+  'connect_matches': Star,
+  'visit_sponsors': Building,
   'share_insights': Share,
-  'sync_sessions': MessageSquare,
-  'crowd_intel': UserPlus,
+  'schedule_sync': MessageSquare,
+  'contribute_crowd_intel': UserPlus,
   'post_event_feedback': MessageCircle
 };
 
@@ -77,7 +77,7 @@ const CATEGORY_COLORS = {
   'feedback': 'bg-gray-500'
 };
 
-export function MissionBoard({ eventId, missions, stats, onMissionStart }: MissionBoardProps) {
+export function MissionBoard({ eventId, missions, progress, onMissionStart }: MissionBoardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -165,7 +165,7 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
           </div>
         );
 
-      case 'networking_goals':
+      case 'set_networking_goals':
         return (
           <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <Textarea
@@ -249,6 +249,8 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
         return <CheckCircle className="w-4 h-4 text-green-600" />;
       case 'in_progress':
         return <Clock className="w-4 h-4 text-yellow-600" />;
+      case 'locked':
+        return <Clock className="w-4 h-4 text-gray-400" />;
       default:
         return <Play className="w-4 h-4 text-gray-400" />;
     }
@@ -260,6 +262,8 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
         return 'Completed';
       case 'in_progress':
         return 'In Progress';
+      case 'locked':
+        return 'Locked';
       default:
         return 'Not Started';
     }
@@ -271,6 +275,8 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'in_progress':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'locked':
+        return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
     }
@@ -291,7 +297,7 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold text-[#CD853F]">
-                  {stats.completedPoints} / {stats.totalPoints}
+                  {progress.points_earned} / {progress.points_total}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">
                   Sync Points Earned
@@ -299,7 +305,7 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold">
-                  {stats.completedMissions} / {stats.totalMissions}
+                  {progress.missions_completed} / {progress.missions_total}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">
                   Missions Complete
@@ -307,14 +313,14 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
               </div>
             </div>
             <Progress 
-              value={stats.progressPercentage} 
+              value={Math.round((progress.points_earned / progress.points_total) * 100)} 
               className="h-3 bg-gray-200 dark:bg-gray-700"
             />
             <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
-              <span>Progress: {stats.progressPercentage}%</span>
-              {stats.progressPercentage >= 100 ? (
+              <span>Progress: {Math.round((progress.points_earned / progress.points_total) * 100)}%</span>
+              {progress.missions_completed === progress.missions_total ? (
                 <span className="text-green-600 font-medium">🎉 All missions complete!</span>
-              ) : stats.progressPercentage >= 75 ? (
+              ) : progress.missions_completed >= progress.missions_total * 0.75 ? (
                 <span className="text-yellow-600">Almost there!</span>
               ) : (
                 <span>Keep going!</span>
@@ -373,8 +379,8 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
                     <Button
                       size="sm"
                       onClick={() => handleMissionAction(mission)}
-                      disabled={mission.status === 'completed'}
-                      className={mission.status === 'completed' ? 'bg-green-600' : ''}
+                      disabled={mission.status === 'completed' || mission.status === 'locked'}
+                      className={mission.status === 'completed' ? 'bg-green-600' : mission.status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''}
                       data-testid={`button-mission-${mission.id}`}
                     >
                       {mission.status === 'completed' ? (
@@ -382,12 +388,17 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
                           <CheckCircle className="w-4 h-4 mr-2" />
                           Done
                         </>
+                      ) : mission.status === 'locked' ? (
+                        <>
+                          <Clock className="w-4 h-4 mr-2" />
+                          {mission.cta_label}
+                        </>
                       ) : mission.status === 'in_progress' ? (
                         isExpanded ? 'Collapse' : 'Continue'
                       ) : (
                         <>
                           <Play className="w-4 h-4 mr-2" />
-                          START
+                          {mission.cta_label}
                         </>
                       )}
                     </Button>
@@ -403,7 +414,7 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
       </Card>
 
       {/* Achievement Badges */}
-      {stats.progressPercentage > 0 && (
+      {progress.points_earned > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -413,22 +424,22 @@ export function MissionBoard({ eventId, missions, stats, onMissionStart }: Missi
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {stats.completedMissions >= 1 && (
+              {progress.missions_completed >= 1 && (
                 <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                   🚀 First Mission Complete
                 </Badge>
               )}
-              {stats.completedMissions >= 3 && (
+              {progress.missions_completed >= 3 && (
                 <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                   🎯 Triple Threat
                 </Badge>
               )}
-              {stats.progressPercentage >= 50 && (
+              {Math.round((progress.points_earned / progress.points_total) * 100) >= 50 && (
                 <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
                   ⚡ Halfway Hero
                 </Badge>
               )}
-              {stats.progressPercentage >= 100 && (
+              {progress.missions_completed === progress.missions_total && (
                 <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                   🏆 Mission Master
                 </Badge>
