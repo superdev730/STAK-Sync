@@ -29,6 +29,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { MeetAttendeesContent } from './MeetAttendeesContent';
+import ProgramContent from './ProgramContent';
 
 interface Mission {
   id: string;
@@ -232,23 +233,19 @@ export function MissionBoard({ eventId, missions, progress, onMissionStart }: Mi
           </div>
         );
 
-      case 'program_content':
+      case 'see_program_content':
         return (
-          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Checkbox 
-                  id="agenda-reviewed" 
-                  onCheckedChange={(checked) => {
-                    if (checked) handleMissionComplete(mission.id);
-                  }}
-                />
-                <label htmlFor="agenda-reviewed" className="text-sm">
-                  I've reviewed the event agenda and identified sessions of interest
-                </label>
-              </div>
-            </div>
-          </div>
+          <ProgramContent 
+            eventId={eventId} 
+            onMissionUpdate={(action, data) => {
+              // Send telemetry to track mission progress
+              fetch(`/api/events/${eventId}/missions/see_program_content/telemetry`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, ...data })
+              }).catch(err => console.error('Telemetry error:', err));
+            }}
+          />
         );
 
       case 'meet_attendees':
