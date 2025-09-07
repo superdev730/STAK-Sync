@@ -223,34 +223,36 @@ export default function EventPreparation() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Combined Header with Event Info and Sync Score */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-              {/* Event Info - Compact */}
-              <div className="flex items-center gap-4">
-                <Calendar className="h-5 w-5 text-[#CD853F] flex-shrink-0" />
-                <div>
-                  <h1 className="text-lg font-semibold text-gray-900">Event Preparation</h1>
-                  <div className="text-sm text-gray-600 flex items-center gap-4">
-                    <span>{eventData?.title || 'Loading...'}</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {eventData?.startDate ? new Date(eventData.startDate).toLocaleDateString() : 'TBD'}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      {eventData?.attendeeCount || 0} attendees
-                    </span>
-                  </div>
-                </div>
-              </div>
+        {/* Event Header and Sync Score */}
+        <div className="mb-8 space-y-4">
+          {/* Event Title */}
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              {eventData?.title || 'Loading Event...'}
+            </h1>
+            <h2 className="text-lg text-gray-600 flex items-center justify-center gap-2">
+              <Calendar className="h-5 w-5 text-[#CD853F]" />
+              Event Preparation
+            </h2>
+            <div className="flex items-center justify-center gap-6 mt-3 text-sm text-gray-500">
+              <span className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                {eventData?.startDate ? new Date(eventData.startDate).toLocaleDateString() : 'TBD'}
+              </span>
+              <span className="flex items-center gap-1">
+                <Users className="h-4 w-4" />
+                {eventData?.attendeeCount || 0} attendees
+              </span>
+            </div>
+          </div>
 
-              {/* Event Sync Score - Color Coded */}
-              <div className="flex items-center gap-4">
-                <div className="text-right">
+          {/* Event Sync Score Bar */}
+          <Card className="max-w-md mx-auto">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
                   <div className="text-sm text-gray-600 mb-1">Event Sync Score</div>
-                  <div className={`text-2xl font-bold ${
+                  <div className={`text-xl font-bold ${
                     prepScore >= 80 ? 'text-green-600' :
                     prepScore >= 60 ? 'text-yellow-600' :
                     prepScore >= 40 ? 'text-orange-600' :
@@ -259,27 +261,29 @@ export default function EventPreparation() {
                     {prepScore}%
                   </div>
                 </div>
-                <div className="w-20">
-                  <Progress 
-                    value={prepScore} 
-                    className={`h-3 ${
-                      prepScore >= 80 ? '[&>div]:bg-green-600' :
-                      prepScore >= 60 ? '[&>div]:bg-yellow-600' :
-                      prepScore >= 40 ? '[&>div]:bg-orange-600' :
-                      '[&>div]:bg-red-600'
-                    }`}
-                  />
+                <div className="flex items-center gap-3">
+                  <div className="w-24">
+                    <Progress 
+                      value={prepScore} 
+                      className={`h-3 ${
+                        prepScore >= 80 ? '[&>div]:bg-green-600' :
+                        prepScore >= 60 ? '[&>div]:bg-yellow-600' :
+                        prepScore >= 40 ? '[&>div]:bg-orange-600' :
+                        '[&>div]:bg-red-600'
+                      }`}
+                    />
+                  </div>
+                  <Trophy className={`h-5 w-5 ${
+                    prepScore >= 80 ? 'text-green-600' :
+                    prepScore >= 60 ? 'text-yellow-600' :
+                    prepScore >= 40 ? 'text-orange-600' :
+                    'text-red-600'
+                  }`} />
                 </div>
-                <Trophy className={`h-5 w-5 ${
-                  prepScore >= 80 ? 'text-green-600' :
-                  prepScore >= 60 ? 'text-yellow-600' :
-                  prepScore >= 40 ? 'text-orange-600' :
-                  'text-red-600'
-                }`} />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Priority Actions Grid */}
         <div className="space-y-6">
