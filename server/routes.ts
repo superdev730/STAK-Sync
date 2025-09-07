@@ -7598,13 +7598,12 @@ ${JSON.stringify(candidateIndex)}`
       
       for (const email of contactEmails) {
         // Create personalized Intel Collector message
-        const intelMessage = `Hi! ${requester.firstName} ${requester.lastName} is updating their professional profile on STAK Sync. 
-
-They'd love a quick comment about their work, accomplishments, or strengths to help them shine at networking events.
+        const intelMessage = `Hi there! You're listed as a close contact of ${requester.firstName} ${requester.lastName}. 
+Can you share 1–2 quick things others should know about them? 
+For example: a project they led, their strengths, or what they're known for. 
+Just one short voice note or a couple sentences is perfect.
 
 ${personalMessage || ''}
-
-Just 2-3 sentences or a quick voice note would be amazing! This helps other members connect with them more effectively.
 
 [Intel Collector Link - Submit Facts About ${requester.firstName}]`;
 
