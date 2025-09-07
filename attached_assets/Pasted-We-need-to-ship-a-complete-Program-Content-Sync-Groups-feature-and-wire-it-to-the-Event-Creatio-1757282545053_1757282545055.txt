@@ -1,0 +1,234 @@
+We need to ship a complete “Program Content + Sync Groups” feature and wire it to the
+Event Creation page, Event Listing page, and Event Prep (Missions) page.
+
+Business goals
+- “See Program Content” mission must be actionable: show agenda, program components, and joinable Sync Groups.
+- Members can join one or more groups. As soon as a group has >=1 member, show it as active with a live count.
+- Admins define program components + groups + time slots during event creation.
+- All changes must coordinate with DB, cache, real-time updates, and analytics.
+
+========================================
+A) DATA MODEL (create/verify migrations)
+========================================
+events (
+  id text pk, title text, start_ts timestamptz, end_ts timestamptz, venue text, city text, capacity int, ...)
+
+event_components (program items)
+- id uuid pk
+- event_id text not null references events(id)
+- kind text not null check (kind in ('keynote','panel','workshop','roundtable','breakout','social','sponsor','other'))
+- title text not null
+- description text
+- start_ts timestamptz not null
+- end_ts timestamptz not null
+- location text
+- speakers jsonb[] default '[]' -- [{speaker_id,name,headline}]
+- tags text[] default '{}'
+- order_index int default 0
+- created_at timestamptz default now()
+
+event_groups (Sync Groups)
+- id uuid pk
+- event_id text not null references events(id)
+- slug text not null unique -- e.g. 'proptech', 'fintech'
+- name text not null      -- display name
+- description text
+- is_active boolean default true
+- planned_start_ts timestamptz
+- planned_end_ts timestamptz
+- location text
+- created_by text null     -- admin user_id
+- created_at timestamptz default now()
+
+event_group_members
+- id uuid pk
+- event_id text not null references events(id)
+- group_id uuid not null references event_groups(id)
+- member_id text not null
+- joined_at timestamptz default now()
+- unique (event_id, group_id, member_id)
+
+Derived views
+- event_group_counts (view):
+  select g.event_id, g.id as group_id, count(m.*) as member_count
+  from event_groups g
+  left join event_group_members m on m.group_id=g.id
+  group by g.event_id, g.id;
+
+Mission tables (already exist)
+- event_missions (master)
+- event_member_missions (per-member state)
+
+NOTE: Ensure foreign keys and indexes on (event_id), (event_id, start_ts), and (group_id, member_id).
+
+========================================
+B) API CONTRACTS
+========================================
+Agenda & components
+GET /api/events/:eventId/agenda
+-> { event_id, components: [ {id, kind, title, description, start_ts, end_ts, location, speakers, tags, order_index} ] }
+Cache: public, max-age=120; bust on component change.
+
+Groups (public listing + counts)
+GET /api/events/:eventId/groups
+-> { event_id, groups: [ {id, slug, name, description, is_active, planned_start_ts, planned_end_ts, location, member_count} ] }
+Cache: max-age=60; bust on membership change or admin edit.
+
+Member actions
+POST /api/events/:eventId/groups/:groupId/join   body: {}
+-> 200 { ok: true, member_count, joined:true }
+DELETE /api/events/:eventId/groups/:groupId/join
+-> 200 { ok: true, member_count, joined:false }
+
+My membership
+GET /api/events/:eventId/groups/mine
+-> { groups: [ {group_id, joined_at} ] }
+
+Admin CRUD (protected)
+POST   /api/events/:eventId/components
+PATCH  /api/events/:eventId/components/:componentId
+DELETE /api/events/:eventId/components/:componentId
+
+POST   /api/events/:eventId/groups
+PATCH  /api/events/:eventId/groups/:groupId
+DELETE /api/events/:eventId/groups/:groupId
+
+Realtime
+- WebSocket/SSE topic: events/:eventId
+  Emit:
+  {type:'GROUP_COUNT_UPDATED', group_id, member_count}
+  {type:'GROUP_CREATED', group:{...}}
+  {type:'GROUP_UPDATED', group:{...}}
+  {type:'AGENDA_UPDATED'}
+
+========================================
+C) EVENT CREATION / ADMIN UI
+========================================
+Add to Event Creation + Edit pages:
+- “Program Components” section:
+  * Add component row (kind, title, desc, start, end, location, speakers[], tags[])
+  * Reorder via drag; save writes order_index
+- “Sync Groups” section:
+  * Add group (name, slug auto-suggest, desc, planned time window, location)
+  * Toggle active/inactive
+  * Show live member_count (0 initially)
+
+Validation
+- start_ts < end_ts
+- no overlapping time warnings (non-blocking)
+- enforce unique slug per event
+
+========================================
+D) EVENT LISTING PAGE (marketing)
+========================================
+- Under the event card/details, show:
+  * “Program Snapshot”: count of components by kind (e.g., 1 keynote • 2 panels • 3 groups meeting)
+  * “Active Sync Groups”: up to 6 pills with member_count badges (e.g., “AI (12)”)
+  * “Join Groups” CTA (opens join modal if logged-in; otherwise prompts sign-in)
+
+Counts are derived from /agenda and /groups. Member counts update via WebSocket or poll.
+
+========================================
+E) EVENT PREP (MISSIONS) PAGE
+========================================
+Replace the “See Program Content” mission with an actionable mission:
+
+UI (collapsed card → expandable):
+- Title: “See Program Content”
+- Description: “Review agenda and join Sync Groups to coordinate meetups.”
+- Points badge
+- CTA: START
+
+Expanded content shows tabs or stacked sections:
+1) “Agenda” — list components in chronological order (sticky day headers)
+   - Each row: time • title • kind chip • speakers
+2) “Sync Groups” — vertical list sorted by member_count desc
+   - Each row: name, short desc, time window if set, member_count badge, [Join]/[Leave] button
+   - When a member clicks Join, update count immediately (optimistic), then reconcile via API and WebSocket
+3) “Your Groups” — show joined groups and meeting times
+
+Mission completion rule
+- Complete when member performs ANY of:
+  A) Views agenda section for at least 20 seconds (visibility + timer) AND opens ≥1 component detail,
+  B) Joins ≥1 Sync Group,
+  C) RSVPs to ≥1 program component (if we have RSVP; optional).
+
+Server logic
+- Telemetry endpoint:
+  POST /api/events/:eventId/missions/see_program/telemetry
+  body: { action: 'view_agenda'|'open_component'|'join_group', component_id?, group_id? }
+- On threshold met, mark mission completed in event_member_missions (atomic upsert) and publish real-time MISSION_UPDATED.
+
+Empty/edge states
+- If no components: show admin note for testing and keep mission incomplete.
+- If no groups: show CTA for admin-defined defaults or “Suggest a group” (optional).
+
+========================================
+F) DASHBOARD + EMAIL (optional follow-ups)
+========================================
+- If a group hits certain counts (e.g., 5, 10, 25), push a small banner “PropTech meetup now has 10 members — add yourself?”
+- Daily email (opt-in) with “Groups you joined + times”.
+
+========================================
+G) ANALYTICS & EVENTS
+========================================
+Emit analytics for:
+- view_agenda, open_component, join_group, leave_group
+Properties: {event_id, group_id/component_id, member_id, ts}
+
+Add counters:
+- group_member_count{event_id, group_slug}
+- mission_completed_total{mission_id='see_program'}
+
+Funnel KPI:
+- % members who join ≥1 group
+- Avg groups per member
+- Conversion impact on attendance/matches
+
+========================================
+H) CACHING & CONSISTENCY
+========================================
+- /agenda: cache private max-age=120; revalidate OnFocus.
+- /groups: private max-age=60; invalidate on join/leave; also broadcast via WS/SSE.
+- Member-specific endpoints (…/mine): Cache-Control: no-store.
+- Ensure Redis/edge keys include event_id and (for private) member_id.
+
+========================================
+I) ACCESSIBILITY & UX
+========================================
+- Keyboard navigable list; aria-expanded on mission card.
+- Badges have sr-only text “members in group”.
+- Timezones: show in user’s tz; store in UTC.
+
+========================================
+J) CONFLICT CHECK + QUESTIONS
+========================================
+Please review for conflicts with existing:
+- mission APIs (IDs, status enums)
+- event admin schema (do we already store components?)
+- routing (do /agenda or /groups paths collide?)
+- RBAC for admin endpoints
+
+If anything conflicts or is impractical, STOP and list the blockers along with suggested alternatives.
+
+Questions to confirm:
+1) Do we already have RSVP per component? If yes, include it in completion logic; if not, skip.
+2) Any constraints on number of groups per event?
+3) Should group join trigger notifications to other members of that group?
+4) Are groups public by default or should some be hidden/invite-only?
+
+========================================
+K) ACCEPTANCE CRITERIA (must pass)
+========================================
+- Admin can create/edit/delete program components and groups with times/locations.
+- Event Listing shows Program Snapshot and Active Sync Groups with counts.
+- Event Prep “See Program Content” mission:
+  * shows agenda + joinable groups,
+  * members can join/leave multiple groups,
+  * member_count updates instantly (optimistic + real-time),
+  * mission completes upon defined actions,
+  * completion persists after reload.
+- DB rows reflect joins; counts are accurate; caches invalidate correctly.
+- Analytics events fire for agenda views and group joins.
+
+Ship a PR with migrations, API handlers, UI components, real-time wiring, and tests.
