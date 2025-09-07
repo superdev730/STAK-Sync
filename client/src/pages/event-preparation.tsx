@@ -452,57 +452,73 @@ export default function EventPreparation() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {prepStats?.hasNetworkingGoal || existingGoal ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
-                      <CheckCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">Networking goal set! AI is optimized for your objectives.</span>
+              <p className="text-gray-600 mb-4">
+                Tell our AI your networking objectives. This helps personalize suggestions, optimize matches, and adjust event moderation for all attendees.
+              </p>
+              
+              {hasSetNetworkingGoal || prepStats?.hasNetworkingGoal || existingGoal ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-green-600 bg-green-50 p-4 rounded-lg border border-green-200">
+                    <CheckCircle className="w-5 h-5" />
+                    <div>
+                      <span className="text-sm font-medium">Networking goal analyzed! AI is optimized for your objectives.</span>
+                      {existingGoal && typeof existingGoal === 'object' && (existingGoal as any).aiModerationInstructions && (
+                        <div className="text-xs text-green-600 mt-1">
+                          AI Instructions: "{(existingGoal as any).aiModerationInstructions}"
+                        </div>
+                      )}
                     </div>
-                    {existingGoal && typeof existingGoal === 'object' && (
-                      <div className="space-y-2 text-sm">
-                        <div><strong>Primary Goal:</strong> {(existingGoal as any).primaryGoal || 'Not specified'}</div>
-                        {(existingGoal as any).specificObjectives?.length > 0 && (
-                          <div><strong>Objectives:</strong> {(existingGoal as any).specificObjectives.join(', ')}</div>
-                        )}
-                      </div>
-                    )}
                   </div>
-                  <div>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setShowNetworkingGoalForm(true)}
-                      className="w-full"
-                      data-testid="button-edit-networking-goal"
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Edit Networking Goal
-                    </Button>
-                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setHasSetNetworkingGoal(false);
+                      if (existingGoal && typeof existingGoal === 'object' && (existingGoal as any).aiModerationInstructions) {
+                        setNetworkingGoalText((existingGoal as any).aiModerationInstructions);
+                      }
+                    }}
+                    className="text-[#CD853F] border-[#CD853F] hover:bg-[#CD853F]/10"
+                    data-testid="button-edit-networking-goal"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Update Goal
+                  </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-gray-600 mb-4">
-                      Help our AI moderate the event and boost connections by defining your networking objectives. This personalizes suggestions for all attendees.
-                    </p>
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• AI suggests relevant attendees to connect with</li>
-                      <li>• Personalized conversation starters</li>
-                      <li>• Strategic networking recommendations</li>
-                      <li>• Real-time event guidance</li>
-                    </ul>
+                <div className="space-y-3">
+                  <Textarea
+                    placeholder="Describe your networking goals for this event... (e.g., 'Looking for Series A funding for my healthcare startup', 'Want to meet CTOs at companies with 100+ engineers', 'Seeking partnerships with enterprise clients')"
+                    value={networkingGoalText}
+                    onChange={(e) => setNetworkingGoalText(e.target.value)}
+                    className="min-h-[100px]"
+                    data-testid="input-networking-goal"
+                  />
+                  <div className="text-xs text-gray-500 mb-2">
+                    Our AI will analyze your goal to enhance profile matching, suggest relevant connections, and personalize event recommendations.
                   </div>
-                  <div>
-                    <Button 
-                      onClick={() => setShowNetworkingGoalForm(true)}
-                      className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
-                      data-testid="button-set-networking-goal"
-                    >
-                      <Target className="w-4 h-4 mr-2" />
-                      Set Networking Goal
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={() => {
+                      if (networkingGoalText.trim()) {
+                        sendNetworkingGoalMutation.mutate(networkingGoalText);
+                      }
+                    }}
+                    disabled={!networkingGoalText.trim() || sendNetworkingGoalMutation.isPending}
+                    className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                    data-testid="button-submit-networking-goal"
+                  >
+                    {sendNetworkingGoalMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                        AI Analyzing...
+                      </div>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4 mr-2" />
+                        Analyze & Set Goal
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
             </CardContent>
