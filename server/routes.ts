@@ -16,6 +16,7 @@ import {
   insertSponsorSchema,
   insertEventSponsorSchema,
   insertEventAttendeeGoalSchema,
+  insertSpeakerMessageSchema,
   matches, 
   users,
   events,
@@ -29,6 +30,7 @@ import {
   eventMatchmakingRuns,
   preEventMatches,
   eventNotifications,
+  speakerMessages,
   tokenUsage,
   billingAccounts,
   invoices,
@@ -38,6 +40,8 @@ import {
   profileVersions,
   type EventAttendeeGoal,
   type InsertEventAttendeeGoal,
+  type SpeakerMessage,
+  type InsertSpeakerMessage,
   type ProfileMetadata,
   type ProfileEnrichment
 } from "@shared/schema";
@@ -3734,6 +3738,153 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error fetching import:', error);
       res.status(500).json({ error: 'Failed to fetch import' });
+    }
+  });
+
+  // Speaker Messages API endpoints
+  app.post('/api/events/:eventId/speaker-messages', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      const messageData = insertSpeakerMessageSchema.parse({
+        ...req.body,
+        eventId,
+        userId
+      });
+
+      // Store the message
+      const [message] = await db.insert(speakerMessages).values(messageData).returning();
+      
+      // Award Sync Score points for speaker engagement
+      try {
+        await storage.updateSyncScore(userId, {
+          speakerEngagement: 5 // Award 5 points for submitting a speaker message
+        });
+      } catch (scoreError) {
+        console.warn('Failed to update sync score:', scoreError);
+      }
+
+      res.json({ 
+        message,
+        syncPointsAwarded: 5,
+        status: 'Message submitted successfully'
+      });
+    } catch (error) {
+      console.error('Error submitting speaker message:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid message data', details: error.issues });
+      }
+      res.status(500).json({ error: 'Failed to submit message to speaker' });
+    }
+  });
+
+  app.get('/api/events/:eventId/speaker-messages', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { speakerName } = req.query;
+
+      let query = db.select().from(speakerMessages).where(eq(speakerMessages.eventId, eventId));
+      
+      if (speakerName) {
+        query = query.where(eq(speakerMessages.speakerName, speakerName as string));
+      }
+
+      const messages = await query
+        .where(eq(speakerMessages.moderationStatus, 'approved'))
+        .orderBy(desc(speakerMessages.createdAt));
+
+      res.json(messages);
+    } catch (error) {
+      console.error('Error fetching speaker messages:', error);
+      res.status(500).json({ error: 'Failed to fetch speaker messages' });
+    }
+  });
+
+  app.post('/api/events/:eventId/speaker-messages/summary', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { speakerName } = req.body;
+
+      // Fetch messages for the speaker
+      const messages = await db.select()
+        .from(speakerMessages)
+        .where(
+          and(
+            eq(speakerMessages.eventId, eventId),
+            eq(speakerMessages.speakerName, speakerName),
+            eq(speakerMessages.isIncludedInSummary, true),
+            eq(speakerMessages.moderationStatus, 'approved')
+          )
+        )
+        .orderBy(desc(speakerMessages.createdAt));
+
+      if (messages.length === 0) {
+        return res.json({ 
+          summary: 'No messages found for this speaker.',
+          messageCount: 0,
+          keyThemes: []
+        });
+      }
+
+      // Group messages by type
+      const questionMessages = messages.filter(m => m.messageType === 'question');
+      const suggestionMessages = messages.filter(m => m.messageType === 'suggestion');
+      const expectationMessages = messages.filter(m => m.messageType === 'expectation');
+
+      // Generate AI summary using OpenAI
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      
+      const prompt = `As an AI assistant, analyze these attendee messages for speaker "${speakerName}" and create a comprehensive summary:
+
+QUESTIONS (${questionMessages.length}):
+${questionMessages.map(m => `- ${m.messageContent}`).join('\n')}
+
+SUGGESTIONS (${suggestionMessages.length}):
+${suggestionMessages.map(m => `- ${m.messageContent}`).join('\n')}
+
+EXPECTATIONS (${expectationMessages.length}):
+${expectationMessages.map(m => `- ${m.messageContent}`).join('\n')}
+
+Please provide:
+1. A concise executive summary (2-3 sentences)
+2. Top 3-5 key themes and topics attendees are most interested in
+3. Common questions that should be addressed
+4. Suggestions for tailoring the content
+5. Overall sentiment and engagement level
+
+Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions", "sentiment" }`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.3
+      });
+
+      const aiSummary = JSON.parse(response.choices[0].message.content || '{}');
+
+      // Track token usage
+      await tokenUsageService.recordUsage(
+        'speaker_message_summary',
+        response.usage?.prompt_tokens || 0,
+        response.usage?.completion_tokens || 0,
+        eventId
+      );
+
+      res.json({
+        ...aiSummary,
+        messageCount: messages.length,
+        breakdown: {
+          questions: questionMessages.length,
+          suggestions: suggestionMessages.length,
+          expectations: expectationMessages.length
+        },
+        generatedAt: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('Error generating speaker message summary:', error);
+      res.status(500).json({ error: 'Failed to generate speaker message summary' });
     }
   });
 
