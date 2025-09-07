@@ -221,12 +221,12 @@ export default function EventPreparation() {
     // Event-specific actions (20 points) - things users can actually do
     let eventActions = 0;
     // Check if user has reviewed attendees (simulated by checking if they've spent time here)
-    if (localStorage.getItem(`reviewed_attendees_${event.id}`)) eventActions += 5;
+    if (localStorage.getItem(`reviewed_attendees_${eventData.event.id}`)) eventActions += 5;
     // Check if user has sent connection requests (simulated)
-    const connectionRequests = parseInt(localStorage.getItem(`connection_requests_${event.id}`) || '0');
+    const connectionRequests = parseInt(localStorage.getItem(`connection_requests_${eventData.event.id}`) || '0');
     eventActions += Math.min(connectionRequests * 2, 10); // 2 points per request, max 10
     // Check if user has reviewed program content
-    if (localStorage.getItem(`reviewed_program_${event.id}`)) eventActions += 5;
+    if (localStorage.getItem(`reviewed_program_${eventData.event.id}`)) eventActions += 5;
     score += eventActions;
 
     // Active networking (25 points) - real user engagement
@@ -234,28 +234,28 @@ export default function EventPreparation() {
     // Conversation activity (based on actual API data)
     const activeConversations = conversations?.filter(conv => 
       (conv.senderId === user.id || conv.receiverId === user.id) && 
-      new Date(conv.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+      conv.createdAt && new Date(conv.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
     )?.length || 0;
     networkingScore += Math.min(activeConversations * 3, 15); // 3 points per conversation, max 15
     
-    // Connection activity (based on preliminary matches)
-    const connectedMatches = preliminaryMatches?.filter(m => m.status === 'connected')?.length || 0;
+    // Connection activity (based on preliminary matches - simulated)
+    const connectedMatches = eventData.preliminaryMatches?.filter(m => m.isContact)?.length || 0;
     networkingScore += Math.min(connectedMatches * 2, 10); // 2 points per connection, max 10
     score += networkingScore;
 
     // Event preparation tasks (25 points) - actionable items
     let preparationTasks = 0;
-    if (localStorage.getItem(`meeting_scheduled_${event.id}`)) preparationTasks += 8;
-    if (localStorage.getItem(`outreach_sent_${event.id}`)) preparationTasks += 8;
-    if (localStorage.getItem(`goals_set_${event.id}`)) preparationTasks += 9;
+    if (localStorage.getItem(`meeting_scheduled_${eventData.event.id}`)) preparationTasks += 8;
+    if (localStorage.getItem(`outreach_sent_${eventData.event.id}`)) preparationTasks += 8;
+    if (localStorage.getItem(`goals_set_${eventData.event.id}`)) preparationTasks += 9;
     score += preparationTasks;
 
     // Engagement multiplier (15 points) - recent activity bonus
     let engagementBonus = 0;
     const recentActivity = localStorage.getItem('last_activity_timestamp');
-    if (recentActivity && new Date() - new Date(recentActivity) < 24 * 60 * 60 * 1000) {
+    if (recentActivity && new Date().getTime() - new Date(recentActivity).getTime() < 24 * 60 * 60 * 1000) {
       engagementBonus = 15; // Full bonus for daily usage
-    } else if (recentActivity && new Date() - new Date(recentActivity) < 7 * 24 * 60 * 60 * 1000) {
+    } else if (recentActivity && new Date().getTime() - new Date(recentActivity).getTime() < 7 * 24 * 60 * 60 * 1000) {
       engagementBonus = 8; // Partial bonus for weekly usage
     }
     score += engagementBonus;
@@ -269,7 +269,7 @@ export default function EventPreparation() {
     } else {
       setPreparationScore(finalScore);
     }
-  }, [eventData, user, conversations?.length, event.id, preliminaryMatches?.length]);
+  }, [eventData, user, conversations?.length, eventData?.event?.id, eventData?.preliminaryMatches?.length]);
 
   if (isLoading) {
     return (
