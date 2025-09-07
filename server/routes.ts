@@ -4406,13 +4406,48 @@ END:VCALENDAR`;
         // Don't fail the request for database storage issues
       }
 
-      res.json({
-        success: true,
-        message,
-        pointsAwarded,
-        missionId,
-        status
-      });
+      // Calculate updated progress for real-time update
+      const allUserMissions = await db
+        .select({ 
+          status: eventMissionProgress.status,
+          pointsEarned: eventMissionProgress.pointsEarned
+        })
+        .from(eventMissionProgress)
+        .where(and(
+          eq(eventMissionProgress.eventId, eventId),
+          eq(eventMissionProgress.userId, userId)
+        ));
+      
+      const totalPointsEarned = allUserMissions
+        .filter(m => m.status === 'completed')
+        .reduce((sum, m) => sum + (m.pointsEarned || 0), 0);
+      const completedCount = allUserMissions.filter(m => m.status === 'completed').length;
+      
+      const response = {
+        mission: { 
+          id: missionId, 
+          status, 
+          points_earned: pointsAwarded, 
+          updated_at: new Date().toISOString() 
+        },
+        progress: { 
+          points_earned: totalPointsEarned, 
+          missions_completed: completedCount, 
+          missions_total: 10 
+        },
+        message // Legacy support
+      };
+
+      // TODO: Add WebSocket real-time update
+      // wsServer.broadcast(`events:${eventId}:members:${userId}`, {
+      //   type: "MISSION_UPDATED", 
+      //   missionId, 
+      //   status, 
+      //   points_earned: pointsAwarded, 
+      //   progress: response.progress 
+      // });
+      
+      res.json(response);
 
     } catch (error) {
       console.error('Error updating mission status:', error);
