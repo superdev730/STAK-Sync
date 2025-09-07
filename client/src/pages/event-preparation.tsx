@@ -1,80 +1,76 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
-  Clock, Users, Target, CheckCircle, AlertTriangle, Star, MapPin, Calendar,
-  MessageSquare, UserPlus, TrendingUp, Award, Coffee, Handshake, Network,
-  ArrowRight, Plus, Eye, BookOpen, Zap, Heart, Building, Briefcase, Send, Trophy, Mic
+  Mic, Target, Users, Calendar, Trophy, Clock, Star, CheckCircle, 
+  AlertTriangle, MessageSquare, TrendingUp, ArrowRight, Settings,
+  Network, Coffee, Handshake, Eye, UserPlus, Send, Award, Zap
 } from 'lucide-react';
-import { Link } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { SpeakerMessageModal } from '@/components/SpeakerMessageModal';
-import type { Match, User, Message } from '@shared/schema';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
-interface EventAttendee {
+interface EventPrepStats {
+  speakerMessages: number;
+  hasNetworkingGoal: boolean;
+  incomingConnectionRequests: number;
+  highQualityMatches: number;
+  mediumQualityMatches: number;
+  networkingGoal?: any;
+}
+
+interface ConnectionRequest {
   id: string;
-  firstName: string;
-  lastName: string;
-  title: string;
-  company: string;
-  profileImageUrl?: string;
-  industries: string[];
-  matchScore?: number;
-  isContact?: boolean;
-}
-
-interface EventPreparationData {
-  event: {
+  fromUserId: string;
+  message: string;
+  matchScore: number;
+  aiRecommendationReason: string;
+  status: string;
+  createdAt: string;
+  fromUser: {
     id: string;
-    title: string;
-    startDate: string;
-    endDate: string;
-    location: string;
-    description: string;
-    isVirtual: boolean;
-    attendeeCount: number;
+    firstName: string;
+    lastName: string;
+    profileImageUrl?: string;
   };
-  attendees: EventAttendee[];
-  preliminaryMatches: EventAttendee[];
-  existingContacts: EventAttendee[];
-  suggestedMeetings: {
-    id: string;
-    type: 'coffee' | 'lunch' | 'presentation' | 'workshop';
-    title: string;
-    description: string;
-    suggestedTime: string;
-    location?: string;
-    attendees: string[];
-  }[];
-  programContent: {
-    id: string;
-    title: string;
-    type: 'keynote' | 'panel' | 'workshop' | 'networking';
-    time: string;
-    speaker?: string;
-    relevanceScore: number;
-    matchedAttendees: number;
-  }[];
 }
 
-interface CountdownTime {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
+interface ConnectionRequestsData {
+  incoming: ConnectionRequest[];
+  outgoing: ConnectionRequest[];
+  incomingCount: number;
+  outgoingCount: number;
 }
 
 export default function EventPreparation() {
   const { eventId } = useParams();
   const { user } = useAuth();
-  const [countdown, setCountdown] = useState<CountdownTime | null>(null);
-  const [preparationScore, setPreparationScore] = useState(0);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const [speakerModalOpen, setSpeakerModalOpen] = useState(false);
+  const [showNetworkingGoalForm, setShowNetworkingGoalForm] = useState(false);
+  const [networkingGoalData, setNetworkingGoalData] = useState({
+    primaryGoal: '',
+    specificObjectives: [],
+    targetCompanyTypes: [],
+    targetRoles: [],
+    targetIndustries: [],
+    communicationStyle: 'balanced',
+    meetingPreference: 'mixed',
+    aiModerationInstructions: ''
+  });
 
   // Sample speakers for the event
   const eventSpeakers = [
@@ -84,234 +80,116 @@ export default function EventPreparation() {
       sessionTitle: "AI in Healthcare: Future Innovations"
     },
     {
-      name: "Michael Rodriguez",
+      name: "Michael Rodriguez", 
       title: "Serial Entrepreneur",
       sessionTitle: "Building Scalable Startup Teams"
     },
     {
       name: "Lisa Wang",
-      title: "Partner at Sequoia Capital",
+      title: "Partner at Sequoia Capital", 
       sessionTitle: "VC Trends for 2025"
-    },
-    {
-      name: "Alex Thompson",
-      title: "CTO at TechCorp",
-      sessionTitle: "Engineering Leadership Best Practices"
     }
   ];
 
-  // Get real event data from API
-  const { data: apiEventData, isLoading: eventLoading } = useQuery({
+  // Get event data
+  const { data: eventData, isLoading: eventLoading } = useQuery({
     queryKey: [`/api/events/${eventId}`],
     enabled: !!eventId,
   });
 
-  // Use API data or fallback to minimal structure for preparation features
-  const eventData: EventPreparationData = {
-    event: apiEventData || {
-      id: eventId || 'unknown',
-      title: 'Loading Event...',
-      startDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-      endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      location: 'TBD',
-      description: 'Event details loading...',
-      isVirtual: false,
-      attendeeCount: 0,
+  // Get event preparation stats
+  const { data: prepStats, isLoading: statsLoading } = useQuery<EventPrepStats>({
+    queryKey: [`/api/events/${eventId}/prep-stats`],
+    enabled: !!eventId,
+  });
+
+  // Get connection requests
+  const { data: connectionRequests, isLoading: requestsLoading } = useQuery<ConnectionRequestsData>({
+    queryKey: [`/api/events/${eventId}/connection-requests`],
+    enabled: !!eventId,
+  });
+
+  // Get networking goal
+  const { data: existingGoal } = useQuery({
+    queryKey: [`/api/events/${eventId}/networking-goal`],
+    enabled: !!eventId,
+  });
+
+  // Create networking goal mutation
+  const createGoalMutation = useMutation({
+    mutationFn: async (goalData: any) => {
+      return apiRequest(`/api/events/${eventId}/networking-goal`, 'POST', goalData);
     },
-    attendees: [
-      {
-        id: 'demo-sarah',
-        firstName: 'Sarah',
-        lastName: 'Chen',
-        title: 'VP of Engineering',
-        company: 'TechCorp',
-        industries: ['AI/ML', 'Enterprise Software'],
-        isContact: true,
-      },
-      {
-        id: 'demo-michael',
-        firstName: 'Michael',
-        lastName: 'Rodriguez',
-        title: 'Partner',
-        company: 'Venture Capital Partners',
-        industries: ['Fintech', 'Series A Investments'],
-        matchScore: 89,
-      },
-      // Add more mock attendees
-    ],
-    preliminaryMatches: [
-      {
-        id: 'demo-michael',
-        firstName: 'Michael',
-        lastName: 'Rodriguez',
-        title: 'Partner',
-        company: 'Venture Capital Partners',
-        industries: ['Fintech', 'Series A Investments'],
-        matchScore: 89,
-      },
-      {
-        id: 'demo-jessica',
-        firstName: 'Jessica',
-        lastName: 'Park',
-        title: 'Founder & CEO',
-        company: 'InnovateLab',
-        industries: ['Healthcare', 'B2B SaaS'],
-        matchScore: 94,
-      },
-    ],
-    existingContacts: [
-      {
-        id: 'demo-sarah',
-        firstName: 'Sarah',
-        lastName: 'Chen',
-        title: 'VP of Engineering',
-        company: 'TechCorp',
-        industries: ['AI/ML', 'Enterprise Software'],
-        isContact: true,
-      },
-    ],
-    suggestedMeetings: [
-      {
-        id: 'coffee-1',
-        type: 'coffee',
-        title: 'Coffee with Michael Rodriguez',
-        description: 'Discuss Series A funding opportunities',
-        suggestedTime: '10:00 AM - Day 1',
-        attendees: ['demo-michael'],
-      },
-    ],
-    programContent: [
-      {
-        id: 'keynote-1',
-        title: 'Future of AI in Enterprise',
-        type: 'keynote',
-        time: '9:00 AM - Day 1',
-        speaker: 'John Smith, CEO of AI Corp',
-        relevanceScore: 92,
-        matchedAttendees: 15,
-      },
-      {
-        id: 'panel-1',
-        title: 'Series A Funding Landscape',
-        type: 'panel',
-        time: '2:00 PM - Day 1',
-        relevanceScore: 87,
-        matchedAttendees: 8,
-      },
-    ],
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Your networking goal has been set (+10 Sync Points)",
+      });
+      setShowNetworkingGoalForm(false);
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/prep-stats`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/networking-goal`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: "Failed to set networking goal. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Respond to connection request mutation
+  const respondToRequestMutation = useMutation({
+    mutationFn: async ({ requestId, status, responseMessage }: { requestId: string; status: string; responseMessage?: string }) => {
+      return apiRequest(`/api/connection-requests/${requestId}/respond`, 'POST', { status, responseMessage });
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Success!",
+        description: `Connection request ${data.status}. (+${data.syncPointsAwarded} Sync Points)`,
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/connection-requests`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/prep-stats`] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to respond to connection request.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Calculate overall preparation score
+  const calculatePrepScore = () => {
+    if (!prepStats) return 0;
+    
+    let score = 0;
+    
+    // Speaker engagement (20 points max)
+    score += Math.min(prepStats.speakerMessages * 5, 20);
+    
+    // Networking goal (15 points)
+    if (prepStats.hasNetworkingGoal) score += 15;
+    
+    // Connection management (25 points max)
+    score += Math.min(prepStats.incomingConnectionRequests * 5, 25);
+    
+    // High-quality matches review (20 points)
+    if (prepStats.highQualityMatches > 0) score += 20;
+    
+    // Pre-event meetings scheduled (20 points)
+    // This would be tracked separately - for now simulate
+    
+    return Math.min(score, 100);
   };
 
-  const isLoading = false;
+  const prepScore = calculatePrepScore();
 
-  const { data: userMatches } = useQuery<(Match & { matchedUser: User })[]>({
-    queryKey: ["/api/matches"],
-  });
-
-  const { data: conversations } = useQuery<(Message & { sender: User; receiver: User })[]>({
-    queryKey: ["/api/conversations"],
-  });
-
-  // Update countdown timer
-  useEffect(() => {
-    if (!eventData?.event.startDate) return;
-
-    const updateCountdown = () => {
-      const now = new Date().getTime();
-      const eventStart = new Date(eventData.event.startDate).getTime();
-      const timeDiff = eventStart - now;
-
-      if (timeDiff <= 0) {
-        setCountdown(null);
-        return;
-      }
-
-      const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-
-      setCountdown({ days, hours, minutes, seconds });
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [eventData]);
-
-  // Calculate STAK Sync Score - engagement-focused scoring
-  useEffect(() => {
-    if (!eventData || !user) return;
-
-    let score = 0;
-    const maxScore = 100;
-
-    // Base profile completeness (15 points max) - realistic for new users
-    const profileFields = [user.bio, user.title, user.company, user.location, user.profileImageUrl, user.networkingGoal];
-    const filledFields = profileFields.filter(field => field && field.trim?.().length > 0).length;
-    score += (filledFields / profileFields.length) * 15;
-
-    // Event-specific actions (20 points) - things users can actually do
-    let eventActions = 0;
-    // Check if user has reviewed attendees (simulated by checking if they've spent time here)
-    if (localStorage.getItem(`reviewed_attendees_${eventData.event.id}`)) eventActions += 5;
-    // Check if user has sent connection requests (simulated)
-    const connectionRequests = parseInt(localStorage.getItem(`connection_requests_${eventData.event.id}`) || '0');
-    eventActions += Math.min(connectionRequests * 2, 10); // 2 points per request, max 10
-    // Check if user has reviewed program content
-    if (localStorage.getItem(`reviewed_program_${eventData.event.id}`)) eventActions += 5;
-    score += eventActions;
-
-    // Active networking (35 points) - real user engagement
-    let networkingScore = 0;
-    // Conversation activity (based on actual API data)
-    const activeConversations = conversations?.filter(conv => 
-      (conv.senderId === user.id || conv.receiverId === user.id) && 
-      conv.createdAt && new Date(conv.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-    )?.length || 0;
-    networkingScore += Math.min(activeConversations * 3, 15); // 3 points per conversation, max 15
-    
-    // Connection activity (based on preliminary matches - simulated)
-    const connectedMatches = eventData.preliminaryMatches?.filter(m => m.isContact)?.length || 0;
-    networkingScore += Math.min(connectedMatches * 2, 8); // 2 points per connection, max 8
-    
-    // Interactive engagement with matches (new scoring for Connect/Schedule/Pass actions)
-    const engagementInteractions = parseInt(localStorage.getItem('engagement_interactions') || '0');
-    networkingScore += Math.min(engagementInteractions * 2, 12); // 2 points per interaction, max 12
-    
-    score += networkingScore;
-
-    // Event preparation tasks (25 points) - actionable items
-    let preparationTasks = 0;
-    if (localStorage.getItem(`meeting_scheduled_${eventData.event.id}`)) preparationTasks += 8;
-    if (localStorage.getItem(`outreach_sent_${eventData.event.id}`)) preparationTasks += 8;
-    if (localStorage.getItem(`goals_set_${eventData.event.id}`)) preparationTasks += 9;
-    score += preparationTasks;
-
-    // Engagement multiplier (15 points) - recent activity bonus
-    let engagementBonus = 0;
-    const recentActivity = localStorage.getItem('last_activity_timestamp');
-    if (recentActivity && new Date().getTime() - new Date(recentActivity).getTime() < 24 * 60 * 60 * 1000) {
-      engagementBonus = 15; // Full bonus for daily usage
-    } else if (recentActivity && new Date().getTime() - new Date(recentActivity).getTime() < 7 * 24 * 60 * 60 * 1000) {
-      engagementBonus = 8; // Partial bonus for weekly usage
-    }
-    score += engagementBonus;
-
-    // Cap score and ensure new users start low
-    const finalScore = Math.min(Math.round(score), maxScore);
-    // New users (less than 20% profile) should start very low to encourage engagement
-    const profileCompleteness = (filledFields / profileFields.length) * 100;
-    if (profileCompleteness < 20 && finalScore > 25) {
-      setPreparationScore(Math.min(finalScore, 25));
-    } else {
-      setPreparationScore(finalScore);
-    }
-  }, [eventData?.event?.id, user?.id, conversations?.length, eventData?.preliminaryMatches?.length]);
-
-  if (isLoading) {
+  if (eventLoading || statsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-stak-copper border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-[#CD853F] border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -330,605 +208,483 @@ export default function EventPreparation() {
     );
   }
 
-  const { event, attendees, preliminaryMatches, existingContacts, suggestedMeetings, programContent } = eventData;
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* STAK Sync Score */}
-        <Card className="mb-8 border-stak-copper/20">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Trophy className="w-5 h-5 text-stak-copper mr-2" />
-              Your STAK Sync Score
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <div className="text-3xl font-bold text-stak-copper">{preparationScore}%</div>
-                <div className="text-sm text-gray-700 font-medium">
-                  {preparationScore >= 80 ? 'Networking Champion! 🏆' : 
-                   preparationScore >= 60 ? 'Great Momentum! ⚡' : 
-                   preparationScore >= 30 ? 'Getting Started 📈' : 'Ready to Sync? 🚀'}
+        
+        {/* Header with Event Info and Sync Score */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Event Header */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[#CD853F]" />
+                Event Preparation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <h2 className="text-xl font-bold mb-2">{eventData.title}</h2>
+              <div className="space-y-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  {new Date(eventData.startDate).toLocaleDateString()} at {new Date(eventData.startDate).toLocaleTimeString()}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Track your engagement and connections
-                </div>
-              </div>
-              <div className="w-32">
-                <Progress value={preparationScore} className="h-3" />
-              </div>
-            </div>
-            
-            {preparationScore < 60 && (
-              <div className="space-y-3">
-                <div className="flex items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <TrendingUp className="w-4 h-4 text-blue-600 mr-2 flex-shrink-0" />
-                  <div className="text-sm text-blue-800">
-                    <strong>Boost your Sync Score:</strong> Connect with attendees, set meetings, and engage actively!
-                  </div>
-                </div>
-                
-                {/* Quick Action Items */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div className="p-2 bg-gray-50 rounded border text-center">
-                    <div className="text-xs font-medium text-gray-700">Connect</div>
-                    <div className="text-lg font-bold text-stak-copper">+10pts</div>
-                  </div>
-                  <div className="p-2 bg-gray-50 rounded border text-center">
-                    <div className="text-xs font-medium text-gray-700">Schedule</div>
-                    <div className="text-lg font-bold text-stak-copper">+8pts</div>
-                  </div>
-                  <div className="p-2 bg-gray-50 rounded border text-center">
-                    <div className="text-xs font-medium text-gray-700">Engage</div>
-                    <div className="text-lg font-bold text-stak-copper">+15pts</div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  {eventData.attendeeCount || 0} attendees
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Event Activity Navigation */}
-        <Card className="mb-8">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
-              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
-                <Link href="/profile">
-                  <Briefcase className="w-4 h-4" />
-                  Profile
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
-                <Link href="/messages">
-                  <MessageSquare className="w-4 h-4" />
-                  Messages
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
-                <Link href="/discover">
-                  <Heart className="w-4 h-4" />
-                  Find Matches
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
-                <Link href={`/events/live/${event.id}`}>
-                  <Calendar className="w-4 h-4" />
-                  Event Details
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
-                <Link href="/contacts">
-                  <Network className="w-4 h-4" />
-                  My Network
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          {/* Sync Score Dashboard */}
+          <Card className="border-[#CD853F]/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-[#CD853F]" />
+                Your Sync Score
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-3xl font-bold text-[#CD853F]">{prepScore}%</div>
+                  <div className="text-sm text-gray-600">Event Preparation Progress</div>
+                </div>
+                <div className="w-24">
+                  <Progress value={prepScore} className="h-3" />
+                </div>
+              </div>
+              <div className="text-xs text-gray-500">
+                Complete priority actions to boost your score and networking success
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-
-            {/* Engagement Boost Tasks */}
-            <Card className="border-stak-copper/20">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TrendingUp className="w-5 h-5 text-stak-copper mr-2" />
-                  Boost Your Sync Score
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+        {/* Priority Actions Grid */}
+        <div className="space-y-6">
+          
+          {/* Priority 1: Speak to the Speaker */}
+          <Card className="border-l-4 border-l-[#CD853F]">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-[#CD853F] text-white flex items-center justify-center font-bold text-sm">1</div>
+                  <Mic className="h-5 w-5 text-[#CD853F]" />
+                  Speak to the Speaker
+                </div>
+                <Badge className="bg-[#CD853F]/10 text-[#CD853F] border border-[#CD853F]/30">
+                  +5 pts per message
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    Send voice notes, text messages, or questions to speakers. Our AI compiles all messages and delivers a summary to help speakers tailor their content.
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Messages sent:</span>
+                      <span className="font-semibold">{prepStats?.speakerMessages || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Sync Points earned:</span>
+                      <span className="font-semibold text-[#CD853F]">{(prepStats?.speakerMessages || 0) * 5}</span>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-4">
-                  {/* Networking Goal Setting */}
-                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
-                        <Zap className="w-4 h-4 text-stak-copper mr-2" />
-                        <span className="font-medium text-gray-900">Set Your Networking Goal</span>
-                      </div>
-                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+9 points</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3">Define your goals to help Sync's AI model suggest relevant attendees, programming, and strategic moves to maximize your event value.</p>
-                    {localStorage.getItem(`goals_set_${event.id}`) ? (
-                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        <span className="text-sm font-medium">Goal Set! ✨</span>
-                      </div>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                        onClick={() => {
-                          localStorage.setItem(`goals_set_${event.id}`, 'true');
-                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
-                          window.location.reload();
-                        }}
-                      >
-                        <Target className="w-3 h-3 mr-1" />
-                        Set Goal
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Attendee Review */}
-                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
-                        <Eye className="w-4 h-4 text-stak-copper mr-2" />
-                        <span className="font-medium text-gray-900">Review Fellow Attendees</span>
-                      </div>
-                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+5 points</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3">Browse profiles to identify potential connections</p>
-                    {localStorage.getItem(`reviewed_attendees_${event.id}`) ? (
-                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        <span className="text-sm font-medium">Attendees Reviewed! 👥</span>
-                      </div>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                        onClick={() => {
-                          localStorage.setItem(`reviewed_attendees_${event.id}`, 'true');
-                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
-                          window.location.reload();
-                        }}
-                      >
-                        <Users className="w-3 h-3 mr-1" />
-                        Start Reviewing
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Program Review */}
-                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
-                        <BookOpen className="w-4 h-4 text-stak-copper mr-2" />
-                        <span className="font-medium text-gray-900">Plan Your Schedule</span>
-                      </div>
-                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+5 points</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3">Review sessions and identify networking opportunities</p>
-                    {localStorage.getItem(`reviewed_program_${event.id}`) ? (
-                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        <span className="text-sm font-medium">Schedule Planned! 📅</span>
-                      </div>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                        onClick={() => {
-                          localStorage.setItem(`reviewed_program_${event.id}`, 'true');
-                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
-                          window.location.reload();
-                        }}
-                      >
-                        <Calendar className="w-3 h-3 mr-1" />
-                        Plan Schedule
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Connection Outreach */}
-                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
-                        <Send className="w-4 h-4 text-stak-copper mr-2" />
-                        <span className="font-medium text-gray-900">Send Connection Requests</span>
-                      </div>
-                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+2 pts each</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3">Reach out to potential matches before the event</p>
-                    {parseInt(localStorage.getItem(`connection_requests_${event.id}`) || '0') > 0 ? (
-                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        <span className="text-sm font-medium">{localStorage.getItem(`connection_requests_${event.id}`)} Requests Sent! 🤝</span>
-                      </div>
-                    ) : (
-                      <Button 
-                        asChild
-                        size="sm" 
-                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                      >
-                        <Link href="/discover">
-                          <Heart className="w-3 h-3 mr-1" />
-                          Find Connections
-                        </Link>
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Meeting Scheduling */}
-                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
-                        <Coffee className="w-4 h-4 text-stak-copper mr-2" />
-                        <span className="font-medium text-gray-900">Schedule Pre-Event Meeting</span>
-                      </div>
-                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+8 points</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3">Set up coffee chats or calls before the event</p>
-                    {localStorage.getItem(`meeting_scheduled_${event.id}`) ? (
-                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        <span className="text-sm font-medium">Meeting Scheduled! ☕</span>
-                      </div>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                        onClick={() => {
-                          localStorage.setItem(`meeting_scheduled_${event.id}`, 'true');
-                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
-                          window.location.reload();
-                        }}
-                      >
-                        <Calendar className="w-3 h-3 mr-1" />
-                        Schedule Meeting
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Speak to the Speaker */}
-                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
-                        <Mic className="w-4 h-4 text-stak-copper mr-2" />
-                        <span className="font-medium text-gray-900">Speak to the Speaker</span>
-                      </div>
-                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+5 points</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3">Send questions, suggestions, or share what you hope to learn from event speakers</p>
-                    {localStorage.getItem(`speaker_message_${event.id}`) ? (
-                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        <span className="text-sm font-medium">Message Sent to Speaker! 🎤</span>
-                      </div>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                        onClick={() => setSpeakerModalOpen(true)}
-                        data-testid="button-speak-to-speaker"
-                      >
-                        <Mic className="w-3 h-3 mr-1" />
-                        Message Speaker
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-6 p-3 bg-stak-copper/10 border border-stak-copper/20 rounded-lg">
-                  <div className="flex items-center text-stak-copper">
-                    <Trophy className="w-4 h-4 mr-2" />
-                    <span className="text-sm font-medium">Complete all tasks to maximize your networking success!</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Preliminary Matches */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Heart className="w-5 h-5 text-stak-copper mr-2" />
-                    Preliminary Matches ({preliminaryMatches.length})
-                  </div>
-                  <Button asChild variant="outline" size="sm">
-                    <Link href="/discover">Find More</Link>
+                  <Button 
+                    onClick={() => setSpeakerModalOpen(true)}
+                    className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                    data-testid="button-speak-to-speaker"
+                  >
+                    <Mic className="w-4 h-4 mr-2" />
+                    Send Message to Speaker
                   </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {preliminaryMatches.slice(0, 6).map((match) => (
-                    <div key={match.id} className="p-4 border border-gray-200 rounded-lg hover:border-stak-copper transition-colors">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <Avatar className="w-12 h-12">
-                          <AvatarImage src={match.profileImageUrl || ""} alt={match.firstName} />
-                          <AvatarFallback className="bg-stak-copper/20 text-stak-copper">
-                            {match.firstName[0]}{match.lastName[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">{match.firstName} {match.lastName}</p>
-                          <p className="text-sm text-gray-600">{match.title}</p>
-                          <p className="text-sm text-gray-500">{match.company}</p>
-                        </div>
-                        <Badge variant="outline" className="text-stak-copper border-stak-copper">
-                          {match.matchScore}% Match
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {match.industries.slice(0, 2).map((industry, idx) => (
-                          <Badge key={idx} className="text-xs bg-gray-100 text-gray-800 border border-gray-300">{industry}</Badge>
-                        ))}
-                      </div>
-                      {!localStorage.getItem(`interacted_${match.id}_${event.id}`) ? (
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                            onClick={() => {
-                              localStorage.setItem(`interacted_${match.id}_${event.id}`, 'connect');
-                              localStorage.setItem(`connection_requests_${event.id}`, 
-                                (parseInt(localStorage.getItem(`connection_requests_${event.id}`) || '0') + 1).toString()
-                              );
-                              localStorage.setItem('last_activity_timestamp', new Date().toISOString());
-                              window.location.reload();
-                            }}
-                          >
-                            <MessageSquare className="w-3 h-3 mr-1" />
-                            Connect
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white"
-                            onClick={() => {
-                              localStorage.setItem(`interacted_${match.id}_${event.id}`, 'schedule');
-                              localStorage.setItem(`meeting_scheduled_${event.id}`, 'true');
-                              localStorage.setItem('last_activity_timestamp', new Date().toISOString());
-                              window.location.reload();
-                            }}
-                          >
-                            <Calendar className="w-3 h-3 mr-1" />
-                            Schedule
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="text-gray-600 hover:text-gray-800 border-gray-300"
-                            onClick={() => {
-                              localStorage.setItem(`interacted_${match.id}_${event.id}`, 'pass');
-                              // Award engagement points even for passing
-                              const engagementCount = parseInt(localStorage.getItem('engagement_interactions') || '0') + 1;
-                              localStorage.setItem('engagement_interactions', engagementCount.toString());
-                              localStorage.setItem('last_activity_timestamp', new Date().toISOString());
-                              window.location.reload();
-                            }}
-                          >
-                            Pass
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center p-2 bg-green-50 border border-green-200 rounded text-green-700">
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          <span className="text-sm font-medium">
-                            {localStorage.getItem(`interacted_${match.id}_${event.id}`) === 'connect' ? 'Connected!' :
-                             localStorage.getItem(`interacted_${match.id}_${event.id}`) === 'schedule' ? 'Meeting Scheduled!' :
-                             'Reviewed'} 
-                            {localStorage.getItem(`interacted_${match.id}_${event.id}`) !== 'pass' && ' +5 pts'}
-                            {localStorage.getItem(`interacted_${match.id}_${event.id}`) === 'pass' && ' +2 pts'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Event Attendees */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Users className="w-5 h-5 text-stak-copper mr-2" />
-                  All Attendees ({attendees.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {attendees.slice(0, 18).map((attendee) => (
-                    <div key={attendee.id} className="text-center">
-                      <Avatar className="w-16 h-16 mx-auto mb-2">
-                        <AvatarImage src={attendee.profileImageUrl || ""} alt={attendee.firstName} />
-                        <AvatarFallback className="bg-gray-200 text-gray-600">
-                          {attendee.firstName[0]}{attendee.lastName[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <p className="text-sm font-medium text-gray-900 truncate">{attendee.firstName} {attendee.lastName}</p>
-                      <p className="text-xs text-gray-500 truncate">{attendee.company}</p>
-                      {attendee.isContact && (
-                        <Badge className="text-xs mt-1 bg-green-100 text-green-800 border border-green-300">Connected</Badge>
-                      )}
-                    </div>
-                  ))}
-                  {attendees.length > 18 && (
-                    <div className="text-center flex items-center justify-center">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-500">+{attendees.length - 18}</span>
-                      </div>
+                  {prepStats?.speakerMessages && prepStats.speakerMessages > 0 && (
+                    <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">Great! Your messages are helping shape the content.</span>
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Program Content */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <BookOpen className="w-5 h-5 text-stak-copper mr-2" />
-                  Recommended Program Content
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          {/* Priority 2: Set Networking Goals */}
+          <Card className="border-l-4 border-l-[#CD853F]">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-[#CD853F] text-white flex items-center justify-center font-bold text-sm">2</div>
+                  <Target className="h-5 w-5 text-[#CD853F]" />
+                  Set Your Networking Goal
+                </div>
+                <Badge className="bg-[#CD853F]/10 text-[#CD853F] border border-[#CD853F]/30">
+                  +10 pts
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {prepStats?.hasNetworkingGoal || existingGoal ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">Networking goal set! AI is optimized for your objectives.</span>
+                    </div>
+                    {existingGoal && (
+                      <div className="space-y-2 text-sm">
+                        <div><strong>Primary Goal:</strong> {existingGoal.primaryGoal}</div>
+                        {existingGoal.specificObjectives?.length > 0 && (
+                          <div><strong>Objectives:</strong> {existingGoal.specificObjectives.join(', ')}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowNetworkingGoalForm(true)}
+                      className="w-full"
+                      data-testid="button-edit-networking-goal"
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Edit Networking Goal
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-gray-600 mb-4">
+                      Help our AI moderate the event and boost connections by defining your networking objectives. This personalizes suggestions for all attendees.
+                    </p>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• AI suggests relevant attendees to connect with</li>
+                      <li>• Personalized conversation starters</li>
+                      <li>• Strategic networking recommendations</li>
+                      <li>• Real-time event guidance</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <Button 
+                      onClick={() => setShowNetworkingGoalForm(true)}
+                      className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                      data-testid="button-set-networking-goal"
+                    >
+                      <Target className="w-4 h-4 mr-2" />
+                      Set Networking Goal
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Priority 3: Connection Requests */}
+          <Card className="border-l-4 border-l-[#CD853F]">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-[#CD853F] text-white flex items-center justify-center font-bold text-sm">3</div>
+                  <UserPlus className="h-5 w-5 text-[#CD853F]" />
+                  Connection Requests
+                </div>
+                <Badge className="bg-[#CD853F]/10 text-[#CD853F] border border-[#CD853F]/30">
+                  +5-15 pts
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    Manage incoming connection requests and boost your networking activity. Responding increases your visibility in AI recommendations.
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <span className="text-sm font-medium text-blue-800">Pending Requests</span>
+                      <span className="font-bold text-blue-900">{prepStats?.incomingConnectionRequests || 0}</span>
+                    </div>
+                    {(!prepStats?.incomingConnectionRequests || prepStats.incomingConnectionRequests === 0) && (
+                      <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">
+                        No incoming requests yet. The AI is working to promote your profile to high-quality matches.
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div className="space-y-4">
-                  {programContent.slice(0, 5).map((content) => (
-                    <div key={content.id} className="p-4 border border-gray-200 rounded-lg">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{content.title}</h3>
-                          <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                            <div className="flex items-center">
-                              <Clock className="w-3 h-3 mr-1" />
-                              {content.time}
-                            </div>
-                            {content.speaker && (
-                              <div className="flex items-center">
-                                <Users className="w-3 h-3 mr-1" />
-                                {content.speaker}
+                  {connectionRequests?.incoming && connectionRequests.incoming.length > 0 ? (
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                      {connectionRequests.incoming.map((request) => (
+                        <div key={request.id} className="p-3 border rounded-lg bg-white">
+                          <div className="flex items-start gap-3">
+                            <Avatar className="w-8 h-8">
+                              <AvatarImage src={request.fromUser.profileImageUrl} />
+                              <AvatarFallback>{request.fromUser.firstName[0]}{request.fromUser.lastName[0]}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium">{request.fromUser.firstName} {request.fromUser.lastName}</div>
+                              <div className="text-xs text-gray-500 mb-2">Match Score: {request.matchScore}%</div>
+                              {request.message && (
+                                <div className="text-xs text-gray-600 mb-2 italic">"{request.message}"</div>
+                              )}
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  onClick={() => respondToRequestMutation.mutate({ 
+                                    requestId: request.id, 
+                                    status: 'accepted' 
+                                  })}
+                                  disabled={respondToRequestMutation.isPending}
+                                  data-testid={`button-accept-${request.id}`}
+                                >
+                                  Accept
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => respondToRequestMutation.mutate({ 
+                                    requestId: request.id, 
+                                    status: 'declined' 
+                                  })}
+                                  disabled={respondToRequestMutation.isPending}
+                                  data-testid={`button-decline-${request.id}`}
+                                >
+                                  Decline
+                                </Button>
                               </div>
-                            )}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <Badge className={
-                            content.relevanceScore >= 80 ? "bg-green-100 text-green-800 border border-green-600" : 
-                            content.relevanceScore >= 60 ? "bg-yellow-100 text-yellow-800 border border-yellow-600" : 
-                            "bg-gray-100 text-gray-800 border border-gray-600"
-                          }>
-                            {content.relevanceScore}% relevant
-                          </Badge>
-                          {content.matchedAttendees > 0 && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {content.matchedAttendees} matches attending
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <Badge variant="secondary" className="capitalize">
-                        {content.type}
-                      </Badge>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Existing Contacts */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Network className="w-5 h-5 text-stak-copper mr-2" />
-                  Your Contacts Attending ({existingContacts.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {existingContacts.slice(0, 5).map((contact) => (
-                    <div key={contact.id} className="flex items-center space-x-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={contact.profileImageUrl || ""} alt={contact.firstName} />
-                        <AvatarFallback className="bg-stak-copper/20 text-stak-copper text-xs">
-                          {contact.firstName[0]}{contact.lastName[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">{contact.firstName} {contact.lastName}</p>
-                        <p className="text-xs text-gray-600">{contact.company}</p>
-                      </div>
-                      <Button asChild size="sm" variant="ghost">
-                        <Link href={`/messages?userId=${contact.id}`}>
-                          <MessageSquare className="w-3 h-3" />
-                        </Link>
-                      </Button>
+                  ) : (
+                    <div className="text-center p-6 bg-gray-50 rounded-lg">
+                      <Network className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                      <div className="text-sm text-gray-600">No pending requests</div>
                     </div>
-                  ))}
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Suggested Meetings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Coffee className="w-5 h-5 text-stak-copper mr-2" />
-                  Suggested Meetings
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          {/* Priority 4: Review Attendees */}
+          <Card className="border-l-4 border-l-[#CD853F]">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-[#CD853F] text-white flex items-center justify-center font-bold text-sm">4</div>
+                  <Eye className="h-5 w-5 text-[#CD853F]" />
+                  Review Attendees
+                </div>
+                <Badge className="bg-[#CD853F]/10 text-[#CD853F] border border-[#CD853F]/30">
+                  High-quality matches
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <p className="text-gray-600 mb-4">
+                    Browse attendees with high compatibility scores to identify strategic networking opportunities.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-200 text-center">
+                      <Star className="w-6 h-6 mx-auto text-green-600 mb-2" />
+                      <div className="text-2xl font-bold text-green-700">{prepStats?.highQualityMatches || 0}</div>
+                      <div className="text-sm text-green-600">90%+ Matches</div>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 text-center">
+                      <TrendingUp className="w-6 h-6 mx-auto text-blue-600 mb-2" />
+                      <div className="text-2xl font-bold text-blue-700">{prepStats?.mediumQualityMatches || 0}</div>
+                      <div className="text-sm text-blue-600">85%+ Matches</div>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-4">
-                  {suggestedMeetings.slice(0, 3).map((meeting) => (
-                    <div key={meeting.id} className="p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-gray-900">{meeting.title}</h4>
-                        <Badge variant="secondary" className="capitalize">
-                          {meeting.type}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">{meeting.description}</p>
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500">
-                          <Clock className="w-3 h-3 inline mr-1" />
-                          {meeting.suggestedTime}
-                        </div>
-                        <Button size="sm" variant="outline">
-                          Schedule
-                        </Button>
-                      </div>
+                  <Button 
+                    className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                    data-testid="button-review-attendees"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Review High-Quality Matches
+                  </Button>
+                  {(!prepStats?.highQualityMatches || prepStats.highQualityMatches < 5) && (
+                    <div className="text-xs text-gray-500 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <AlertTriangle className="w-4 h-4 inline mr-1" />
+                      Consider improving your profile for better matches. Our AI team can help boost your visibility.
                     </div>
-                  ))}
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Quick Links */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Zap className="w-5 h-5 text-stak-copper mr-2" />
-                  Quick Links
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <Button asChild variant="outline" className="w-full">
-                    <Link href={`/events/live/${event.id}`}>
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Event Details
-                    </Link>
+          {/* Priority 5: Schedule Pre-Event Meetings */}
+          <Card className="border-l-4 border-l-[#CD853F]">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-[#CD853F] text-white flex items-center justify-center font-bold text-sm">5</div>
+                  <Coffee className="h-5 w-5 text-[#CD853F]" />
+                  Schedule Pre-Event Meetings
+                </div>
+                <Badge className="bg-[#CD853F]/10 text-[#CD853F] border border-[#CD853F]/30">
+                  +20 pts
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    Schedule coffee chats or meetings with high-quality matches before the event starts. Maximize your networking ROI.
+                  </p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span>Available high-quality matches:</span>
+                      <span className="font-semibold">{prepStats?.highQualityMatches || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Meetings scheduled:</span>
+                      <span className="font-semibold">0</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <Button 
+                    className="w-full bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                    disabled={!prepStats?.highQualityMatches || prepStats.highQualityMatches === 0}
+                    data-testid="button-schedule-meetings"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Schedule Meetings
                   </Button>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link href="/admin">
-                      <Building className="w-4 h-4 mr-2" />
-                      Event Analytics
-                    </Link>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Feature available with 90%+ matches
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Networking Goal Form Modal */}
+        {showNetworkingGoalForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Set Your Networking Goal</h3>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="primaryGoal">Primary Goal</Label>
+                    <Select value={networkingGoalData.primaryGoal} onValueChange={(value) => 
+                      setNetworkingGoalData(prev => ({ ...prev, primaryGoal: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your main objective" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="funding">Funding</SelectItem>
+                        <SelectItem value="partnerships">Partnerships</SelectItem>
+                        <SelectItem value="hiring">Hiring</SelectItem>
+                        <SelectItem value="learning">Learning</SelectItem>
+                        <SelectItem value="selling">Selling</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="specificObjectives">Specific Objectives (one per line)</Label>
+                    <Textarea 
+                      placeholder="e.g., Series A funding&#10;CTO hire&#10;Partnership with enterprise clients"
+                      value={networkingGoalData.specificObjectives.join('\n')}
+                      onChange={(e) => setNetworkingGoalData(prev => ({ 
+                        ...prev, 
+                        specificObjectives: e.target.value.split('\n').filter(line => line.trim()) 
+                      }))}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="targetRoles">Target Roles (one per line)</Label>
+                    <Textarea 
+                      placeholder="e.g., CEO&#10;CTO&#10;VP Engineering"
+                      value={networkingGoalData.targetRoles.join('\n')}
+                      onChange={(e) => setNetworkingGoalData(prev => ({ 
+                        ...prev, 
+                        targetRoles: e.target.value.split('\n').filter(line => line.trim()) 
+                      }))}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="communicationStyle">Communication Style</Label>
+                    <Select value={networkingGoalData.communicationStyle} onValueChange={(value) => 
+                      setNetworkingGoalData(prev => ({ ...prev, communicationStyle: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="direct">Direct</SelectItem>
+                        <SelectItem value="casual">Casual</SelectItem>
+                        <SelectItem value="formal">Formal</SelectItem>
+                        <SelectItem value="balanced">Balanced</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="aiInstructions">AI Moderation Instructions (Optional)</Label>
+                    <Textarea 
+                      placeholder="Custom instructions for how AI should help moderate your networking experience..."
+                      value={networkingGoalData.aiModerationInstructions}
+                      onChange={(e) => setNetworkingGoalData(prev => ({ 
+                        ...prev, 
+                        aiModerationInstructions: e.target.value 
+                      }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <Button 
+                    onClick={() => createGoalMutation.mutate(networkingGoalData)}
+                    disabled={!networkingGoalData.primaryGoal || createGoalMutation.isPending}
+                    className="bg-[#CD853F] hover:bg-[#CD853F]/80 text-black"
+                    data-testid="button-save-networking-goal"
+                  >
+                    {createGoalMutation.isPending ? 'Saving...' : 'Save Goal'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowNetworkingGoalForm(false)}
+                    data-testid="button-cancel-networking-goal"
+                  >
+                    Cancel
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Speaker Message Modal */}
+        <SpeakerMessageModal
+          isOpen={speakerModalOpen}
+          onClose={() => setSpeakerModalOpen(false)}
+          eventId={eventId!}
+          speakers={eventSpeakers}
+        />
       </div>
-      
-      {/* Speaker Message Modal */}
-      <SpeakerMessageModal 
-        isOpen={speakerModalOpen}
-        onClose={() => setSpeakerModalOpen(false)}
-        eventId={eventData.event.id}
-        speakers={eventSpeakers}
-      />
     </div>
   );
 }
