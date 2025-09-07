@@ -63,31 +63,31 @@ export default function Home() {
   const { user } = useAuth();
 
   // Fetch profile completion
-  const { data: profileCompletion } = useQuery({
+  const { data: profileCompletion } = useQuery<ProfileCompletion>({
     queryKey: ['/api/user/profile-completion'],
     enabled: !!user
   });
 
   // Fetch user's registered events
-  const { data: registeredEvents } = useQuery({
+  const { data: registeredEvents } = useQuery<any[]>({
     queryKey: ['/api/user/registered-events'],
     enabled: !!user
   });
 
   // Fetch event discovery (if no registered events)
-  const { data: discoveryEvents } = useQuery({
+  const { data: discoveryEvents } = useQuery<EventWithStats[]>({
     queryKey: ['/api/events/discovery'],
     enabled: !!user && (!registeredEvents || registeredEvents.length === 0)
   });
 
   // Fetch match suggestions
-  const { data: matchSuggestions } = useQuery({
+  const { data: matchSuggestions } = useQuery<MatchSuggestion[]>({
     queryKey: ['/api/user/match-suggestions'],
     enabled: !!user
   });
 
   // Fetch activity score
-  const { data: activityScore } = useQuery({
+  const { data: activityScore } = useQuery<ActivityScore>({
     queryKey: ['/api/user/activity-score'],
     enabled: !!user
   });
