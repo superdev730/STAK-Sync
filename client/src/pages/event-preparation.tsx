@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Clock, Users, Target, CheckCircle, AlertTriangle, Star, MapPin, Calendar,
   MessageSquare, UserPlus, TrendingUp, Award, Coffee, Handshake, Network,
-  ArrowRight, Plus, Eye, BookOpen, Zap, Heart, Building, Briefcase, Send, Trophy
+  ArrowRight, Plus, Eye, BookOpen, Zap, Heart, Building, Briefcase, Send, Trophy, Mic
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
@@ -449,53 +449,6 @@ export default function EventPreparation() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Pre-Event Planning - MOVED TO TOP */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-stak-copper mr-2" />
-                  Pre-Event Planning Checklist
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Button asChild className="w-full bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
-                      <Link href="/profile">
-                        <Briefcase className="w-4 h-4 mr-2" />
-                        Complete Profile
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
-                      <Link href="/discover">
-                        <Heart className="w-4 h-4 mr-2" />
-                        Review Matches
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
-                      <Link href="/messages">
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Connect with Attendees
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black">
-                      <Link href="/contacts">
-                        <Network className="w-4 h-4 mr-2" />
-                        Review Your Network
-                      </Link>
-                    </Button>
-                  </div>
-                  
-                  <div className="pt-4 border-t border-gray-200">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Event Readiness Progress:</span>
-                      <span className="font-semibold text-stak-copper">{preparationScore}% Complete</span>
-                    </div>
-                    <Progress value={preparationScore} className="h-2 mt-2" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Engagement Boost Tasks */}
             <Card className="border-stak-copper/20">
@@ -516,7 +469,7 @@ export default function EventPreparation() {
                       </div>
                       <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+9 points</Badge>
                     </div>
-                    <p className="text-sm text-gray-600 mb-3">Define what you want to achieve at this event</p>
+                    <p className="text-sm text-gray-600 mb-3">Define your goals to help Sync's AI model suggest relevant attendees, programming, and strategic moves to maximize your event value.</p>
                     {localStorage.getItem(`goals_set_${event.id}`) ? (
                       <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
                         <CheckCircle className="w-4 h-4 mr-2" />
@@ -656,6 +609,37 @@ export default function EventPreparation() {
                       >
                         <Calendar className="w-3 h-3 mr-1" />
                         Schedule Meeting
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Speak to the Speaker */}
+                  <div className="p-4 border rounded-lg hover:border-stak-copper/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <Mic className="w-4 h-4 text-stak-copper mr-2" />
+                        <span className="font-medium text-gray-900">Speak to the Speaker</span>
+                      </div>
+                      <Badge className="bg-stak-copper/10 text-stak-copper border border-stak-copper/30">+5 points</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">Send questions, suggestions, or share what you hope to learn from event speakers</p>
+                    {localStorage.getItem(`speaker_message_${event.id}`) ? (
+                      <div className="flex items-center text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        <span className="text-sm font-medium">Message Sent to Speaker! 🎤</span>
+                      </div>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                        onClick={() => {
+                          localStorage.setItem(`speaker_message_${event.id}`, 'true');
+                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
+                          window.location.reload();
+                        }}
+                      >
+                        <Mic className="w-3 h-3 mr-1" />
+                        Message Speaker
                       </Button>
                     )}
                   </div>
