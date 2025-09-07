@@ -4071,18 +4071,14 @@ END:VCALENDAR`;
   });
 
   // Event missions API endpoint
-  app.get('/api/events/:id/missions', async (req: any, res) => {
+  app.get('/api/events/:id/missions', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const { id: eventId } = req.params;
       
-      // Try to get authenticated user
-      let userId = null;
-      try {
-        if (req.user?.claims?.sub) {
-          userId = req.user.claims.sub;
-        }
-      } catch (error) {
-        console.log('No authenticated user for missions');
+      // Get authenticated user ID using our auth helper
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required to view missions' });
       }
 
       // Get event data
@@ -4101,19 +4097,26 @@ END:VCALENDAR`;
       };
 
       if (userId) {
-        // Get completed missions from the database
-        const missionProgress = await db
-          .select({ missionId: eventMissionProgress.missionId })
+        // Get all mission progress from the database
+        const allMissionProgress = await db
+          .select({ 
+            missionId: eventMissionProgress.missionId,
+            status: eventMissionProgress.status,
+            pointsEarned: eventMissionProgress.pointsEarned
+          })
           .from(eventMissionProgress)
           .where(and(
             eq(eventMissionProgress.eventId, eventId),
-            eq(eventMissionProgress.userId, userId),
-            eq(eventMissionProgress.status, 'completed')
+            eq(eventMissionProgress.userId, userId)
           ));
         
-        // Add all completed missions to the set
-        missionProgress.forEach(mission => {
-          completedMissions.add(mission.missionId);
+        // Add completed missions to the set and track all statuses
+        const missionStatusMap = new Map();
+        allMissionProgress.forEach(mission => {
+          missionStatusMap.set(mission.missionId, mission.status);
+          if (mission.status === 'completed') {
+            completedMissions.add(mission.missionId);
+          }
         });
 
         // Check networking goals
@@ -4161,7 +4164,7 @@ END:VCALENDAR`;
           title: 'Speak to the Speaker',
           description: 'Send your requests, suggestions, or comments to help speakers tailor content.',
           points: 20,
-          status: completedMissions.has('speak_to_speaker') ? 'completed' : 'not_started',
+          status: missionStatusMap.get('speak_to_speaker') || 'not_started',
           cta_label: 'START',
           cta_url: `/events/${eventId}/speakers`,
           category: 'engagement'
@@ -4171,7 +4174,7 @@ END:VCALENDAR`;
           title: 'Set Your Networking Goals',
           description: 'Tell us what you want to achieve; our AI will suggest quality matches in real time.',
           points: 15,
-          status: completedMissions.has('set_networking_goals') ? 'completed' : 'not_started',
+          status: missionStatusMap.get('set_networking_goals') || 'not_started',
           cta_label: 'START',
           cta_url: `/events/${eventId}/goals`,
           category: 'networking'
@@ -4181,7 +4184,7 @@ END:VCALENDAR`;
           title: 'Meet the Attendees',
           description: 'See who\'s going, explore matches, and learn about other members.',
           points: 15,
-          status: 'not_started',
+          status: missionStatusMap.get('meet_attendees') || 'not_started',
           cta_label: 'START',
           cta_url: `/events/${eventId}/attendees`,
           category: 'connections'
@@ -4268,7 +4271,7 @@ END:VCALENDAR`;
       // Response following exact schema specification
       const response = {
         event_id: eventId,
-        member_id: userId || 'guest',
+        member_id: userId,
         missions: missions,
         progress: {
           points_earned: completedPoints,
@@ -4277,6 +4280,12 @@ END:VCALENDAR`;
           missions_total: missions.length
         }
       };
+
+      // Add cache control headers per spec
+      res.set({
+        'Cache-Control': 'no-store, private',
+        'Vary': 'Authorization'
+      });
 
       res.json(response);
     } catch (error) {
