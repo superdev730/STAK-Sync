@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Link } from 'wouter';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface LiveEvent {
   id: string;
@@ -37,6 +38,7 @@ export function LiveEventBanner() {
   const [timeRemaining, setTimeRemaining] = useState<TimeRemaining | null>(null);
   const [isEventStarted, setIsEventStarted] = useState(false);
   const [isEventActive, setIsEventActive] = useState(false);
+  const isMobile = useIsMobile();
 
   // Fetch today's live events
   const { data: liveEvent } = useQuery<LiveEvent>({
@@ -111,6 +113,119 @@ export function LiveEventBanner() {
       window.location.href = `/events/live/${liveEvent.id}`;
     }
   };
+
+  if (isMobile) {
+    return (
+      <div className="w-full bg-gradient-to-r from-black to-gray-900 border-b border-gray-800 shadow-lg">
+        <div className="max-w-7xl mx-auto px-3 py-3">
+          {/* Mobile: Event Title and Image - First Row */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {liveEvent.imageUrl && (
+                <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0">
+                  <img
+                    src={liveEvent.imageUrl}
+                    alt={liveEvent.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Calendar className="h-4 w-4 text-[#CD853F] flex-shrink-0" />
+                <span className="text-white font-semibold text-base truncate">{liveEvent.title}</span>
+              </div>
+            </div>
+            
+            {/* Mobile: Main Action Button */}
+            <Button 
+              onClick={handleJoinEvent}
+              size="sm"
+              className="bg-[#CD853F] text-black hover:bg-[#CD853F]/80 font-semibold px-4 py-2 flex-shrink-0"
+            >
+              {isEventStarted ? 'Join' : 'Enter'}
+            </Button>
+          </div>
+
+          {/* Mobile: Countdown Timer or Live Status - Second Row */}
+          {isEventStarted ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-white font-medium text-sm">Live now</span>
+                {liveEvent.attendeeCount && (
+                  <div className="flex items-center gap-1 text-gray-300">
+                    <Users className="h-3 w-3" />
+                    <span className="text-sm">{liveEvent.attendeeCount}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* AI Matchmaking for Mobile */}
+              {isEventActive && (
+                <Button
+                  onClick={() => startMatchmakingMutation.mutate()}
+                  disabled={startMatchmakingMutation.isPending}
+                  size="sm"
+                  className="bg-gradient-to-r from-[#CD853F] to-[#B8860B] text-black hover:from-[#CD853F]/90 hover:to-[#B8860B]/90 font-semibold px-3 py-2 flex items-center gap-2"
+                >
+                  <Zap className="h-3 w-3" />
+                  AI Match
+                </Button>
+              )}
+            </div>
+          ) : timeRemaining ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-[#CD853F]" />
+                <span className="text-white font-medium text-sm">Starts in:</span>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                {timeRemaining.days > 0 && (
+                  <>
+                    <div className="text-center">
+                      <div className="text-[#CD853F] font-bold text-lg">{timeRemaining.days}</div>
+                      <div className="text-gray-400 text-xs">DAYS</div>
+                    </div>
+                    <div className="text-white">:</div>
+                  </>
+                )}
+                <div className="text-center">
+                  <div className="text-[#CD853F] font-bold text-lg">{timeRemaining.hours.toString().padStart(2, '0')}</div>
+                  <div className="text-gray-400 text-xs">HRS</div>
+                </div>
+                <div className="text-white">:</div>
+                <div className="text-center">
+                  <div className="text-[#CD853F] font-bold text-lg">{timeRemaining.minutes.toString().padStart(2, '0')}</div>
+                  <div className="text-gray-400 text-xs">MIN</div>
+                </div>
+                <div className="text-white">:</div>
+                <div className="text-center">
+                  <div className="text-[#CD853F] font-bold text-lg">{timeRemaining.seconds.toString().padStart(2, '0')}</div>
+                  <div className="text-gray-400 text-xs">SEC</div>
+                </div>
+              </div>
+              
+              {/* Event Prep Button for Mobile */}
+              {!isEventStarted && (
+                <div className="flex justify-center pt-2">
+                  <Button 
+                    asChild
+                    size="sm"
+                    className="bg-[#CD853F]/20 text-[#CD853F] border border-[#CD853F]/30 hover:bg-[#CD853F]/30 font-semibold"
+                  >
+                    <Link href={`/events/live/${liveEvent.id}/preparation`}>
+                      <Target className="w-3 h-3 mr-2" />
+                      Event Prep
+                    </Link>
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-gradient-to-r from-black to-gray-900 border-b border-gray-800 shadow-lg">
