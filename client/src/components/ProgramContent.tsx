@@ -5,7 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarDays, Clock, MapPin, Users, Calendar, User } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { CalendarDays, Clock, MapPin, Users, Calendar, User, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -49,6 +53,9 @@ export default function ProgramContent({ eventId, onMissionUpdate }: ProgramCont
   const queryClient = useQueryClient();
   const [expandedComponent, setExpandedComponent] = useState<string | null>(null);
   const [userGroups, setUserGroups] = useState<Set<string>>(new Set());
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDescription, setNewGroupDescription] = useState('');
 
   // Fetch agenda
   const { data: agendaData, isLoading: agendaLoading } = useQuery({
@@ -63,6 +70,45 @@ export default function ProgramContent({ eventId, onMissionUpdate }: ProgramCont
   // Fetch user's joined groups
   const { data: myGroupsData } = useQuery({
     queryKey: ['/api/events', eventId, 'groups', 'mine'],
+  });
+
+  // Create new group mutation
+  const createGroupMutation = useMutation({
+    mutationFn: async ({ name, description }: { name: string; description: string }) => {
+      return apiRequest('POST', `/api/events/${eventId}/groups`, { name, description });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Sync Group Created!",
+        description: `You've created and joined "${newGroupName}".`,
+      });
+      
+      // Reset form
+      setNewGroupName('');
+      setNewGroupDescription('');
+      setShowCreateGroup(false);
+      
+      // Add to user's groups
+      setUserGroups(prev => new Set(Array.from(prev).concat([(data as any).group.id])));
+      
+      // Refresh groups
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/events', eventId, 'groups'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/events', eventId, 'groups', 'mine'] 
+      });
+
+      // Send telemetry for mission tracking
+      onMissionUpdate?.('join_group', { group_id: (data as any).group.id });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create group. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Join/leave group mutation
@@ -142,6 +188,21 @@ export default function ProgramContent({ eventId, onMissionUpdate }: ProgramCont
 
   const handleGroupAction = (groupId: string, action: 'join' | 'leave') => {
     groupMutation.mutate({ groupId, action });
+  };
+
+  const handleCreateGroup = () => {
+    if (!newGroupName.trim()) {
+      toast({
+        title: "Group Name Required",
+        description: "Please enter a name for your sync group.",
+        variant: "destructive",
+      });
+      return;
+    }
+    createGroupMutation.mutate({ 
+      name: newGroupName.trim(), 
+      description: newGroupDescription.trim() 
+    });
   };
 
   const getComponentIcon = (kind: string) => {
@@ -297,16 +358,79 @@ export default function ProgramContent({ eventId, onMissionUpdate }: ProgramCont
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-4" data-testid="groups-content">
-          <div className="text-sm text-muted-foreground">
-            Join Sync Groups to connect with attendees who share your interests
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Join Sync Groups to connect with attendees who share your interests
+            </div>
+            
+            <Dialog open={showCreateGroup} onOpenChange={setShowCreateGroup}>
+              <DialogTrigger asChild>
+                <Button size="sm" data-testid="button-create-group">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Group
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create a New Sync Group</DialogTitle>
+                  <DialogDescription>
+                    Start a new group to connect with attendees around a specific topic or interest.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="group-name">Group Name</Label>
+                    <Input
+                      id="group-name"
+                      placeholder="e.g., SaaS Startup Founders"
+                      value={newGroupName}
+                      onChange={(e) => setNewGroupName(e.target.value)}
+                      data-testid="input-group-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="group-description">Description (Optional)</Label>
+                    <Textarea
+                      id="group-description"
+                      placeholder="Describe what this group is about..."
+                      value={newGroupDescription}
+                      onChange={(e) => setNewGroupDescription(e.target.value)}
+                      data-testid="textarea-group-description"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowCreateGroup(false)}
+                    data-testid="button-cancel-create"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleCreateGroup}
+                    disabled={createGroupMutation.isPending}
+                    data-testid="button-confirm-create"
+                  >
+                    {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
           
           {groups.length === 0 ? (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-center text-muted-foreground">
-                  No Sync Groups available for this event yet.
-                </p>
+                <div className="text-center">
+                  <p className="text-muted-foreground mb-4">
+                    No Sync Groups available yet. Be the first to create one!
+                  </p>
+                  <Button onClick={() => setShowCreateGroup(true)} data-testid="button-create-first-group">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create First Group
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (

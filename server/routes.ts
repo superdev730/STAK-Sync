@@ -4730,6 +4730,38 @@ END:VCALENDAR`;
         return res.status(404).json({ error: "Event not found" });
       }
 
+      // Ensure default sync groups exist for this event
+      const existingGroupsCount = await db.select({ count: sql<number>`COUNT(*)` })
+        .from(eventRooms)
+        .where(and(
+          eq(eventRooms.eventId, eventId),
+          eq(eventRooms.roomType, 'sync_group')
+        ));
+
+      // Create default groups if none exist
+      if (existingGroupsCount[0].count === 0) {
+        const defaultGroups = [
+          { name: 'Founders & Entrepreneurs', description: 'Connect with startup founders and entrepreneurs building innovative companies', slug: 'founders' },
+          { name: 'FinTech & Financial Services', description: 'Discuss the future of finance, banking, and financial technology', slug: 'fintech' },
+          { name: 'PropTech & Real Estate', description: 'Explore innovations in real estate technology and property markets', slug: 'proptech' },
+          { name: 'AI & Machine Learning', description: 'Share insights on artificial intelligence and machine learning applications', slug: 'ai-ml' },
+          { name: 'Venture Capital & Investment', description: 'Network with VCs, angels, and investment professionals', slug: 'vc-investors' }
+        ];
+
+        for (const group of defaultGroups) {
+          await db.insert(eventRooms).values({
+            eventId: eventId,
+            name: group.name,
+            description: group.description,
+            roomType: 'sync_group',
+            slug: group.slug,
+            maxParticipants: 50,
+            isActive: true,
+            createdBy: null // System-created
+          }).onConflictDoNothing();
+        }
+      }
+
       // Get sync groups with member counts
       const groupsWithCounts = await db.select({
         id: eventRooms.id,
@@ -4739,7 +4771,6 @@ END:VCALENDAR`;
         is_active: eventRooms.isActive,
         planned_start_ts: eventRooms.plannedStartTs,
         planned_end_ts: eventRooms.plannedEndTs,
-        location: eventRooms.location,
         member_count: sql<number>`COALESCE(COUNT(${roomParticipants.id}), 0)`
       })
       .from(eventRooms)
@@ -4748,7 +4779,8 @@ END:VCALENDAR`;
         eq(eventRooms.eventId, eventId),
         eq(eventRooms.roomType, 'sync_group')
       ))
-      .groupBy(eventRooms.id)
+      .groupBy(eventRooms.id, eventRooms.slug, eventRooms.name, eventRooms.description, 
+               eventRooms.isActive, eventRooms.plannedStartTs, eventRooms.plannedEndTs)
       .orderBy(desc(sql`member_count`), eventRooms.name);
 
       res.set('Cache-Control', 'max-age=60');
@@ -4901,6 +4933,82 @@ END:VCALENDAR`;
     } catch (error) {
       console.error("Error fetching user groups:", error);
       res.status(500).json({ error: "Failed to fetch user groups" });
+    }
+  });
+
+  // Create a new sync group
+  app.post('/api/events/:eventId/groups', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { name, description } = req.body;
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      if (!name?.trim()) {
+        return res.status(400).json({ error: "Group name is required" });
+      }
+
+      // Check event exists
+      const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      // Create slug from name
+      const slug = name.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+
+      // Check if slug already exists for this event
+      const [existingGroup] = await db.select().from(eventRooms)
+        .where(and(
+          eq(eventRooms.eventId, eventId),
+          eq(eventRooms.slug, slug),
+          eq(eventRooms.roomType, 'sync_group')
+        ))
+        .limit(1);
+
+      if (existingGroup) {
+        return res.status(400).json({ error: "A group with this name already exists" });
+      }
+
+      // Create the group
+      const [newGroup] = await db.insert(eventRooms).values({
+        eventId: eventId,
+        name: name.trim(),
+        description: description?.trim() || null,
+        roomType: 'sync_group',
+        slug: slug,
+        maxParticipants: 50,
+        isActive: true,
+        createdBy: userId
+      }).returning();
+
+      // Automatically join the creator to the group
+      await db.insert(roomParticipants).values({
+        roomId: newGroup.id,
+        userId: userId
+      });
+
+      res.json({
+        ok: true,
+        group: {
+          id: newGroup.id,
+          slug: newGroup.slug,
+          name: newGroup.name,
+          description: newGroup.description,
+          is_active: newGroup.isActive,
+          member_count: 1
+        }
+      });
+    } catch (error) {
+      console.error("Error creating sync group:", error);
+      res.status(500).json({ error: "Failed to create group" });
     }
   });
 

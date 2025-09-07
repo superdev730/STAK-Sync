@@ -1,0 +1,187 @@
+Goal
+Add a Sponsors module to the Event Creation page so admins can add sponsors (logo, description) and optional “special deal/offer”.
+Offers should automatically create a mission on the Event Prep page. Everything must be persisted and analytics-ready.
+
+===========================
+A) DATA MODEL (migrations)
+===========================
+Create/verify tables (Postgres):
+
+events(id ...)
+
+event_sponsors
+- id uuid pk
+- event_id text not null references events(id) on delete cascade
+- name text not null
+- website text
+- logo_url text  -- CDN URL after upload
+- description text
+- tier text check (tier in ('gold','silver','community','other')) default 'other'
+- is_active boolean default true
+- created_by text
+- created_at timestamptz default now()
+- updated_at timestamptz default now()
+- unique(event_id, lower(name))  -- dedupe by name per event
+
+event_sponsor_offers
+- id uuid pk
+- event_id text not null references events(id) on delete cascade
+- sponsor_id uuid not null references event_sponsors(id) on delete cascade
+- title text not null
+- short_copy text not null            -- shown on cards
+- details text                        -- long form (modal)
+- cta_label text default 'Redeem'
+- cta_url text                        -- can be internal route or external link
+- points int default 15               -- mission points
+- start_ts timestamptz null
+- end_ts   timestamptz null
+- is_active boolean default true
+- requires_checkin boolean default false  -- optional gate at venue
+- created_at timestamptz default now()
+- updated_at timestamptz default now()
+
+Relations used for mission auto-creation:
+- event_sponsor_offers -> generates missions with id pattern: `sponsor_offer_{offer_id}`
+
+Optional (if we use uploads):
+uploads (id, key, mime, size_bytes, created_at)  -- or reuse existing
+
+Indexes:
+- idx_event_sponsors_event_id
+- idx_event_sponsor_offers_event_id
+- idx_event_sponsor_offers_active (event_id, is_active, start_ts, end_ts)
+
+===========================
+B) API CONTRACTS
+===========================
+Admin (RBAC required):
+POST   /api/events/:eventId/sponsors          body: {name, website?, description?, tier?, logo_upload_id?}
+PATCH  /api/events/:eventId/sponsors/:id      body: {name?, website?, description?, tier?, is_active?, logo_upload_id?}
+DELETE /api/events/:eventId/sponsors/:id
+
+POST   /api/events/:eventId/sponsors/:id/offers
+PATCH  /api/events/:eventId/sponsors/:id/offers/:offerId
+DELETE /api/events/:eventId/sponsors/:id/offers/:offerId
+
+Public/read:
+GET    /api/events/:eventId/sponsors
+-> { sponsors: [ {id, name, tier, website, description, logo_url, is_active,
+                  offers: [ {id, title, short_copy, cta_label, cta_url, points,
+                             start_ts, end_ts, is_active, requires_checkin} ] } ] }
+
+Cache: public read endpoints private, max-age=120; purge on admin writes.
+
+Uploads:
+POST /api/uploads (authz)  -> returns {upload_id, cdn_url}
+Validate: mime in (image/png, image/jpeg, image/webp, image/svg+xml); <= 1.5MB.
+
+=================================
+C) ADMIN UI (Event Creation/Edit)
+=================================
+Add a “Sponsors & Offers” section with:
+- Sponsor list + “Add Sponsor” modal:
+  * Fields: Name (required), Website, Tier (select), Description, Logo (upload)
+  * Dedupe on name (case-insensitive) per event; show inline warning if exists.
+- Sponsor row actions: Edit, Deactivate/Activate, Delete.
+- Nested “Offers” table per sponsor:
+  * Add/Edit Offer modal fields:
+    - Title (required)
+    - Short copy (required, ≤140 chars)
+    - Details (multiline, optional)
+    - CTA label (default ‘Redeem’)
+    - CTA URL (required; must be https or internal route)
+    - Points (default 15)
+    - Valid window: start_ts / end_ts (optional)
+    - Requires check-in (toggle)
+  * Offer actions: Edit, Deactivate/Activate, Delete.
+
+Validation:
+- Logo required for sponsor visibility on public pages.
+- If offer end_ts < start_ts -> block save with error.
+- Disallow duplicate active offers with same title under same sponsor.
+
+UX niceties:
+- Auto-generate slug for internal routes if needed (not stored in schema).
+- Preview card for sponsor + offer before saving.
+
+=====================================
+D) EVENT PREP (MISSIONS) INTEGRATION
+=====================================
+Mission auto-generation:
+- Worker or server hook listens on offer create/activate/update and creates/updates a mission in `event_missions`:
+  id: `sponsor_offer_{offer_id}`
+  title: `Redeem: {offer.title}`
+  description: `Visit {sponsor.name} — {offer.short_copy}`
+  points: offer.points
+  category: "sponsors"
+  active window: start_ts/end_ts (if set)
+- On deactivate/delete of offer -> set mission.active=false or remove.
+
+Mission completion logic (PATCH from client):
+- Completing the mission may require:
+  A) clicking CTA and we get a callback/webhook (if internal route), OR
+  B) manual confirm flow in app (“Mark redeemed”) + optional code entry, OR
+  C) on-site QR scan that hits POST /api/events/:eventId/offers/:offerId/redeem
+- Server sets event_member_missions(status='completed', points_earned=offer.points) idempotently.
+- Publish real-time `MISSION_UPDATED`.
+
+Analytics:
+- Track `offer_view`, `offer_click`, `offer_redeem` with {event_id, sponsor_id, offer_id, member_id}.
+
+=====================================
+E) EVENT LISTING + PREP UI CHANGES
+=====================================
+Event Listing page:
+- Add “Sponsors” block:
+  * Show logo wall with tier ordering (gold first).
+  * If a sponsor has an active offer, show a chip “Offer”.
+
+Event Prep page (Mission Board):
+- New section “Sponsor Offers” listing active offers (sorted by tier, then soonest end_ts).
+- Each row: sponsor logo, title, short_copy, points badge, CTA (Redeem).
+- Clicking CTA:
+  * For internal route: navigate and upon success call redeem endpoint.
+  * For external link: open new tab and show a small “Mark redeemed” button (optional).
+
+=====================================
+F) LOGIC & CONSISTENCY
+=====================================
+- When admins edit sponsor or offer, reflect changes in:
+  * /sponsors read endpoint
+  * missions (title/points/description sync)
+  * caches invalidate + WS broadcast:
+    {type:'SPONSORS_UPDATED'} and/or {type:'OFFER_UPDATED', offer_id}
+
+- Ensure mission IDs are stable so member progress survives edits.
+- If an offer expires (end_ts in past), hide mission automatically and mark non-completable.
+
+=====================================
+G) ERROR HANDLING & DUPES
+=====================================
+- Return 409 Conflict on duplicate sponsor name per event.
+- Return 422 on bad URL/mime/size/date window.
+- On upload failure, roll back sponsor create (transaction).
+- If mission creation fails after offer created, retry/log and show admin banner “Mission generation pending retry”.
+
+=====================================
+H) QUESTIONS / IMPOSSIBLE CHECK
+=====================================
+Please review and confirm:
+1) Should a sponsor have multiple active offers at once? (default allow)
+2) Do we need per-offer inventory/limits (redemptions max)? If yes, add `max_redemptions int` and a redemption table.
+3) Do we require on-site QR validation for some offers? If yes, we’ll add QR route + verifier.
+4) Any existing sponsors data model we must migrate from? If so, provide migration plan.
+5) For external CTA URLs, do we need signed redirect tracking?
+6) Any tier-specific styling requirements beyond sort order?
+
+If any part conflicts with existing routes, RBAC, or the missions system, STOP and list the blockers + proposed alternatives before implementing.
+
+=====================================
+I) ACCEPTANCE CRITERIA
+=====================================
+- Admin can create/edit/delete sponsors with logos and add offers with CTA/points/time windows.
+- Offers automatically appear as “Sponsor Offer” missions on Event Prep with correct points & CTA.
+- Member can redeem an offer and see mission completion persist and update progress in real time.
+- Event Listing shows sponsors (logos) and “Offer” chip where applicable.
+- APIs return correct data; caches invalidate; analytics events emit.
+- Duplicate names per event are blocked; bad inputs return clear errors.
