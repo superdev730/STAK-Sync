@@ -274,7 +274,7 @@ export default function EventPreparation() {
     } else {
       setPreparationScore(finalScore);
     }
-  }, [eventData, user, conversations?.length, eventData?.event?.id, eventData?.preliminaryMatches?.length, localStorage.getItem('engagement_interactions')]);
+  }, [eventData?.event?.id, user?.id, conversations?.length, eventData?.preliminaryMatches?.length]);
 
   if (isLoading) {
     return (

@@ -981,6 +981,21 @@ export const eventNotifications = pgTable("event_notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Speaker messages for pre-event engagement
+export const speakerMessages = pgTable("speaker_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  speakerName: varchar("speaker_name").notNull(),
+  sessionTitle: varchar("session_title"),
+  messageType: varchar("message_type").notNull(), // "question", "suggestion", "expectation"
+  messageContent: text("message_content").notNull(),
+  isAnonymous: boolean("is_anonymous").default(false),
+  isIncludedInSummary: boolean("is_included_in_summary").default(true),
+  moderationStatus: varchar("moderation_status").default("approved"), // "pending", "approved", "flagged"
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Event Matchmaking Relations
 export const eventMatchmakingRunsRelations = relations(eventMatchmakingRuns, ({ one, many }) => ({
   event: one(events, {
@@ -1032,6 +1047,11 @@ export const insertPreEventMatchSchema = createInsertSchema(preEventMatches).omi
 });
 
 export const insertEventNotificationSchema = createInsertSchema(eventNotifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSpeakerMessageSchema = createInsertSchema(speakerMessages).omit({
   id: true,
   createdAt: true,
 });
@@ -1156,6 +1176,8 @@ export type PreEventMatch = typeof preEventMatches.$inferSelect;
 export type InsertPreEventMatch = z.infer<typeof insertPreEventMatchSchema>;
 export type EventNotification = typeof eventNotifications.$inferSelect;
 export type InsertEventNotification = z.infer<typeof insertEventNotificationSchema>;
+export type SpeakerMessage = typeof speakerMessages.$inferSelect;
+export type InsertSpeakerMessage = z.infer<typeof insertSpeakerMessageSchema>;
 
 // Badge system for recognition and social proof
 export const badges = pgTable("badges", {
