@@ -7691,5 +7691,122 @@ MEMBER_ID: "${memberId}"`
     }
   });
 
+  // Profile Composer - Merge all data sources into final profile
+  app.post('/api/profile/compose', isAuthenticatedGeneral, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { targetUserId } = req.body;
+      const profileUserId = targetUserId || userId;
+
+      // Import the necessary schema
+      const { profileFacts, crowdsourcedFacts, users } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq, and } = await import('drizzle-orm');
+
+      // Fetch all data sources
+      const [user, verifiedFacts, crowdsourcedIntel] = await Promise.all([
+        // User self-provided data
+        db.select().from(users).where(eq(users.id, profileUserId)).then(rows => rows[0]),
+        
+        // AI-enriched facts from web sources
+        db.select().from(profileFacts)
+          .where(eq(profileFacts.userId, profileUserId))
+          .orderBy(profileFacts.confidence),
+        
+        // Crowdsourced intel from contacts
+        db.select({
+          factText: crowdsourcedFacts.factText,
+          factType: crowdsourcedFacts.factType,
+          verificationStatus: crowdsourcedFacts.verificationStatus,
+          createdAt: crowdsourcedFacts.createdAt,
+          contributor: {
+            firstName: users.firstName,
+            lastName: users.lastName,
+          }
+        })
+        .from(crowdsourcedFacts)
+        .innerJoin(users, eq(crowdsourcedFacts.contributorUserId, users.id))
+        .where(and(
+          eq(crowdsourcedFacts.subjectUserId, profileUserId),
+          eq(crowdsourcedFacts.visibility, 'visible')
+        ))
+      ]);
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY!,
+      });
+
+      const composerPrompt = `You are the profile composer. Merge:
+- user self-provided data
+- goals extracted
+- AI-enriched facts from web
+- crowdsourced intel from close contacts
+
+Rules:
+- Prioritize verifiable facts first, then crowdsourced, then self-descriptions.
+- Show citations where available.
+- Output a concise profile card: role, company, 3 projects, 3 goals, 3 strengths (including crowdsourced).
+- No fluff, no generic adjectives.
+
+Expected JSON format:
+{
+  "role": "",
+  "company": "",
+  "projects": [
+    {"title": "", "description": "", "source": "verified|crowdsourced|self", "citation": ""}
+  ],
+  "goals": [
+    {"goal": "", "source": "extracted|self"}
+  ],
+  "strengths": [
+    {"strength": "", "source": "crowdsourced|verified|self", "attribution": ""}
+  ]
+}`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: 'system', content: composerPrompt },
+          { 
+            role: 'user', 
+            content: `USER SELF-PROVIDED DATA:
+Role: ${user.title || 'Not specified'}
+Company: ${user.company || 'Not specified'}
+Bio: ${user.bio || 'None'}
+Skills: ${user.skills?.join(', ') || 'None'}
+Industries: ${user.industries?.join(', ') || 'None'}
+Networking Goal: ${user.networkingGoal || 'None'}
+
+VERIFIED FACTS FROM WEB:
+${verifiedFacts.map(fact => `- ${fact.title}: ${fact.description} (Confidence: ${fact.confidence}, Sources: ${JSON.stringify(fact.sourceUrls)})`).join('\n') || 'None'}
+
+CROWDSOURCED INTEL:
+${crowdsourcedIntel.map(intel => `- ${intel.factText} (Type: ${intel.factType}, From: ${intel.contributor.firstName} ${intel.contributor.lastName})`).join('\n') || 'None'}
+
+Compose a concise, fact-first profile card.`
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+        max_tokens: 1000
+      });
+
+      const composedProfile = JSON.parse(response.choices[0].message.content || '{}');
+      
+      res.json(composedProfile);
+    } catch (error) {
+      console.error('Profile composer error:', error);
+      res.status(500).json({ error: 'Failed to compose profile' });
+    }
+  });
+
   return httpServer;
 }
