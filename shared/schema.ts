@@ -996,6 +996,88 @@ export const speakerMessages = pgTable("speaker_messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Admin supplemental notes for profile enhancement
+export const adminSupplementalNotes = pgTable("admin_supplemental_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subjectUserId: varchar("subject_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  adminUserId: varchar("admin_user_id").notNull().references(() => users.id),
+  fieldType: varchar("field_type").notNull(), // "bio", "experience", "skills", "achievements", "networking_goal"
+  supplementalContent: text("supplemental_content").notNull(),
+  isActive: boolean("is_active").default(true),
+  confidenceBoost: integer("confidence_boost").default(10), // 1-20 points to boost AI confidence
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  subjectIndex: index("admin_notes_subject_idx").on(table.subjectUserId),
+  adminIndex: index("admin_notes_admin_idx").on(table.adminUserId),
+}));
+
+// Event networking goals for AI moderation
+export const eventNetworkingGoals = pgTable("event_networking_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  primaryGoal: varchar("primary_goal").notNull(), // "funding", "partnerships", "hiring", "learning", "selling"
+  specificObjectives: text("specific_objectives").array(), // ["Series A funding", "CTO hire"]
+  targetCompanyTypes: text("target_company_types").array(), // ["startups", "enterprises"]
+  targetRoles: text("target_roles").array(), // ["CEO", "CTO", "VP Engineering"]
+  targetIndustries: text("target_industries").array(), // ["AI/ML", "Fintech"]
+  avoidancePreferences: text("avoidance_preferences").array(), // What to avoid
+  communicationStyle: varchar("communication_style").default("balanced"), // "direct", "casual", "formal", "balanced"
+  meetingPreference: varchar("meeting_preference").default("mixed"), // "one_on_one", "group", "mixed"
+  aiModerationInstructions: text("ai_moderation_instructions"), // Custom instructions for AI
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  eventUserIndex: unique().on(table.eventId, table.userId),
+}));
+
+// Connection requests tracking
+export const connectionRequests = pgTable("connection_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromUserId: varchar("from_user_id").notNull().references(() => users.id),
+  toUserId: varchar("to_user_id").notNull().references(() => users.id),
+  eventId: varchar("event_id").references(() => events.id), // null for general connections
+  matchScore: decimal("match_score", { precision: 5, scale: 2 }),
+  status: varchar("status").default("pending"), // "pending", "accepted", "declined", "expired"
+  message: text("message"), // Optional personal message
+  aiRecommendationReason: text("ai_recommendation_reason"), // Why AI suggested this
+  responseMessage: text("response_message"), // Response from recipient
+  expiresAt: timestamp("expires_at"), // Auto-expire after X days
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  fromUserIndex: index("connection_requests_from_idx").on(table.fromUserId),
+  toUserIndex: index("connection_requests_to_idx").on(table.toUserId),
+  eventIndex: index("connection_requests_event_idx").on(table.eventId),
+  uniqueRequest: unique().on(table.fromUserId, table.toUserId, table.eventId),
+}));
+
+// Attendee watchlist for admin monitoring
+export const attendeeWatchlist = pgTable("attendee_watchlist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  eventId: varchar("event_id").references(() => events.id), // null for general watchlist
+  addedByAdminId: varchar("added_by_admin_id").notNull().references(() => users.id),
+  watchReason: varchar("watch_reason").notNull(), // "low_profile_score", "few_connections", "no_matches", "manual_review"
+  profileScore: integer("profile_score"), // Current score when added
+  connectionCount: integer("connection_count").default(0),
+  matchCount: integer("match_count").default(0),
+  priority: varchar("priority").default("medium"), // "low", "medium", "high", "urgent"
+  adminNotes: text("admin_notes"),
+  status: varchar("status").default("active"), // "active", "resolved", "escalated"
+  resolvedAt: timestamp("resolved_at"),
+  resolvedByAdminId: varchar("resolved_by_admin_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIndex: index("watchlist_user_idx").on(table.userId),
+  eventIndex: index("watchlist_event_idx").on(table.eventId),
+  statusIndex: index("watchlist_status_idx").on(table.status),
+  priorityIndex: index("watchlist_priority_idx").on(table.priority),
+}));
+
 // Event Matchmaking Relations
 export const eventMatchmakingRunsRelations = relations(eventMatchmakingRuns, ({ one, many }) => ({
   event: one(events, {
@@ -1054,6 +1136,29 @@ export const insertEventNotificationSchema = createInsertSchema(eventNotificatio
 export const insertSpeakerMessageSchema = createInsertSchema(speakerMessages).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertAdminSupplementalNoteSchema = createInsertSchema(adminSupplementalNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEventNetworkingGoalSchema = createInsertSchema(eventNetworkingGoals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertConnectionRequestSchema = createInsertSchema(connectionRequests).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAttendeeWatchlistSchema = createInsertSchema(attendeeWatchlist).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Billing insert schemas
@@ -1178,6 +1283,14 @@ export type EventNotification = typeof eventNotifications.$inferSelect;
 export type InsertEventNotification = z.infer<typeof insertEventNotificationSchema>;
 export type SpeakerMessage = typeof speakerMessages.$inferSelect;
 export type InsertSpeakerMessage = z.infer<typeof insertSpeakerMessageSchema>;
+export type AdminSupplementalNote = typeof adminSupplementalNotes.$inferSelect;
+export type InsertAdminSupplementalNote = z.infer<typeof insertAdminSupplementalNoteSchema>;
+export type EventNetworkingGoal = typeof eventNetworkingGoals.$inferSelect;
+export type InsertEventNetworkingGoal = z.infer<typeof insertEventNetworkingGoalSchema>;
+export type ConnectionRequest = typeof connectionRequests.$inferSelect;
+export type InsertConnectionRequest = z.infer<typeof insertConnectionRequestSchema>;
+export type AttendeeWatchlist = typeof attendeeWatchlist.$inferSelect;
+export type InsertAttendeeWatchlist = z.infer<typeof insertAttendeeWatchlistSchema>;
 
 // Badge system for recognition and social proof
 export const badges = pgTable("badges", {
