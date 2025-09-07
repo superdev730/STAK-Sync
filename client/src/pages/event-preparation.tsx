@@ -21,6 +21,17 @@ import { SpeakerMessageModal } from '@/components/SpeakerMessageModal';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
+interface EventData {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  description: string;
+  isVirtual: boolean;
+  attendeeCount: number;
+}
+
 interface EventPrepStats {
   speakerMessages: number;
   hasNetworkingGoal: boolean;
@@ -63,10 +74,10 @@ export default function EventPreparation() {
   const [showNetworkingGoalForm, setShowNetworkingGoalForm] = useState(false);
   const [networkingGoalData, setNetworkingGoalData] = useState({
     primaryGoal: '',
-    specificObjectives: [],
-    targetCompanyTypes: [],
-    targetRoles: [],
-    targetIndustries: [],
+    specificObjectives: [] as string[],
+    targetCompanyTypes: [] as string[],
+    targetRoles: [] as string[],
+    targetIndustries: [] as string[],
     communicationStyle: 'balanced',
     meetingPreference: 'mixed',
     aiModerationInstructions: ''
@@ -92,7 +103,7 @@ export default function EventPreparation() {
   ];
 
   // Get event data
-  const { data: eventData, isLoading: eventLoading } = useQuery({
+  const { data: eventData, isLoading: eventLoading } = useQuery<EventData>({
     queryKey: [`/api/events/${eventId}`],
     enabled: !!eventId,
   });
@@ -212,55 +223,63 @@ export default function EventPreparation() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Header with Event Info and Sync Score */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Event Header */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-[#CD853F]" />
-                Event Preparation
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <h2 className="text-xl font-bold mb-2">{eventData.title}</h2>
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  {new Date(eventData.startDate).toLocaleDateString()} at {new Date(eventData.startDate).toLocaleTimeString()}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  {eventData.attendeeCount || 0} attendees
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Sync Score Dashboard */}
-          <Card className="border-[#CD853F]/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-[#CD853F]" />
-                Your Sync Score
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between mb-4">
+        {/* Combined Header with Event Info and Sync Score */}
+        <Card className="mb-8">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              {/* Event Info - Compact */}
+              <div className="flex items-center gap-4">
+                <Calendar className="h-5 w-5 text-[#CD853F] flex-shrink-0" />
                 <div>
-                  <div className="text-3xl font-bold text-[#CD853F]">{prepScore}%</div>
-                  <div className="text-sm text-gray-600">Event Preparation Progress</div>
-                </div>
-                <div className="w-24">
-                  <Progress value={prepScore} className="h-3" />
+                  <h1 className="text-lg font-semibold text-gray-900">Event Preparation</h1>
+                  <div className="text-sm text-gray-600 flex items-center gap-4">
+                    <span>{eventData?.title || 'Loading...'}</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {eventData?.startDate ? new Date(eventData.startDate).toLocaleDateString() : 'TBD'}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {eventData?.attendeeCount || 0} attendees
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="text-xs text-gray-500">
-                Complete priority actions to boost your score and networking success
+
+              {/* Event Sync Score - Color Coded */}
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <div className="text-sm text-gray-600 mb-1">Event Sync Score</div>
+                  <div className={`text-2xl font-bold ${
+                    prepScore >= 80 ? 'text-green-600' :
+                    prepScore >= 60 ? 'text-yellow-600' :
+                    prepScore >= 40 ? 'text-orange-600' :
+                    'text-red-600'
+                  }`}>
+                    {prepScore}%
+                  </div>
+                </div>
+                <div className="w-20">
+                  <Progress 
+                    value={prepScore} 
+                    className={`h-3 ${
+                      prepScore >= 80 ? '[&>div]:bg-green-600' :
+                      prepScore >= 60 ? '[&>div]:bg-yellow-600' :
+                      prepScore >= 40 ? '[&>div]:bg-orange-600' :
+                      '[&>div]:bg-red-600'
+                    }`}
+                  />
+                </div>
+                <Trophy className={`h-5 w-5 ${
+                  prepScore >= 80 ? 'text-green-600' :
+                  prepScore >= 60 ? 'text-yellow-600' :
+                  prepScore >= 40 ? 'text-orange-600' :
+                  'text-red-600'
+                }`} />
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Priority Actions Grid */}
         <div className="space-y-6">
@@ -338,11 +357,11 @@ export default function EventPreparation() {
                       <CheckCircle className="w-4 h-4" />
                       <span className="text-sm font-medium">Networking goal set! AI is optimized for your objectives.</span>
                     </div>
-                    {existingGoal && (
+                    {existingGoal && typeof existingGoal === 'object' && (
                       <div className="space-y-2 text-sm">
-                        <div><strong>Primary Goal:</strong> {existingGoal.primaryGoal}</div>
-                        {existingGoal.specificObjectives?.length > 0 && (
-                          <div><strong>Objectives:</strong> {existingGoal.specificObjectives.join(', ')}</div>
+                        <div><strong>Primary Goal:</strong> {(existingGoal as any).primaryGoal || 'Not specified'}</div>
+                        {(existingGoal as any).specificObjectives?.length > 0 && (
+                          <div><strong>Objectives:</strong> {(existingGoal as any).specificObjectives.join(', ')}</div>
                         )}
                       </div>
                     )}
