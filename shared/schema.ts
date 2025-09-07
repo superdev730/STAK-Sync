@@ -1034,6 +1034,49 @@ export const eventMissionProgress = pgTable("event_mission_progress", {
   uniqueUserEventMission: unique().on(table.eventId, table.userId, table.missionId),
 }));
 
+// AI Matchmaking Feature Store
+export const memberEventFeatures = pgTable("member_event_features", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  memberId: varchar("member_id").notNull().references(() => users.id),
+  goals: jsonb("goals").$type<Record<string, any>>(),
+  interests: text("interests").array(),
+  industries: text("industries").array(),
+  engagement: jsonb("engagement").$type<{
+    missions_completed: string[];
+    sessions: number;
+    speaker_msgs: number;
+    sponsors: number;
+  }>(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueMemberEvent: unique().on(table.eventId, table.memberId),
+}));
+
+// Speaker Feedback System
+export const speakerFeedback = pgTable("speaker_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  speakerId: varchar("speaker_id"),
+  memberId: varchar("member_id").notNull().references(() => users.id),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const speakerBriefs = pgTable("speaker_briefs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  speakerId: varchar("speaker_id").notNull(),
+  brief: jsonb("brief").$type<{
+    audience_themes: Array<{theme: string; count: number; verbatim_examples: string[]}>;
+    top_questions: Array<{question: string; count: number}>;
+    suggested_adjustments: string[];
+    notable_profiles_to_acknowledge: Array<{name: string; reason: string}>;
+    tone_and_format_tips: string[];
+  }>(),
+  generatedAt: timestamp("generated_at").defaultNow(),
+});
+
 // Event networking goals for AI moderation
 export const eventNetworkingGoals = pgTable("event_networking_goals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

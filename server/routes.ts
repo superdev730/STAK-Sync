@@ -41,6 +41,9 @@ import {
   adminSupplementalNotes,
   attendeeWatchlist,
   eventMissionProgress,
+  memberEventFeatures,
+  speakerFeedback,
+  speakerBriefs,
   tokenUsage,
   billingAccounts,
   invoices,
@@ -4070,6 +4073,96 @@ END:VCALENDAR`;
     }
   });
 
+  // Speaker feedback submission endpoint (Part C)
+  app.post('/api/events/:eventId/speakers/:speakerId/feedback', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId, speakerId } = req.params;
+      const { text } = req.body;
+      
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!text || text.trim().length === 0) {
+        return res.status(400).json({ error: 'Feedback text is required' });
+      }
+
+      // Store feedback in database
+      await db.insert(speakerFeedback).values({
+        eventId,
+        speakerId,
+        memberId: userId,
+        text: text.trim()
+      });
+
+      // Mark speak_to_speaker mission as completed if not already
+      try {
+        await db.insert(eventMissionProgress).values({
+          eventId,
+          userId,
+          missionId: 'speak_to_speaker',
+          status: 'completed',
+          pointsEarned: 20,
+          submissionData: { speakerMessage: text.trim() },
+          completedAt: new Date(),
+          updatedAt: new Date()
+        }).onConflictDoUpdate({
+          target: [eventMissionProgress.eventId, eventMissionProgress.userId, eventMissionProgress.missionId],
+          set: {
+            status: 'completed',
+            pointsEarned: 20,
+            submissionData: { speakerMessage: text.trim() },
+            completedAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+
+        // Trigger brief generation (would be async in production)
+        generateSpeakerBrief(eventId, speakerId);
+        
+      } catch (missionError) {
+        console.error('Failed to update mission progress:', missionError);
+      }
+
+      res.status(201).json({ 
+        ok: true, 
+        mission_completed: true,
+        message: 'Feedback submitted successfully' 
+      });
+
+    } catch (error) {
+      console.error('Error submitting speaker feedback:', error);
+      res.status(500).json({ error: 'Failed to submit feedback' });
+    }
+  });
+
+  // Get speaker brief endpoint
+  app.get('/api/events/:eventId/speakers/:speakerId/brief', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId, speakerId } = req.params;
+      
+      const [brief] = await db
+        .select()
+        .from(speakerBriefs)
+        .where(and(
+          eq(speakerBriefs.eventId, eventId),
+          eq(speakerBriefs.speakerId, speakerId)
+        ))
+        .orderBy(desc(speakerBriefs.generatedAt))
+        .limit(1);
+
+      if (!brief) {
+        return res.status(404).json({ error: 'No brief found for this speaker' });
+      }
+
+      res.json(brief.brief);
+    } catch (error) {
+      console.error('Error fetching speaker brief:', error);
+      res.status(500).json({ error: 'Failed to fetch speaker brief' });
+    }
+  });
+
   // Event missions API endpoint
   app.get('/api/events/:id/missions', isAuthenticatedGeneral, async (req: any, res) => {
     try {
@@ -4296,6 +4389,9 @@ END:VCALENDAR`;
 
   // Update mission status with proper data storage
   app.patch('/api/events/:id/missions/:missionId', isAuthenticatedGeneral, async (req: any, res) => {
+    const txId = `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = Date.now();
+    
     try {
       const { id: eventId, missionId } = req.params;
       const { status, submissionData } = req.body;
@@ -4303,13 +4399,53 @@ END:VCALENDAR`;
       // Get authenticated user ID
       const userId = getUserId(req);
       if (!userId) {
+        console.error('Mission update failed - no authentication', { 
+          event_id: eventId, 
+          mission_id: missionId, 
+          tx_id: txId,
+          error: 'no_auth'
+        });
         return res.status(401).json({ message: 'Authentication required to update missions' });
       }
 
       // Validate status
       if (!['not_started', 'in_progress', 'completed'].includes(status)) {
+        console.error('Mission update failed - invalid status', { 
+          event_id: eventId, 
+          member_id: userId, 
+          mission_id: missionId, 
+          invalid_status: status,
+          tx_id: txId 
+        });
         return res.status(400).json({ message: 'Invalid status' });
       }
+
+      // Get prior status for logging
+      let priorStatus = 'not_started';
+      try {
+        const existing = await db.select({ status: eventMissionProgress.status })
+          .from(eventMissionProgress)
+          .where(and(
+            eq(eventMissionProgress.eventId, eventId),
+            eq(eventMissionProgress.userId, userId),
+            eq(eventMissionProgress.missionId, missionId)
+          ))
+          .limit(1);
+        priorStatus = existing[0]?.status || 'not_started';
+      } catch (err) {
+        console.warn('Failed to get prior mission status', { tx_id: txId, error: err });
+      }
+
+      // Structured logging for mission update
+      console.log('Mission update initiated', {
+        event_id: eventId,
+        member_id: userId, 
+        mission_id: missionId,
+        prior_status: priorStatus,
+        new_status: status,
+        tx_id: txId,
+        has_submission_data: !!submissionData
+      });
 
       // For now, we'll store mission progress in a simple way
       // In production, you'd want a proper missions_progress table
@@ -4400,9 +4536,55 @@ END:VCALENDAR`;
             updatedAt: new Date()
           }
         });
-        console.log(`Mission progress saved for user ${userId}, mission ${missionId}`);
+        
+        console.log('Mission progress saved successfully', {
+          event_id: eventId,
+          member_id: userId,
+          mission_id: missionId,
+          prior_status: priorStatus,
+          new_status: status,
+          points_awarded: pointsAwarded,
+          tx_id: txId,
+          duration_ms: Date.now() - startTime
+        });
+
+        // Emit metrics (would be sent to monitoring system)
+        if (status === 'completed') {
+          console.log('METRIC mission_complete_total', { 
+            mission_id: missionId, 
+            event_id: eventId,
+            increment: 1 
+          });
+
+          // Trigger AI matchmaking update for completed missions
+          try {
+            await updateMemberFeatures(eventId, userId, missionId, submissionData);
+            console.log('AI matchmaking features updated', {
+              event_id: eventId,
+              member_id: userId,
+              mission_id: missionId,
+              tx_id: txId
+            });
+          } catch (matchError) {
+            console.error('Failed to update AI matchmaking features', {
+              event_id: eventId,
+              member_id: userId,
+              mission_id: missionId,
+              tx_id: txId,
+              error: matchError
+            });
+          }
+        }
+        
       } catch (dbError) {
-        console.error('Failed to save mission progress:', dbError);
+        console.error('Failed to save mission progress', {
+          event_id: eventId,
+          member_id: userId,
+          mission_id: missionId,
+          tx_id: txId,
+          error: dbError,
+          duration_ms: Date.now() - startTime
+        });
         // Don't fail the request for database storage issues
       }
 
@@ -4438,6 +4620,14 @@ END:VCALENDAR`;
         message // Legacy support
       };
 
+      // Emit progress metrics
+      console.log('METRIC mission_points', { 
+        member_id: userId, 
+        event_id: eventId,
+        points_total: totalPointsEarned,
+        missions_completed: completedCount 
+      });
+
       // TODO: Add WebSocket real-time update
       // wsServer.broadcast(`events:${eventId}:members:${userId}`, {
       //   type: "MISSION_UPDATED", 
@@ -4447,10 +4637,28 @@ END:VCALENDAR`;
       //   progress: response.progress 
       // });
       
+      console.log('Mission update completed successfully', {
+        event_id: eventId,
+        member_id: userId,
+        mission_id: missionId,
+        final_status: status,
+        points_awarded: pointsAwarded,
+        total_progress: completedCount,
+        tx_id: txId,
+        total_duration_ms: Date.now() - startTime
+      });
+
       res.json(response);
 
     } catch (error) {
-      console.error('Error updating mission status:', error);
+      console.error('Mission update failed with error', {
+        event_id: eventId,
+        member_id: userId,
+        mission_id: missionId,
+        tx_id: txId,
+        error: error instanceof Error ? error.message : String(error),
+        duration_ms: Date.now() - startTime
+      });
       res.status(500).json({ message: 'Failed to update mission status' });
     }
   });
@@ -9434,4 +9642,199 @@ Compose a concise, fact-first profile card.`
   });
 
   return httpServer;
+}
+
+// AI Matchmaking Feature Store - learns from mission completions
+async function updateMemberFeatures(eventId: string, userId: string, missionId: string, submissionData: any) {
+  try {
+    // Get existing member features or create new
+    let memberFeatures = await db
+      .select()
+      .from(memberEventFeatures)
+      .where(and(
+        eq(memberEventFeatures.eventId, eventId),
+        eq(memberEventFeatures.memberId, userId)
+      ))
+      .limit(1);
+
+    let features = memberFeatures[0] || {
+      eventId,
+      memberId: userId,
+      goals: {},
+      interests: [],
+      industries: [],
+      engagement: { missions_completed: [], sessions: 0, speaker_msgs: 0, sponsors: 0 },
+      updatedAt: new Date()
+    };
+
+    // Update engagement based on mission completion
+    const engagement = features.engagement as any || {};
+    const completedMissions = engagement.missions_completed || [];
+    
+    if (!completedMissions.includes(missionId)) {
+      completedMissions.push(missionId);
+    }
+
+    // Extract insights from specific missions
+    if (missionId === 'set_networking_goals' && submissionData?.networkingGoals) {
+      // Parse networking goals to extract interests and industries
+      const goals = submissionData.networkingGoals.toLowerCase();
+      
+      // Simple keyword extraction (would use NLP in production)
+      const industryKeywords = ['fintech', 'proptech', 'healthtech', 'edtech', 'climate', 'ai', 'saas', 'hardware'];
+      const roleKeywords = ['vc', 'investor', 'founder', 'ceo', 'cto', 'engineer', 'designer', 'marketer'];
+      
+      const detectedIndustries = industryKeywords.filter(keyword => goals.includes(keyword));
+      const detectedRoles = roleKeywords.filter(keyword => goals.includes(keyword));
+      
+      features.interests = [...new Set([...features.interests, ...detectedRoles])];
+      features.industries = [...new Set([...features.industries, ...detectedIndustries])];
+      features.goals = { ...features.goals, networking: submissionData.networkingGoals };
+    }
+
+    if (missionId === 'speak_to_speaker' && submissionData?.speakerMessage) {
+      engagement.speaker_msgs = (engagement.speaker_msgs || 0) + 1;
+      
+      // Extract topics from speaker questions
+      const message = submissionData.speakerMessage.toLowerCase();
+      const topicKeywords = ['funding', 'investment', 'growth', 'scaling', 'team', 'product', 'marketing', 'technical'];
+      const detectedTopics = topicKeywords.filter(keyword => message.includes(keyword));
+      
+      features.interests = [...new Set([...features.interests, ...detectedTopics])];
+    }
+
+    features.engagement = {
+      missions_completed: completedMissions,
+      sessions: engagement.sessions || 0,
+      speaker_msgs: engagement.speaker_msgs || 0,
+      sponsors: engagement.sponsors || 0
+    };
+
+    features.updatedAt = new Date();
+
+    // Upsert member features
+    await db
+      .insert(memberEventFeatures)
+      .values(features)
+      .onConflictDoUpdate({
+        target: [memberEventFeatures.eventId, memberEventFeatures.memberId],
+        set: {
+          goals: features.goals,
+          interests: features.interests,
+          industries: features.industries,
+          engagement: features.engagement,
+          updatedAt: new Date()
+        }
+      });
+
+    console.log('Member features updated for AI matching', {
+      event_id: eventId,
+      member_id: userId,
+      mission_id: missionId,
+      interests_count: features.interests.length,
+      industries_count: features.industries.length,
+      missions_completed: completedMissions.length
+    });
+
+  } catch (error) {
+    console.error('Failed to update member features', { eventId, userId, missionId, error });
+    throw error;
+  }
+}
+
+// AI Speaker Brief Generation (Part C)
+async function generateSpeakerBrief(eventId: string, speakerId: string) {
+  try {
+    console.log('Generating speaker brief', { eventId, speakerId });
+    
+    // Get all feedback for this speaker
+    const feedback = await db
+      .select({
+        text: speakerFeedback.text,
+        memberId: speakerFeedback.memberId
+      })
+      .from(speakerFeedback)
+      .where(and(
+        eq(speakerFeedback.eventId, eventId),
+        eq(speakerFeedback.speakerId, speakerId)
+      ));
+
+    if (feedback.length === 0) {
+      console.log('No feedback found for speaker brief generation');
+      return;
+    }
+
+    // Get member details for notable profiles
+    const memberIds = feedback.map(f => f.memberId);
+    const members = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        title: users.title,
+        company: users.company
+      })
+      .from(users)
+      .where(inArray(users.id, memberIds));
+
+    // Use OpenAI to generate the brief
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    const feedbackTexts = feedback.map(f => f.text).join('\n\n');
+    const memberProfiles = members.map(m => `${m.firstName} ${m.lastName} - ${m.title} at ${m.company}`).join('\n');
+
+    const prompt = `You are STAK Sync's pre-game brief writer. Create a concise, practical summary from attendee messages.
+
+ATTENDEE FEEDBACK:
+${feedbackTexts}
+
+MEMBER PROFILES:
+${memberProfiles}
+
+Output JSON only:
+{
+  "audience_themes": [ {"theme":"", "count":0, "verbatim_examples":["",""]} ],
+  "top_questions": [ {"question":"", "count":0} ],
+  "suggested_adjustments": [ "" ],
+  "notable_profiles_to_acknowledge": [ {"name":"","reason":""} ],
+  "tone_and_format_tips": [""]
+}
+
+Rules: Prefer concrete topics, deduplicate similar asks, keep items ≤120 chars each.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      messages: [
+        { role: "system", content: prompt }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3
+    });
+
+    const briefData = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Store the generated brief
+    await db.insert(speakerBriefs).values({
+      eventId,
+      speakerId,
+      brief: briefData
+    }).onConflictDoUpdate({
+      target: [speakerBriefs.eventId, speakerBriefs.speakerId],
+      set: {
+        brief: briefData,
+        generatedAt: new Date()
+      }
+    });
+
+    console.log('Speaker brief generated successfully', {
+      eventId,
+      speakerId,
+      feedbackCount: feedback.length,
+      themesCount: briefData.audience_themes?.length || 0,
+      questionsCount: briefData.top_questions?.length || 0
+    });
+
+  } catch (error) {
+    console.error('Failed to generate speaker brief', { eventId, speakerId, error });
+  }
 }
