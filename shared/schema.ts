@@ -424,18 +424,44 @@ export const eventRegistrations = pgTable("event_registrations", {
   uniqueRegistration: unique().on(table.eventId, table.userId), // Prevent duplicate registrations
 }));
 
-// Event networking rooms
+// Event program components (agenda items)
+export const eventComponents = pgTable("event_components", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id),
+  kind: varchar("kind").notNull(), // keynote, panel, workshop, roundtable, breakout, social, sponsor, other
+  title: varchar("title").notNull(),
+  description: text("description"),
+  startTs: timestamp("start_ts").notNull(),
+  endTs: timestamp("end_ts").notNull(),
+  location: text("location"),
+  speakers: jsonb("speakers").default([]).$type<{speaker_id?: string; name: string; headline?: string}[]>(),
+  tags: text("tags").array().default([]),
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  eventIdIndex: index("event_components_event_id_idx").on(table.eventId),
+  startTsIndex: index("event_components_start_ts_idx").on(table.startTs),
+}));
+
+// Event networking rooms (extended for sync groups)
 export const eventRooms = pgTable("event_rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").notNull().references(() => events.id),
   name: varchar("name").notNull(),
   description: text("description"),
-  roomType: varchar("room_type").notNull(), // breakout, industry-focus, skill-level, open-networking
+  roomType: varchar("room_type").notNull(), // breakout, industry-focus, skill-level, open-networking, sync_group
   maxParticipants: integer("max_participants").default(20),
   tags: text("tags").array(), // room-specific tags
   isActive: boolean("is_active").default(true),
+  // Sync group extensions
+  slug: varchar("slug"), // unique slug for sync groups (e.g., 'proptech', 'fintech')
+  plannedStartTs: timestamp("planned_start_ts"),
+  plannedEndTs: timestamp("planned_end_ts"),
+  createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  eventSlugIndex: unique().on(table.eventId, table.slug), // unique slug per event
+}));
 
 // Event ticket types for pricing tiers
 export const eventTicketTypes = pgTable("event_ticket_types", {
@@ -902,6 +928,11 @@ export const insertEventRoomSchema = createInsertSchema(eventRooms).omit({
   createdAt: true,
 });
 
+export const insertEventComponentSchema = createInsertSchema(eventComponents).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertRoomParticipantSchema = createInsertSchema(roomParticipants).omit({
   id: true,
   joinedAt: true,
@@ -1311,6 +1342,8 @@ export type EventRegistration = typeof eventRegistrations.$inferSelect;
 export type InsertEventRegistration = z.infer<typeof insertEventRegistrationSchema>;
 export type EventRoom = typeof eventRooms.$inferSelect;
 export type InsertEventRoom = z.infer<typeof insertEventRoomSchema>;
+export type EventComponent = typeof eventComponents.$inferSelect;
+export type InsertEventComponent = z.infer<typeof insertEventComponentSchema>;
 
 // Sponsor and partner types
 export const insertSponsorSchema = createInsertSchema(sponsors).omit({
