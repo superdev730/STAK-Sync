@@ -34,9 +34,6 @@ export default function Landing() {
               STAK will curate the relationships you want, need and must have.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild size="lg" className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-semibold px-8 py-4">
-                <a href="/api/login">Sign In with Replit</a>
-              </Button>
               <Button asChild variant="outline" size="lg" className="border-2 border-stak-copper text-stak-copper hover:bg-stak-copper hover:text-stak-black px-8 py-4">
                 <a href="/signup">Create Account</a>
               </Button>
