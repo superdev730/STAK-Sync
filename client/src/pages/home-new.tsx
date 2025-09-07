@@ -124,8 +124,8 @@ export default function Home() {
 
   // Handle conversation data changes
   useEffect(() => {
-    if (conversationData?.messages) {
-      setChatMessages(conversationData.messages);
+    if (conversationData && typeof conversationData === 'object' && 'messages' in conversationData && Array.isArray((conversationData as any).messages)) {
+      setChatMessages((conversationData as any).messages);
     }
   }, [conversationData]);
 

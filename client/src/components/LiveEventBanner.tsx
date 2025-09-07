@@ -116,10 +116,10 @@ export function LiveEventBanner() {
 
   if (isMobile) {
     return (
-      <div className="w-full bg-gradient-to-r from-black to-gray-900 border-b-2 border-stak-copper shadow-2xl" style={{
-        boxShadow: '0 0 20px rgba(205, 133, 63, 0.3), 0 0 40px rgba(205, 133, 63, 0.1), inset 0 1px 0 rgba(205, 133, 63, 0.2)'
+      <div className="w-full bg-gradient-to-r from-black to-gray-900 border-b-2 border-stak-copper shadow-2xl mt-2 mb-4" style={{
+        boxShadow: '0 0 25px rgba(205, 133, 63, 0.4), 0 0 50px rgba(205, 133, 63, 0.2), inset 0 1px 0 rgba(205, 133, 63, 0.3), 0 2px 10px rgba(0, 0, 0, 0.3)'
       }}>
-        <div className="max-w-7xl mx-auto px-3 py-3">
+        <div className="max-w-7xl mx-auto px-3 py-4">
           {/* Mobile: Event Title and Image - First Row */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -230,10 +230,10 @@ export function LiveEventBanner() {
   }
 
   return (
-    <div className="w-full bg-gradient-to-r from-black to-gray-900 border-b-2 border-stak-copper shadow-2xl" style={{
-      boxShadow: '0 0 25px rgba(205, 133, 63, 0.4), 0 0 50px rgba(205, 133, 63, 0.15), inset 0 1px 0 rgba(205, 133, 63, 0.3)'
+    <div className="w-full bg-gradient-to-r from-black to-gray-900 border-b-2 border-stak-copper shadow-2xl mt-2 mb-6" style={{
+      boxShadow: '0 0 30px rgba(205, 133, 63, 0.5), 0 0 60px rgba(205, 133, 63, 0.2), inset 0 1px 0 rgba(205, 133, 63, 0.4), 0 4px 15px rgba(0, 0, 0, 0.4)'
     }}>
-      <div className="max-w-7xl mx-auto px-4 py-3">
+      <div className="max-w-7xl mx-auto px-4 py-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* Event Cover Image */}
