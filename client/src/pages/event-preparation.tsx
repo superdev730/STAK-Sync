@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
+import { SpeakerMessageModal } from '@/components/SpeakerMessageModal';
 import type { Match, User, Message } from '@shared/schema';
 
 interface EventAttendee {
@@ -73,6 +74,31 @@ export default function EventPreparation() {
   const { user } = useAuth();
   const [countdown, setCountdown] = useState<CountdownTime | null>(null);
   const [preparationScore, setPreparationScore] = useState(0);
+  const [speakerModalOpen, setSpeakerModalOpen] = useState(false);
+
+  // Sample speakers for the event
+  const eventSpeakers = [
+    {
+      name: "Dr. Sarah Chen",
+      title: "VP of AI Research",
+      sessionTitle: "AI in Healthcare: Future Innovations"
+    },
+    {
+      name: "Michael Rodriguez",
+      title: "Serial Entrepreneur",
+      sessionTitle: "Building Scalable Startup Teams"
+    },
+    {
+      name: "Lisa Wang",
+      title: "Partner at Sequoia Capital",
+      sessionTitle: "VC Trends for 2025"
+    },
+    {
+      name: "Alex Thompson",
+      title: "CTO at TechCorp",
+      sessionTitle: "Engineering Leadership Best Practices"
+    }
+  ];
 
   // Mock event preparation data since API endpoint doesn't exist yet
   const eventData: EventPreparationData = {
@@ -632,11 +658,8 @@ export default function EventPreparation() {
                       <Button 
                         size="sm" 
                         className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
-                        onClick={() => {
-                          localStorage.setItem(`speaker_message_${event.id}`, 'true');
-                          localStorage.setItem('last_activity_timestamp', new Date().toISOString());
-                          window.location.reload();
-                        }}
+                        onClick={() => setSpeakerModalOpen(true)}
+                        data-testid="button-speak-to-speaker"
                       >
                         <Mic className="w-3 h-3 mr-1" />
                         Message Speaker
@@ -942,6 +965,14 @@ export default function EventPreparation() {
           </div>
         </div>
       </div>
+      
+      {/* Speaker Message Modal */}
+      <SpeakerMessageModal 
+        isOpen={speakerModalOpen}
+        onClose={() => setSpeakerModalOpen(false)}
+        eventId={eventData.event.id}
+        speakers={eventSpeakers}
+      />
     </div>
   );
 }
