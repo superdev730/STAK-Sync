@@ -206,34 +206,70 @@ export default function EventPreparation() {
     return () => clearInterval(interval);
   }, [eventData]);
 
-  // Calculate preparation score
+  // Calculate STAK Sync Score - engagement-focused scoring
   useEffect(() => {
     if (!eventData || !user) return;
 
     let score = 0;
     const maxScore = 100;
 
-    // Profile completeness (30 points)
-    const profileFields = [user.bio, user.title, user.company, user.location, user.profileImageUrl];
-    const filledFields = profileFields.filter(field => field && field.trim().length > 0).length;
-    score += (filledFields / profileFields.length) * 30;
+    // Base profile completeness (15 points max) - realistic for new users
+    const profileFields = [user.bio, user.title, user.company, user.location, user.profileImageUrl, user.networkingGoal];
+    const filledFields = profileFields.filter(field => field && field.trim?.().length > 0).length;
+    score += (filledFields / profileFields.length) * 15;
 
-    // Connection activity (25 points)
-    const totalContacts = eventData.existingContacts.length;
-    const maxContacts = Math.min(eventData.attendees.length * 0.1, 10); // Max 10% of attendees or 10
-    score += Math.min(totalContacts / maxContacts, 1) * 25;
+    // Event-specific actions (20 points) - things users can actually do
+    let eventActions = 0;
+    // Check if user has reviewed attendees (simulated by checking if they've spent time here)
+    if (localStorage.getItem(`reviewed_attendees_${event.id}`)) eventActions += 5;
+    // Check if user has sent connection requests (simulated)
+    const connectionRequests = parseInt(localStorage.getItem(`connection_requests_${event.id}`) || '0');
+    eventActions += Math.min(connectionRequests * 2, 10); // 2 points per request, max 10
+    // Check if user has reviewed program content
+    if (localStorage.getItem(`reviewed_program_${event.id}`)) eventActions += 5;
+    score += eventActions;
 
-    // Match quality (25 points)
-    const highQualityMatches = eventData.preliminaryMatches.filter(m => (m.matchScore || 0) >= 80).length;
-    const maxMatches = Math.min(eventData.preliminaryMatches.length * 0.3, 5); // Top 30% or 5 max
-    score += Math.min(highQualityMatches / Math.max(maxMatches, 1), 1) * 25;
+    // Active networking (25 points) - real user engagement
+    let networkingScore = 0;
+    // Conversation activity (based on actual API data)
+    const activeConversations = conversations?.filter(conv => 
+      (conv.senderId === user.id || conv.receiverId === user.id) && 
+      new Date(conv.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+    )?.length || 0;
+    networkingScore += Math.min(activeConversations * 3, 15); // 3 points per conversation, max 15
+    
+    // Connection activity (based on actual matches)
+    const activeMatches = matches?.filter(m => m.status === 'connected')?.length || 0;
+    networkingScore += Math.min(activeMatches * 2, 10); // 2 points per connection, max 10
+    score += networkingScore;
 
-    // Event engagement readiness (20 points)
-    const recommendedSessions = eventData.programContent.filter(p => p.relevanceScore >= 80).length;
-    score += Math.min(recommendedSessions / Math.max(eventData.programContent.length * 0.5, 1), 1) * 20;
+    // Event preparation tasks (25 points) - actionable items
+    let preparationTasks = 0;
+    if (localStorage.getItem(`meeting_scheduled_${event.id}`)) preparationTasks += 8;
+    if (localStorage.getItem(`outreach_sent_${event.id}`)) preparationTasks += 8;
+    if (localStorage.getItem(`goals_set_${event.id}`)) preparationTasks += 9;
+    score += preparationTasks;
 
-    setPreparationScore(Math.round(score));
-  }, [eventData, user]);
+    // Engagement multiplier (15 points) - recent activity bonus
+    let engagementBonus = 0;
+    const recentActivity = localStorage.getItem('last_activity_timestamp');
+    if (recentActivity && new Date() - new Date(recentActivity) < 24 * 60 * 60 * 1000) {
+      engagementBonus = 15; // Full bonus for daily usage
+    } else if (recentActivity && new Date() - new Date(recentActivity) < 7 * 24 * 60 * 60 * 1000) {
+      engagementBonus = 8; // Partial bonus for weekly usage
+    }
+    score += engagementBonus;
+
+    // Cap score and ensure new users start low
+    const finalScore = Math.min(Math.round(score), maxScore);
+    // New users (less than 20% profile) should start very low to encourage engagement
+    const profileCompleteness = (filledFields / profileFields.length) * 100;
+    if (profileCompleteness < 20 && finalScore > 25) {
+      setPreparationScore(Math.min(finalScore, 25));
+    } else {
+      setPreparationScore(finalScore);
+    }
+  }, [eventData, user, conversations?.length, matches?.length, event.id]);
 
   if (isLoading) {
     return (
@@ -312,20 +348,25 @@ export default function EventPreparation() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Preparation Score */}
-        <Card className="mb-8">
+        {/* STAK Sync Score */}
+        <Card className="mb-8 border-stak-copper/20">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Target className="w-5 h-5 text-stak-copper mr-2" />
-              Event Preparation Score
+              <Trophy className="w-5 h-5 text-stak-copper mr-2" />
+              Your STAK Sync Score
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="text-3xl font-bold text-stak-copper">{preparationScore}%</div>
-                <div className="text-sm text-gray-600">
-                  {preparationScore >= 80 ? 'Excellent preparation!' : preparationScore >= 60 ? 'Good progress' : 'Needs improvement'}
+                <div className="text-sm text-gray-700 font-medium">
+                  {preparationScore >= 80 ? 'Networking Champion! 🏆' : 
+                   preparationScore >= 60 ? 'Great Momentum! ⚡' : 
+                   preparationScore >= 30 ? 'Getting Started 📈' : 'Ready to Sync? 🚀'}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Track your engagement and connections
                 </div>
               </div>
               <div className="w-32">
@@ -333,12 +374,30 @@ export default function EventPreparation() {
               </div>
             </div>
             
-            {preparationScore < 80 && (
-              <div className="flex items-center p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <AlertTriangle className="w-4 h-4 text-yellow-600 mr-2" />
-                <span className="text-sm text-yellow-800">
-                  Complete your profile and review matches to maximize event value
-                </span>
+            {preparationScore < 60 && (
+              <div className="space-y-3">
+                <div className="flex items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <TrendingUp className="w-4 h-4 text-blue-600 mr-2 flex-shrink-0" />
+                  <div className="text-sm text-blue-800">
+                    <strong>Boost your Sync Score:</strong> Connect with attendees, set meetings, and engage actively!
+                  </div>
+                </div>
+                
+                {/* Quick Action Items */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="p-2 bg-gray-50 rounded border text-center">
+                    <div className="text-xs font-medium text-gray-700">Connect</div>
+                    <div className="text-lg font-bold text-stak-copper">+10pts</div>
+                  </div>
+                  <div className="p-2 bg-gray-50 rounded border text-center">
+                    <div className="text-xs font-medium text-gray-700">Schedule</div>
+                    <div className="text-lg font-bold text-stak-copper">+8pts</div>
+                  </div>
+                  <div className="p-2 bg-gray-50 rounded border text-center">
+                    <div className="text-xs font-medium text-gray-700">Engage</div>
+                    <div className="text-lg font-bold text-stak-copper">+15pts</div>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
