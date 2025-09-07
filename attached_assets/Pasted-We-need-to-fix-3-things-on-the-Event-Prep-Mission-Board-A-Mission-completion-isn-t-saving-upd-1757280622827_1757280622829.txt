@@ -1,0 +1,239 @@
+We need to fix 3 things on the Event Prep “Mission Board”:
+
+A) Mission completion isn’t saving/updating in real time
+B) AI matchmaking should learn from user inputs & completions
+C) Speakers should get pre-game notes auto-summarized from attendee feedback
+
+Please do a full pass: diagnose, patch, and add observability. Details below.
+
+==================================================
+A) MISSIONS: WRITE PATH, CACHE, REAL-TIME, OBSERVABILITY
+==================================================
+
+Symptoms:
+- User clicks “Complete” => UI shows completed briefly, then reverts on refresh.
+- Progress bar doesn’t move; points don’t increment.
+- Likely causes: write not persisted, stale cache, wrong cache key (missing member_id), or optimistic UI not reconciled.
+
+1) Confirm API contracts
+- Mutation: PATCH /api/events/:eventId/missions/:missionId
+  Body: { status: "completed" | "in_progress" | "not_started" }
+  Server must:
+    - upsert into event_member_missions (see schema below)
+    - recalc points + progress
+    - publish a real-time update
+    - return the new authoritative mission + progress payload
+
+- Query: GET /api/events/:eventId/missions?member_id=ME
+  Should be **NON-CACHED** per-user (or use Vary: member_id).
+  Return the merged list + progress.
+
+2) DB schema (create/verify)
+-- Missions master (event-wide)
+event_missions (
+  id text primary key,           -- "speak_to_speaker", etc.
+  event_id text not null,
+  title text, description text, points int not null,
+  category text, active boolean default true
+);
+
+-- Per-member state
+event_member_missions (
+  id uuid primary key default gen_random_uuid(),
+  event_id text not null,
+  member_id text not null,
+  mission_id text not null,
+  status text not null check (status in ('not_started','in_progress','completed','locked')),
+  points_earned int not null default 0,
+  updated_at timestamptz not null default now(),
+  unique (event_id, member_id, mission_id)
+);
+
+-- Progress snapshot (optional view/materialized)
+create view event_member_progress as
+select event_id, member_id,
+       sum(points_earned) as points_earned,
+       count(*) filter (where status='completed') as missions_completed
+from event_member_missions
+group by event_id, member_id;
+
+3) Transactional upsert (idempotent)
+- In the PATCH handler: begin transaction
+  - upsert event_member_missions by (event_id, member_id, mission_id)
+  - if status='completed' then points_earned = missions.points else 0 (or keep max)
+  - commit
+- Return:
+  {
+    mission: { id, status, points_earned, updated_at },
+    progress: { points_earned, missions_completed, missions_total }
+  }
+
+4) Cache strategy (bug source!)
+- Disable static caching for member-scoped GET:
+  - Set headers: Cache-Control: no-store  (or very low max-age + private)
+  - If using SWR/RTK: set revalidateOnFocus=true, mutate() after PATCH success.
+- If using Redis:
+  - Key must include event_id + member_id, e.g. cache:eventMissions:${eventId}:${memberId}
+  - On PATCH: write-through DB, then DEL that key (or write new value), then publish real-time update.
+
+5) Real-time updates (so progress bar moves instantly)
+- Add WebSocket or SSE channel: ws:/events/:eventId/members/:memberId
+- On successful PATCH, server publishes:
+  { type: "MISSION_UPDATED", missionId, status, points_earned, progress }
+- Client subscribes on mount; reducer updates UI without full refetch.
+
+6) Optimistic UI with reconciliation
+- When user clicks Complete:
+  - optimistic set mission.status='completed' and add points locally
+  - call PATCH; on success, reconcile with server payload
+  - on failure, roll back and show toast
+
+7) Logging + tracing
+- Add structured logs to PATCH handler with fields:
+  {event_id, member_id, mission_id, prior_status, new_status, tx_id}
+- Emit metrics:
+  - counter mission_complete_total{mission_id}
+  - gauge mission_points{member_id,event_id}
+- Add error alerts for DB conflicts/timeouts.
+
+8) QA / Acceptance tests
+- Complete a mission => DB row exists/updated, GET returns status=completed
+- Cache is invalidated; reload shows completed
+- Multiple quick clicks are idempotent (no duplicate points)
+- Real-time event updates progress bar and header “0/160 → …”
+- Network loss: optimistic UI rolls back properly
+
+==================================================
+B) AI MATCHMAKING: LEARN FROM INPUTS & COMPLETIONS
+==================================================
+
+Goal:
+- Every meaningful user signal should update the matchmaking features:
+  - completed missions, set goals, speaker messages, attendee views, sync sessions, sponsor visits.
+
+1) Feature store (lightweight)
+- Table: member_event_features (
+    event_id text, member_id text,
+    goals jsonb, interests text[], industries text[],
+    engagement: jsonb, -- {missions_completed:[ids], sessions:int, speaker_msgs:int, sponsors:int}
+    updated_at timestamptz
+  )
+- On PATCH mission complete, enqueue a job:
+  queue.enqueue("update_features", {event_id, member_id})
+
+2) Matchmaking job
+- Worker consumes “update_features” and rebuilds a compact vector/profile for the member.
+- Use existing candidate index of members; call OpenAI “SYSTEM_CONNECTION_MATCHER” (we already have this) with updated tags/weights.
+- Store results in member_event_matches (top_k, reasons, overlap_tags, updated_at).
+- Publish real-time “MATCHES_UPDATED” event to client.
+
+3) Acceptance
+- Completing “Set Networking Goals” or “Meet Attendees” improves match suggestions on next refresh or in real time.
+- /api/events/:id/prep reflects new top_matches.
+
+==================================================
+C) PRE-GAME SPEAKER NOTES (AI SUMMARY PIPELINE)
+==================================================
+
+Goal:
+- Aggregate attendee messages/questions per speaker BEFORE the event and produce a concise brief.
+
+1) Data model
+speaker_feedback (
+  id uuid pk, event_id text, speaker_id text,
+  member_id text, text text, created_at timestamptz
+);
+
+speaker_briefs (
+  id uuid pk, event_id text, speaker_id text,
+  brief jsonb,  -- see schema below
+  generated_at timestamptz
+);
+
+2) Ingestion
+- “Speak to the Speaker” mission posts to POST /api/events/:eventId/speakers/:speakerId/feedback
+- Store rows in speaker_feedback and mark the mission “completed”.
+
+3) Batch job (hourly + on-demand)
+- Query latest feedback per speaker.
+- Summarize via OpenAI with this system prompt:
+
+SYSTEM_SPEAKER_BRIEF:
+"You are STAK Sync’s pre-game brief writer. Create a concise, practical summary from attendee messages.
+Output JSON only:
+{
+  'audience_themes': [ {'theme':'', 'count':0, 'verbatim_examples':['','']} ],
+  'top_questions': [ {'question':'', 'count':0} ],
+  'suggested_adjustments': [ ''] ,
+  'notable_profiles_to_acknowledge': [ {'name':'','reason':''} ],
+  'tone_and_format_tips': ['']
+}
+Rules: Prefer concrete topics, deduplicate similar asks, keep items ≤120 chars each."
+
+- Upsert into speaker_briefs.
+- Notify speakers (email/portal) with a link and a 1-page HTML preview.
+
+4) Acceptance
+- After attendees submit questions, a brief is available within minutes.
+- Speakers see themes, top Qs, and suggested adjustments (no fluff).
+
+==================================================
+D) ENDPOINT CHECKLIST & SAMPLE RESPONSES
+==================================================
+
+PATCH /api/events/:eventId/missions/:missionId
+-> 200
+{
+  "mission": { "id":"meet_attendees","status":"completed","points_earned":15,"updated_at":"..." },
+  "progress": { "points_earned": 45, "missions_completed": 3, "missions_total": 10 }
+}
+
+GET /api/events/:eventId/missions?member_id=ME
+-> 200 (no-store)  // ensure per-user cache disabled
+{ ... as per existing missions schema with updated statuses ... }
+
+POST /api/events/:eventId/speakers/:speakerId/feedback
+-> 201 { "ok": true, "mission_completed": true }
+
+GET /api/events/:eventId/speakers/:speakerId/brief
+-> 200 { "audience_themes":[...], "top_questions":[...], "suggested_adjustments":[...], "notable_profiles_to_acknowledge":[...], "tone_and_format_tips":[...] }
+
+==================================================
+E) UI HOOKS
+==================================================
+
+- Mission card “START/COMPLETE”:
+  - optimistic update -> call PATCH -> reconcile -> toast
+- Progress banner subscribes to WebSocket channel; updates on MISSION_UPDATED.
+- Matches panel subscribes to MATCHES_UPDATED; otherwise polls every 60–120s.
+
+==================================================
+F) DEBUGGING STEPS (RUN NOW)
+==================================================
+
+1) Reproduce:
+   - Open DevTools -> Network. Click Complete on a mission.
+   - Confirm PATCH fires; check response body and status.
+   - Refresh -> does GET still show not_started? If yes, server didn’t persist or cache served stale.
+
+2) Server logs:
+   - Add logs around PATCH with payload + upsert result row count.
+   - Inspect for DB errors, constraint violations, or transaction rollbacks.
+
+3) Cache:
+   - If using Next.js route handlers: remove revalidate tags for member-specific route.
+   - If Redis enabled: verify DEL on key `cache:eventMissions:${eventId}:${memberId}` after write.
+
+4) DB:
+   - SELECT * FROM event_member_missions WHERE event_id=$1 AND member_id=$2 ORDER BY updated_at DESC;
+   - Ensure row reflects completion and points_earned.
+
+Fix accordingly, then run e2e for:
+- Single mission complete
+- Multiple missions fast
+- Offline/timeout rollback
+- Real-time progress update
+- Matchmaking updates after goal/mission signals
+- Speaker brief generated after feedback
+
+Ship when all acceptance criteria pass.
