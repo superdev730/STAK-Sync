@@ -17,7 +17,6 @@ import {
   Eye, Heart, Network, Send, Plus, AlertCircle, Bot, Mic, Settings,
   BarChart, UserCheck, Rocket, Wand2, History, X, Maximize2
 } from "lucide-react";
-import { LiveEventBanner } from "@/components/LiveEventBanner";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Match, User, Message } from "@shared/schema";
@@ -224,7 +223,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <LiveEventBanner />
       
       {/* Profile Completion Alert for users who haven't finished */}
       {profileCompleteness < 80 && hasSeenOnboarding && (

@@ -10,7 +10,9 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-soft-white">
       <Header />
-      <LiveEventBanner />
+      <div className="sticky top-0 z-40">
+        <LiveEventBanner />
+      </div>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {children}
       </main>
