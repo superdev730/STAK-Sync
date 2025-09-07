@@ -703,12 +703,64 @@ export default function EventPreparation() {
                           <Badge key={idx} className="text-xs bg-gray-100 text-gray-800 border border-gray-300">{industry}</Badge>
                         ))}
                       </div>
-                      <Button asChild size="sm" className="w-full bg-stak-copper hover:bg-stak-dark-copper text-stak-black">
-                        <Link href={`/messages?userId=${match.id}`}>
-                          <MessageSquare className="w-3 h-3 mr-1" />
-                          Connect
-                        </Link>
-                      </Button>
+                      {!localStorage.getItem(`interacted_${match.id}_${event.id}`) ? (
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black"
+                            onClick={() => {
+                              localStorage.setItem(`interacted_${match.id}_${event.id}`, 'connect');
+                              localStorage.setItem(`connection_requests_${event.id}`, 
+                                (parseInt(localStorage.getItem(`connection_requests_${event.id}`) || '0') + 1).toString()
+                              );
+                              localStorage.setItem('last_activity_timestamp', new Date().toISOString());
+                              window.location.reload();
+                            }}
+                          >
+                            <MessageSquare className="w-3 h-3 mr-1" />
+                            Connect
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white"
+                            onClick={() => {
+                              localStorage.setItem(`interacted_${match.id}_${event.id}`, 'schedule');
+                              localStorage.setItem(`meeting_scheduled_${event.id}`, 'true');
+                              localStorage.setItem('last_activity_timestamp', new Date().toISOString());
+                              window.location.reload();
+                            }}
+                          >
+                            <Calendar className="w-3 h-3 mr-1" />
+                            Schedule
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-gray-600 hover:text-gray-800 border-gray-300"
+                            onClick={() => {
+                              localStorage.setItem(`interacted_${match.id}_${event.id}`, 'pass');
+                              // Award engagement points even for passing
+                              const engagementCount = parseInt(localStorage.getItem('engagement_interactions') || '0') + 1;
+                              localStorage.setItem('engagement_interactions', engagementCount.toString());
+                              localStorage.setItem('last_activity_timestamp', new Date().toISOString());
+                              window.location.reload();
+                            }}
+                          >
+                            Pass
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center p-2 bg-green-50 border border-green-200 rounded text-green-700">
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          <span className="text-sm font-medium">
+                            {localStorage.getItem(`interacted_${match.id}_${event.id}`) === 'connect' ? 'Connected!' :
+                             localStorage.getItem(`interacted_${match.id}_${event.id}`) === 'schedule' ? 'Meeting Scheduled!' :
+                             'Reviewed'} 
+                            {localStorage.getItem(`interacted_${match.id}_${event.id}`) !== 'pass' && ' +5 pts'}
+                            {localStorage.getItem(`interacted_${match.id}_${event.id}`) === 'pass' && ' +2 pts'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
