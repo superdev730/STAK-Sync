@@ -46,16 +46,24 @@ interface Event {
   endDate: string;
   location: string;
   isVirtual: boolean;
-  maxAttendees: number;
-  registrationDeadline: string;
+  capacity: number;  // Database field name
   tags: string[];
   organizerId: string;
-  imageUrl?: string;
-  videoUrl?: string;
+  coverImageUrl?: string;  // Database field name
+  youtubeVideoId?: string;  // Database field name
   socialShareText?: string;
   status: string;
   isFeatured: boolean;
   registrationCount?: number;
+  organizer?: { firstName: string; lastName: string; profileImageUrl?: string };
+  basePrice?: string;
+  currency?: string;
+  isPublic?: boolean;
+  requiresApproval?: boolean;
+  startTime?: string;
+  endTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface AdminEventsResponse {
@@ -172,13 +180,14 @@ export default function AdminEvents() {
       endDate: formData.get('endDate') as string,
       location: formData.get('location') as string,
       isVirtual: formData.get('isVirtual') === 'true',
-      maxAttendees: parseInt(formData.get('maxAttendees') as string),
-      registrationDeadline: formData.get('registrationDeadline') as string,
-      imageUrl: formData.get('imageUrl') as string,
-      videoUrl: formData.get('videoUrl') as string,
+      capacity: parseInt(formData.get('capacity') as string) || 100,
+      coverImageUrl: formData.get('coverImageUrl') as string,
+      youtubeVideoId: formData.get('youtubeVideoId') as string,
       socialShareText: formData.get('socialShareText') as string,
       tags: (formData.get('tags') as string)?.split(',').map(tag => tag.trim()).filter(Boolean) || [],
       isFeatured: formData.get('isFeatured') === 'true',
+      isPublic: true,
+      status: 'published',
     };
 
     createEventMutation.mutate(eventData);
@@ -527,10 +536,10 @@ export default function AdminEvents() {
             <Card key={event.id} className="luxury-card">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-6">
-                  {event.imageUrl && (
+                  {event.coverImageUrl && (
                     <div className="w-32 h-24 rounded-lg overflow-hidden">
                       <img 
-                        src={event.imageUrl} 
+                        src={event.coverImageUrl} 
                         alt={event.title}
                         className="w-full h-full object-cover"
                       />
@@ -599,7 +608,7 @@ export default function AdminEvents() {
                       </div>
                       <div className="flex items-center text-gray-600">
                         <Users className="w-4 h-4 mr-2" />
-                        {event.registrationCount || 0}/{event.maxAttendees || 'Unlimited'}
+                        {event.registrationCount || 0}/{event.capacity || 'Unlimited'}
                       </div>
                     </div>
                     
