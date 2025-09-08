@@ -3438,9 +3438,6 @@ END:VCALENDAR`;
   // Admin event management routes with comprehensive filtering
   app.get('/api/admin/events', isAuthenticatedGeneral, isAdmin, async (req, res) => {
     try {
-      console.log('🔍 ADMIN API DEBUG: /api/admin/events called');
-      console.log('🔍 ADMIN API DEBUG: Query params:', req.query);
-      
       const { 
         status, 
         time_scope = 'all', 
@@ -3466,12 +3463,8 @@ END:VCALENDAR`;
         timeFilter = time_scope;
       }
 
-      console.log('🔍 ADMIN API DEBUG: Status filter:', statusFilter);
-      console.log('🔍 ADMIN API DEBUG: Time filter:', timeFilter);
-
       // Get all events for admin - no restrictive filtering by default
       const allEvents = await storage.getEvents();
-      console.log(`🔍 ADMIN API DEBUG: Got ${allEvents.length} events from storage`);
       
       let filteredEvents = allEvents;
 

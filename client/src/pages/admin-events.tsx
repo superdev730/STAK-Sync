@@ -99,11 +99,7 @@ export default function AdminEvents() {
   const { data: adminEventsData, isLoading } = useQuery<AdminEventsResponse>({
     queryKey: ["/api/admin/events", { statusFilter, timeScope, searchQuery, page }],
     queryFn: async () => {
-      const response = await fetch(`/api/admin/events?${queryParams}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return response.json();
+      return apiRequest(`/api/admin/events?${queryParams}`);
     },
     staleTime: 0, // Always fresh for admin data
   });

@@ -470,8 +470,6 @@ export class DatabaseStorage implements IStorage {
 
   // Event operations
   async getEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]> {
-    console.log('🔍 STORAGE DEBUG: getEvents() called');
-    
     const result = await db
       .select({
         event: events,
@@ -484,19 +482,11 @@ export class DatabaseStorage implements IStorage {
       .groupBy(events.id, users.id)
       .orderBy(desc(events.createdAt));
     
-    console.log(`🔍 STORAGE DEBUG: Raw query returned ${result.length} rows`);
-    console.log('🔍 STORAGE DEBUG: First row sample:', result[0]);
-    
-    const mapped = result.map(row => ({
+    return result.map(row => ({
       ...row.event,
       organizer: row.organizer as User,
       registrationCount: Number(row.registrationCount) || 0,
     }));
-    
-    console.log(`🔍 STORAGE DEBUG: Mapped to ${mapped.length} events`);
-    console.log('🔍 STORAGE DEBUG: First mapped event:', mapped[0]);
-    
-    return mapped;
   }
 
   async getEvent(eventId: string): Promise<(Event & { organizer: User; registrationCount: number; rooms: EventRoom[] }) | undefined> {
