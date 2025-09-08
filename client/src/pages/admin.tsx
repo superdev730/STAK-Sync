@@ -153,7 +153,8 @@ export default function AdminDashboard() {
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ['/api/admin/analytics/30d'],
     queryFn: async () => {
-      return apiRequest('/api/admin/analytics/30d');
+      const response = await apiRequest('GET', '/api/admin/analytics/30d');
+      return response.json();
     },
   });
 
@@ -161,7 +162,8 @@ export default function AdminDashboard() {
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users'],
     queryFn: async () => {
-      return apiRequest('/api/admin/users?limit=50');
+      const response = await apiRequest('GET', '/api/admin/users?limit=50');
+      return response.json();
     },
   });
 
@@ -169,15 +171,17 @@ export default function AdminDashboard() {
   const { data: eventsData, isLoading: eventsLoading } = useQuery({
     queryKey: ['/api/admin/events'],
     queryFn: async () => {
-      return apiRequest('/api/admin/events');
+      const response = await apiRequest('GET', '/api/admin/events');
+      return response.json();
     },
   });
 
   // Fetch billing data
-  const { data: billingStats, isLoading: billingLoading } = useQuery<BillingStats>({
+  const { data: billingStats, isLoading: billingLoading } = useQuery({
     queryKey: ['/api/admin/billing/stats'],
     queryFn: async () => {
-      return apiRequest('/api/admin/billing/stats');
+      const response = await apiRequest('GET', '/api/admin/billing/stats');
+      return response.json();
     },
     enabled: activeTab === "billing",
   });
@@ -185,7 +189,8 @@ export default function AdminDashboard() {
   const { data: billingUsersResponse, isLoading: billingUsersLoading } = useQuery({
     queryKey: ['/api/admin/billing/users'],
     queryFn: async () => {
-      return apiRequest('/api/admin/billing/users');
+      const response = await apiRequest('GET', '/api/admin/billing/users');
+      return response.json();
     },
     enabled: activeTab === "billing",
   });
@@ -193,7 +198,8 @@ export default function AdminDashboard() {
   const { data: invoicesResponse, isLoading: invoicesLoading } = useQuery({
     queryKey: ['/api/admin/billing/invoices'],
     queryFn: async () => {
-      return apiRequest('/api/admin/billing/invoices');
+      const response = await apiRequest('GET', '/api/admin/billing/invoices');
+      return response.json();
     },
     enabled: activeTab === "billing",
   });
@@ -206,7 +212,8 @@ export default function AdminDashboard() {
   const { data: sponsorsResponse, isLoading: sponsorsLoading } = useQuery({
     queryKey: ['/api/sponsors'],
     queryFn: async () => {
-      return apiRequest('/api/sponsors');
+      const response = await apiRequest('GET', '/api/sponsors');
+      return response.json();
     },
     enabled: activeTab === "sponsors",
   });
@@ -215,7 +222,8 @@ export default function AdminDashboard() {
   const { data: badgesResponse, isLoading: badgesLoading } = useQuery({
     queryKey: ['/api/badges'],
     queryFn: async () => {
-      return apiRequest('/api/badges');
+      const response = await apiRequest('GET', '/api/badges');
+      return response.json();
     },
     enabled: activeTab === "badges",
   });
@@ -259,7 +267,10 @@ export default function AdminDashboard() {
 
   // Export billing data
   const exportBillingMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/billing/export'),
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/admin/billing/export');
+      return response.blob();
+    },
     onSuccess: (blob) => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -469,7 +480,7 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {users.slice(0, 5).map((user) => (
+                    {users.slice(0, 5).map((user: User) => (
                       <div key={user.id} className="flex items-center space-x-4">
                         <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
                           {user.firstName?.[0] || '?'}
@@ -496,7 +507,7 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {events.slice(0, 5).map((event) => (
+                    {events.slice(0, 5).map((event: Event) => (
                       <div key={event.id} className="flex items-center space-x-4">
                         <div className="w-8 h-8 bg-copper-100 rounded-full flex items-center justify-center">
                           <CalendarIcon className="h-4 w-4 text-copper-600" />
@@ -559,14 +570,14 @@ export default function AdminDashboard() {
                       <div className="col-span-2">Actions</div>
                     </div>
                     {users
-                      .filter(user => 
+                      .filter((user: User) => 
                         !searchQuery || 
                         user.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         user.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         user.company?.toLowerCase().includes(searchQuery.toLowerCase())
                       )
-                      .map((user) => (
+                      .map((user: User) => (
                         <div key={user.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 hover:bg-gray-50">
                           <div className="col-span-3 flex items-center space-x-3">
                             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
@@ -616,7 +627,7 @@ export default function AdminDashboard() {
                   <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
                 </div>
               ) : (
-                events.map((event) => (
+                events.map((event: Event) => (
                   <Card key={event.id} className="hover:shadow-md transition-shadow">
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -736,7 +747,7 @@ export default function AdminDashboard() {
                       <div className="col-span-2">Monthly Cost</div>
                       <div className="col-span-2">Actions</div>
                     </div>
-                    {billingUsers?.map((user) => (
+                    {billingUsers?.map((user: BillingUser) => (
                       <div key={user.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100">
                         <div className="col-span-2">
                           <div className="font-medium">{user.firstName} {user.lastName}</div>
@@ -828,7 +839,7 @@ export default function AdminDashboard() {
                       <div className="col-span-2">Status</div>
                       <div className="col-span-2">Due Date</div>
                     </div>
-                    {invoices?.map((invoice) => (
+                    {invoices?.map((invoice: Invoice) => (
                       <div key={invoice.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100">
                         <div className="col-span-2 font-medium">{invoice.invoiceNumber}</div>
                         <div className="col-span-2">
@@ -871,7 +882,7 @@ export default function AdminDashboard() {
                   <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
                 </div>
               ) : (
-                sponsors?.map((sponsor) => (
+                sponsors?.map((sponsor: Sponsor) => (
                   <Card key={sponsor.id} className="hover:shadow-md transition-shadow">
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -930,7 +941,7 @@ export default function AdminDashboard() {
                   <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
                 </div>
               ) : (
-                badges?.map((badge) => (
+                badges?.map((badge: Badge) => (
                   <Card key={badge.id} className="hover:shadow-md transition-shadow">
                     <CardHeader>
                       <div className="flex items-center justify-between">
