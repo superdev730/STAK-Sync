@@ -34,6 +34,8 @@ import {
   roomParticipants,
   sponsors,
   eventSponsors,
+  eventSponsorOffers,
+  eventSponsorOfferRedemptions,
   eventAttendeeGoals,
   eventMatchmakingRuns,
   preEventMatches,
@@ -4933,6 +4935,315 @@ END:VCALENDAR`;
     } catch (error) {
       console.error("Error fetching user groups:", error);
       res.status(500).json({ error: "Failed to fetch user groups" });
+    }
+  });
+
+  // ====== SPONSORS AND OFFERS API ENDPOINTS ======
+  
+  // Get sponsors for an event (public read)
+  app.get('/api/events/:eventId/sponsors', async (req, res) => {
+    try {
+      const { eventId } = req.params;
+
+      // Get event sponsors with offers
+      const eventSponsorsWithOffers = await db.select({
+        id: sponsors.id,
+        name: sponsors.name,
+        tier: eventSponsors.tier,
+        website: sponsors.websiteUrl,
+        description: sponsors.description,
+        logoUrl: sql<string>`COALESCE(${eventSponsors.customLogoUrl}, ${sponsors.logoUrl})`,
+        displayOrder: eventSponsors.displayOrder,
+        isActive: sponsors.isActive,
+      })
+      .from(eventSponsors)
+      .innerJoin(sponsors, eq(eventSponsors.sponsorId, sponsors.id))
+      .where(and(
+        eq(eventSponsors.eventId, eventId),
+        eq(sponsors.isActive, true)
+      ))
+      .orderBy(eventSponsors.displayOrder, sponsors.name);
+
+      // Get active offers for each sponsor
+      const sponsorsWithOffers = await Promise.all(
+        eventSponsorsWithOffers.map(async (sponsor) => {
+          const offers = await db.select({
+            id: eventSponsorOffers.id,
+            title: eventSponsorOffers.title,
+            shortCopy: eventSponsorOffers.shortCopy,
+            ctaLabel: eventSponsorOffers.ctaLabel,
+            ctaUrl: eventSponsorOffers.ctaUrl,
+            points: eventSponsorOffers.points,
+            startTs: eventSponsorOffers.startTs,
+            endTs: eventSponsorOffers.endTs,
+            isActive: eventSponsorOffers.isActive,
+            requiresCheckin: eventSponsorOffers.requiresCheckin,
+            maxRedemptions: eventSponsorOffers.maxRedemptions,
+            currentRedemptions: eventSponsorOffers.currentRedemptions,
+          })
+          .from(eventSponsorOffers)
+          .where(and(
+            eq(eventSponsorOffers.eventId, eventId),
+            eq(eventSponsorOffers.sponsorId, sponsor.id),
+            eq(eventSponsorOffers.isActive, true),
+            // Check if offer is within valid time window
+            sql`(${eventSponsorOffers.startTs} IS NULL OR ${eventSponsorOffers.startTs} <= NOW())`,
+            sql`(${eventSponsorOffers.endTs} IS NULL OR ${eventSponsorOffers.endTs} >= NOW())`
+          ))
+          .orderBy(eventSponsorOffers.createdAt);
+
+          return {
+            ...sponsor,
+            offers
+          };
+        })
+      );
+
+      res.set('Cache-Control', 'public, max-age=120');
+      res.json({
+        sponsors: sponsorsWithOffers
+      });
+    } catch (error) {
+      console.error("Error fetching event sponsors:", error);
+      res.status(500).json({ error: "Failed to fetch sponsors" });
+    }
+  });
+
+  // Admin: Create sponsor for event
+  app.post('/api/events/:eventId/sponsors', isAdmin, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { name, website, description, tier, logoUrl } = req.body;
+
+      if (!name?.trim()) {
+        return res.status(400).json({ error: "Sponsor name is required" });
+      }
+
+      // Check if sponsor name already exists for this event (case-insensitive)
+      const [existingSponsor] = await db.select({
+        id: sponsors.id,
+        name: sponsors.name
+      })
+      .from(sponsors)
+      .innerJoin(eventSponsors, eq(sponsors.id, eventSponsors.sponsorId))
+      .where(and(
+        eq(eventSponsors.eventId, eventId),
+        sql`LOWER(${sponsors.name}) = LOWER(${name.trim()})`
+      ))
+      .limit(1);
+
+      if (existingSponsor) {
+        return res.status(409).json({ error: "A sponsor with this name already exists for this event" });
+      }
+
+      // Create sponsor
+      const [newSponsor] = await db.insert(sponsors).values({
+        name: name.trim(),
+        description: description?.trim() || null,
+        logoUrl: logoUrl || null,
+        websiteUrl: website?.trim() || null,
+        tier: tier || 'other',
+        isActive: true
+      }).returning();
+
+      // Link sponsor to event
+      const [eventSponsor] = await db.insert(eventSponsors).values({
+        eventId: eventId,
+        sponsorId: newSponsor.id,
+        tier: tier || 'other',
+        displayOrder: 0
+      }).returning();
+
+      res.json({
+        ok: true,
+        sponsor: {
+          id: newSponsor.id,
+          name: newSponsor.name,
+          description: newSponsor.description,
+          logoUrl: newSponsor.logoUrl,
+          website: newSponsor.websiteUrl,
+          tier: eventSponsor.tier,
+          displayOrder: eventSponsor.displayOrder
+        }
+      });
+    } catch (error) {
+      console.error("Error creating sponsor:", error);
+      res.status(500).json({ error: "Failed to create sponsor" });
+    }
+  });
+
+  // Admin: Create offer for sponsor
+  app.post('/api/events/:eventId/sponsors/:sponsorId/offers', isAdmin, async (req: any, res) => {
+    try {
+      const { eventId, sponsorId } = req.params;
+      const { 
+        title, 
+        shortCopy, 
+        details, 
+        ctaLabel, 
+        ctaUrl, 
+        points, 
+        startTs, 
+        endTs,
+        requiresCheckin,
+        maxRedemptions
+      } = req.body;
+
+      if (!title?.trim() || !shortCopy?.trim()) {
+        return res.status(400).json({ error: "Title and short copy are required" });
+      }
+
+      if (shortCopy.length > 140) {
+        return res.status(400).json({ error: "Short copy must be 140 characters or less" });
+      }
+
+      // Validate time window
+      if (startTs && endTs && new Date(endTs) < new Date(startTs)) {
+        return res.status(422).json({ error: "End date must be after start date" });
+      }
+
+      // Check if sponsor exists for this event
+      const [eventSponsor] = await db.select()
+        .from(eventSponsors)
+        .innerJoin(sponsors, eq(eventSponsors.sponsorId, sponsors.id))
+        .where(and(
+          eq(eventSponsors.eventId, eventId),
+          eq(eventSponsors.sponsorId, sponsorId)
+        ))
+        .limit(1);
+
+      if (!eventSponsor) {
+        return res.status(404).json({ error: "Sponsor not found for this event" });
+      }
+
+      // Create offer
+      const [newOffer] = await db.insert(eventSponsorOffers).values({
+        eventId: eventId,
+        sponsorId: sponsorId,
+        title: title.trim(),
+        shortCopy: shortCopy.trim(),
+        details: details?.trim() || null,
+        ctaLabel: ctaLabel?.trim() || 'Redeem',
+        ctaUrl: ctaUrl?.trim() || null,
+        points: points || 15,
+        startTs: startTs ? new Date(startTs) : null,
+        endTs: endTs ? new Date(endTs) : null,
+        requiresCheckin: requiresCheckin || false,
+        maxRedemptions: maxRedemptions || null,
+        isActive: true
+      }).returning();
+
+      // Auto-generate mission for this offer
+      const missionId = `sponsor_offer_${newOffer.id}`;
+      const missionTitle = `Redeem: ${newOffer.title}`;
+      const missionDescription = `Visit ${eventSponsor.sponsors.name} — ${newOffer.shortCopy}`;
+
+      // TODO: Create mission in event_missions table when missions system is ready
+      console.log('Auto-generated mission:', {
+        mission_id: missionId,
+        title: missionTitle,
+        description: missionDescription,
+        points: newOffer.points,
+        category: 'sponsors'
+      });
+
+      res.json({
+        ok: true,
+        offer: newOffer
+      });
+    } catch (error) {
+      console.error("Error creating sponsor offer:", error);
+      res.status(500).json({ error: "Failed to create offer" });
+    }
+  });
+
+  // Redeem sponsor offer
+  app.post('/api/events/:eventId/offers/:offerId/redeem', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const { eventId, offerId } = req.params;
+      const { verificationCode } = req.body;
+      const userId = getUserId(req);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Get offer details
+      const [offer] = await db.select()
+        .from(eventSponsorOffers)
+        .innerJoin(sponsors, eq(eventSponsorOffers.sponsorId, sponsors.id))
+        .where(and(
+          eq(eventSponsorOffers.id, offerId),
+          eq(eventSponsorOffers.eventId, eventId),
+          eq(eventSponsorOffers.isActive, true)
+        ))
+        .limit(1);
+
+      if (!offer) {
+        return res.status(404).json({ error: "Offer not found or inactive" });
+      }
+
+      // Check if offer is within valid time window
+      const now = new Date();
+      if (offer.event_sponsor_offers.startTs && now < offer.event_sponsor_offers.startTs) {
+        return res.status(400).json({ error: "Offer not yet available" });
+      }
+      if (offer.event_sponsor_offers.endTs && now > offer.event_sponsor_offers.endTs) {
+        return res.status(400).json({ error: "Offer has expired" });
+      }
+
+      // Check if user already redeemed this offer
+      const [existingRedemption] = await db.select()
+        .from(eventSponsorOfferRedemptions)
+        .where(and(
+          eq(eventSponsorOfferRedemptions.offerId, offerId),
+          eq(eventSponsorOfferRedemptions.userId, userId)
+        ))
+        .limit(1);
+
+      if (existingRedemption) {
+        return res.status(400).json({ error: "You have already redeemed this offer" });
+      }
+
+      // Check redemption limits
+      if (offer.event_sponsor_offers.maxRedemptions && 
+          offer.event_sponsor_offers.currentRedemptions >= offer.event_sponsor_offers.maxRedemptions) {
+        return res.status(400).json({ error: "Offer redemption limit reached" });
+      }
+
+      // Create redemption record
+      await db.insert(eventSponsorOfferRedemptions).values({
+        eventId: eventId,
+        sponsorId: offer.event_sponsor_offers.sponsorId,
+        offerId: offerId,
+        userId: userId,
+        redemptionMethod: 'cta_click',
+        verificationCode: verificationCode || null,
+        isVerified: !offer.event_sponsor_offers.requiresCheckin
+      });
+
+      // Increment redemption counter
+      await db.update(eventSponsorOffers)
+        .set({ currentRedemptions: sql`${eventSponsorOffers.currentRedemptions} + 1` })
+        .where(eq(eventSponsorOffers.id, offerId));
+
+      // Complete the sponsor offer mission
+      const missionId = `sponsor_offer_${offerId}`;
+      // TODO: Update mission completion when missions system is integrated
+      console.log('Mission completed:', {
+        mission_id: missionId,
+        user_id: userId,
+        points_earned: offer.event_sponsor_offers.points
+      });
+
+      res.json({
+        ok: true,
+        redeemed: true,
+        pointsEarned: offer.event_sponsor_offers.points
+      });
+    } catch (error) {
+      console.error("Error redeeming offer:", error);
+      res.status(500).json({ error: "Failed to redeem offer" });
     }
   });
 

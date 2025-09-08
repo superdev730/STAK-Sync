@@ -577,6 +577,46 @@ export const eventSponsors = pgTable("event_sponsors", {
   uniqueEventSponsor: unique().on(table.eventId, table.sponsorId),
 }));
 
+// Event sponsor offers for special deals/promotions
+export const eventSponsorOffers = pgTable("event_sponsor_offers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  sponsorId: varchar("sponsor_id").notNull().references(() => sponsors.id, { onDelete: "cascade" }),
+  title: varchar("title").notNull(),
+  shortCopy: varchar("short_copy").notNull(), // ≤140 chars for cards
+  details: text("details"), // Long form description for modal
+  ctaLabel: varchar("cta_label").default("Redeem"),
+  ctaUrl: varchar("cta_url"), // Internal route or external link
+  points: integer("points").default(15), // Mission points
+  startTs: timestamp("start_ts"), // Optional valid window start
+  endTs: timestamp("end_ts"), // Optional valid window end
+  isActive: boolean("is_active").default(true),
+  requiresCheckin: boolean("requires_checkin").default(false), // Gate at venue
+  maxRedemptions: integer("max_redemptions"), // Optional limit
+  currentRedemptions: integer("current_redemptions").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  eventOffersIndex: index("idx_event_sponsor_offers_event_id").on(table.eventId),
+  activeOffersIndex: index("idx_event_sponsor_offers_active").on(table.eventId, table.isActive, table.startTs, table.endTs),
+}));
+
+// Track offer redemptions for analytics and limits
+export const eventSponsorOfferRedemptions = pgTable("event_sponsor_offer_redemptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  sponsorId: varchar("sponsor_id").notNull().references(() => sponsors.id, { onDelete: "cascade" }),
+  offerId: varchar("offer_id").notNull().references(() => eventSponsorOffers.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  redeemedAt: timestamp("redeemed_at").defaultNow(),
+  redemptionMethod: varchar("redemption_method"), // 'cta_click', 'manual_confirm', 'qr_scan'
+  verificationCode: varchar("verification_code"), // Optional verification
+  isVerified: boolean("is_verified").default(false),
+}, (table) => ({
+  userOfferIndex: index("idx_offer_redemptions_user_offer").on(table.userId, table.offerId),
+  uniqueUserOffer: unique().on(table.userId, table.offerId), // Prevent duplicate redemptions
+}));
+
 // Token usage tracking
 export const tokenUsage = pgTable("token_usage", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -792,9 +832,10 @@ export const eventMatchesRelations = relations(eventMatches, ({ one }) => ({
 
 export const sponsorsRelations = relations(sponsors, ({ many }) => ({
   eventSponsors: many(eventSponsors),
+  offers: many(eventSponsorOffers),
 }));
 
-export const eventSponsorsRelations = relations(eventSponsors, ({ one }) => ({
+export const eventSponsorsRelations = relations(eventSponsors, ({ one, many }) => ({
   event: one(events, {
     fields: [eventSponsors.eventId],
     references: [events.id],
@@ -802,6 +843,42 @@ export const eventSponsorsRelations = relations(eventSponsors, ({ one }) => ({
   sponsor: one(sponsors, {
     fields: [eventSponsors.sponsorId],
     references: [sponsors.id],
+  }),
+  offers: many(eventSponsorOffers),
+}));
+
+export const eventSponsorOffersRelations = relations(eventSponsorOffers, ({ one, many }) => ({
+  event: one(events, {
+    fields: [eventSponsorOffers.eventId],
+    references: [events.id],
+  }),
+  sponsor: one(sponsors, {
+    fields: [eventSponsorOffers.sponsorId],
+    references: [sponsors.id],
+  }),
+  eventSponsor: one(eventSponsors, {
+    fields: [eventSponsorOffers.eventId, eventSponsorOffers.sponsorId],
+    references: [eventSponsors.eventId, eventSponsors.sponsorId],
+  }),
+  redemptions: many(eventSponsorOfferRedemptions),
+}));
+
+export const eventSponsorOfferRedemptionsRelations = relations(eventSponsorOfferRedemptions, ({ one }) => ({
+  event: one(events, {
+    fields: [eventSponsorOfferRedemptions.eventId],
+    references: [events.id],
+  }),
+  sponsor: one(sponsors, {
+    fields: [eventSponsorOfferRedemptions.sponsorId],
+    references: [sponsors.id],
+  }),
+  offer: one(eventSponsorOffers, {
+    fields: [eventSponsorOfferRedemptions.offerId],
+    references: [eventSponsorOffers.id],
+  }),
+  user: one(users, {
+    fields: [eventSponsorOfferRedemptions.userId],
+    references: [users.id],
   }),
 }));
 
@@ -1878,3 +1955,22 @@ export interface EventPrepData {
   missions?: string[];
   sponsors: EventStats["sponsors"];
 }
+
+// Sponsor offer schemas
+export const insertEventSponsorOfferSchema = createInsertSchema(eventSponsorOffers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  currentRedemptions: true,
+});
+
+export const insertEventSponsorOfferRedemptionSchema = createInsertSchema(eventSponsorOfferRedemptions).omit({
+  id: true,
+  redeemedAt: true,
+});
+
+// Sponsor offer types
+export type EventSponsorOffer = typeof eventSponsorOffers.$inferSelect;
+export type InsertEventSponsorOffer = z.infer<typeof insertEventSponsorOfferSchema>;
+export type EventSponsorOfferRedemption = typeof eventSponsorOfferRedemptions.$inferSelect;
+export type InsertEventSponsorOfferRedemption = z.infer<typeof insertEventSponsorOfferRedemptionSchema>;
