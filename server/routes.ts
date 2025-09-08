@@ -3438,11 +3438,80 @@ END:VCALENDAR`;
     }
   });
 
-  // Admin event management routes
+  // Admin event management routes with comprehensive filtering
   app.get('/api/admin/events', isAuthenticatedGeneral, isAdmin, async (req, res) => {
     try {
-      const events = await storage.getEvents();
-      res.json(events);
+      const { 
+        status, 
+        time_scope = 'all', 
+        q, 
+        page = '1', 
+        page_size = '25' 
+      } = req.query;
+
+      // Set Cache-Control header for admin endpoints
+      res.set('Cache-Control', 'private, no-store');
+
+      // Build status filter - default to all statuses
+      let statusFilter: string[] = [];
+      if (status) {
+        statusFilter = typeof status === 'string' ? status.split(',') : [status];
+      } else {
+        statusFilter = ['draft', 'published', 'archived']; // Default to all statuses
+      }
+
+      // Build time filter
+      let timeFilter: 'all' | 'upcoming' | 'past' = 'all';
+      if (time_scope === 'upcoming' || time_scope === 'past') {
+        timeFilter = time_scope;
+      }
+
+      // Get all events for admin - no restrictive filtering by default
+      const allEvents = await storage.getEvents();
+      
+      let filteredEvents = allEvents;
+
+      // Apply status filter
+      if (statusFilter.length > 0) {
+        filteredEvents = filteredEvents.filter(event => 
+          statusFilter.includes(event.status || 'published')
+        );
+      }
+
+      // Apply time scope filter
+      const now = new Date();
+      if (timeFilter === 'upcoming') {
+        filteredEvents = filteredEvents.filter(event => 
+          new Date(event.startDate) >= now
+        );
+      } else if (timeFilter === 'past') {
+        filteredEvents = filteredEvents.filter(event => 
+          new Date(event.endDate || event.startDate) < now
+        );
+      }
+
+      // Apply search filter
+      if (q && typeof q === 'string') {
+        const searchTerm = q.toLowerCase();
+        filteredEvents = filteredEvents.filter(event =>
+          event.title.toLowerCase().includes(searchTerm) ||
+          event.description?.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      // Apply pagination
+      const pageNum = parseInt(page as string) || 1;
+      const pageSize = parseInt(page_size as string) || 25;
+      const offset = (pageNum - 1) * pageSize;
+      const paginatedEvents = filteredEvents.slice(offset, offset + pageSize);
+
+      res.json({
+        events: paginatedEvents,
+        total: filteredEvents.length,
+        page: pageNum,
+        page_size: pageSize,
+        total_pages: Math.ceil(filteredEvents.length / pageSize)
+      });
     } catch (error) {
       console.error('Error fetching admin events:', error);
       res.status(500).json({ message: 'Failed to fetch events' });
