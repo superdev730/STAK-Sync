@@ -182,7 +182,7 @@ export default function AdminDashboard() {
     enabled: activeTab === "billing",
   });
 
-  const { data: billingUsers, isLoading: billingUsersLoading } = useQuery<BillingUser[]>({
+  const { data: billingUsersResponse, isLoading: billingUsersLoading } = useQuery({
     queryKey: ['/api/admin/billing/users'],
     queryFn: async () => {
       return apiRequest('/api/admin/billing/users');
@@ -198,7 +198,8 @@ export default function AdminDashboard() {
     enabled: activeTab === "billing",
   });
 
-  // Handle invoices data properly - it might be wrapped in an object or be a direct array
+  // Handle billing data properly - ensure arrays
+  const billingUsers = Array.isArray(billingUsersResponse) ? billingUsersResponse : (billingUsersResponse?.users || []);
   const invoices = Array.isArray(invoicesResponse) ? invoicesResponse : (invoicesResponse?.invoices || []);
 
   // Fetch sponsors data
