@@ -1,0 +1,31 @@
+
+=== ANALYTICS ENDPOINT STRUCTURES ===
+
+1. /api/matches/analytics (User-level)
+{
+  totalMatches: number,
+  connectedMatches: number,
+  pendingMatches: number,
+  passedMatches: number,
+  connectionRate: number, // percentage
+  avgMatchScore: number,
+  topIndustries: Array<{industry: string, count: number}>
+}
+
+2. /api/admin/analytics (Admin-level)
+Uses: storage.getAdminAnalytics(timeRange)
+Params: timeRange = '7d' | '30d' | '90d'
+
+3. /api/admin/user/:userId/match-analytics (Admin user analysis)
+Same structure as #1 but for specific user
+
+=== WEBSOCKET CLIENT PATTERN ===
+useWebSocket() hook provides:
+{
+  isConnected: boolean,
+  sendMessage: (data: any) => void,
+  disconnect: () => void
+}
+
+URL Pattern: wss://host/ws or ws://host/ws
+
