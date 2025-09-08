@@ -18,18 +18,26 @@ interface Event {
   id: string;
   title: string;
   description: string;
+  eventType: string;
   startDate: string;
   endDate: string;
   location: string;
   capacity: number;
   registered: number;
   isUserRegistered: boolean;
+  isVirtual: boolean;
   tags: string[];
-  imageUrl?: string;
-  eventbriteUrl?: string;
-  lumaUrl?: string;
+  coverImageUrl?: string;
+  youtubeVideoId?: string;
+  status: string;
+  isFeatured: boolean;
   organizerId: string;
+  organizer?: { firstName: string; lastName: string; profileImageUrl?: string };
+  basePrice?: string;
+  currency?: string;
+  isPublic?: boolean;
   createdAt: string;
+  registrationCount?: number;
 }
 
 export default function Events() {
@@ -44,7 +52,7 @@ export default function Events() {
 
   const registerMutation = useMutation({
     mutationFn: async (eventId: string) => {
-      return await apiRequest("POST", `/api/events/${eventId}/register`, {});
+      return await apiRequest(`/api/events/${eventId}/register`, "POST", {});
     },
     onSuccess: () => {
       toast({
@@ -72,6 +80,9 @@ export default function Events() {
     }
     if (selectedFilter === "upcoming") {
       return matchesSearch && new Date(event.startDate) > new Date();
+    }
+    if (selectedFilter === "prep") {
+      return matchesSearch && event.isUserRegistered && new Date(event.startDate) > new Date();
     }
     return matchesSearch;
   });
@@ -340,6 +351,7 @@ export default function Events() {
               <TabsTrigger value="all" className="text-gray-700 data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">All Events</TabsTrigger>
               <TabsTrigger value="upcoming" className="text-gray-700 data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">Upcoming</TabsTrigger>
               <TabsTrigger value="registered" className="text-gray-700 data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">My Events</TabsTrigger>
+              <TabsTrigger value="prep" className="text-gray-700 data-[state=active]:bg-stak-copper data-[state=active]:text-stak-black">Event Prep</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -393,10 +405,10 @@ export default function Events() {
           {filteredEvents.map((event) => (
             <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden bg-white border-gray-200">
               {/* Event Image */}
-              {event.imageUrl && (
+              {event.coverImageUrl && (
                 <div className="relative h-48 overflow-hidden">
                   <img
-                    src={event.imageUrl}
+                    src={event.coverImageUrl}
                     alt={event.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   />
