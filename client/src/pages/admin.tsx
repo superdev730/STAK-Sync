@@ -190,7 +190,7 @@ export default function AdminDashboard() {
     enabled: activeTab === "billing",
   });
 
-  const { data: invoices, isLoading: invoicesLoading } = useQuery<Invoice[]>({
+  const { data: invoicesResponse, isLoading: invoicesLoading } = useQuery({
     queryKey: ['/api/admin/billing/invoices'],
     queryFn: async () => {
       return apiRequest('/api/admin/billing/invoices');
@@ -198,8 +198,11 @@ export default function AdminDashboard() {
     enabled: activeTab === "billing",
   });
 
+  // Handle invoices data properly - it might be wrapped in an object or be a direct array
+  const invoices = Array.isArray(invoicesResponse) ? invoicesResponse : (invoicesResponse?.invoices || []);
+
   // Fetch sponsors data
-  const { data: sponsors, isLoading: sponsorsLoading } = useQuery<Sponsor[]>({
+  const { data: sponsorsResponse, isLoading: sponsorsLoading } = useQuery({
     queryKey: ['/api/sponsors'],
     queryFn: async () => {
       return apiRequest('/api/sponsors');
@@ -208,13 +211,17 @@ export default function AdminDashboard() {
   });
 
   // Fetch badges data
-  const { data: badges, isLoading: badgesLoading } = useQuery<Badge[]>({
+  const { data: badgesResponse, isLoading: badgesLoading } = useQuery({
     queryKey: ['/api/badges'],
     queryFn: async () => {
       return apiRequest('/api/badges');
     },
     enabled: activeTab === "badges",
   });
+
+  // Handle data properly - ensure arrays
+  const sponsors = Array.isArray(sponsorsResponse) ? sponsorsResponse : (sponsorsResponse?.sponsors || []);
+  const badges = Array.isArray(badgesResponse) ? badgesResponse : (badgesResponse?.badges || []);
 
   const users = usersData?.users || [];
   const events = eventsData?.events || [];
