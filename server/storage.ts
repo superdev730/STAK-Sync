@@ -811,7 +811,7 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     // Check for owner accounts first
-    const ownerEmails = ['cbehring@behringco.com', 'dhoelle@behringco.com'];
+    const ownerEmails = ['cbehring@behringco.com', 'colinbehring@gmail.com', 'dhoelle@behringco.com'];
     if (user?.email && ownerEmails.includes(user.email)) {
       return true;
     }
