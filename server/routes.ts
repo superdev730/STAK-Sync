@@ -3372,7 +3372,7 @@ END:VCALENDAR`;
         .limit(1);
 
       if (!liveEvent) {
-        return res.status(404).json({ error: 'Event not found' });
+        return res.json(null); // Return null instead of 404 for no events today
       }
 
       res.json(liveEvent);
@@ -8814,32 +8814,6 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     }
   });
 
-  // Get today's live events for banner - no auth required for banner display
-  app.get('/api/events/live-today', async (req, res) => {
-    try {
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-      
-      const events = await storage.getEvents();
-      const liveEvent = events.find(event => {
-        const eventDate = new Date(event.startDate);
-        return eventDate >= startOfDay && eventDate < endOfDay && event.eventType === 'speaker-series';
-      });
-      
-      if (liveEvent) {
-        res.json({
-          ...liveEvent,
-          attendeeCount: Math.floor(Math.random() * 50) + 20 // Simulate live attendee count
-        });
-      } else {
-        res.json(null);
-      }
-    } catch (error) {
-      console.error('Error fetching live events:', error);
-      res.status(500).json({ message: 'Failed to fetch live events' });
-    }
-  });
 
   // Get specific live event details - no auth required for event info
   app.get('/api/events/live/:eventId', async (req, res) => {
