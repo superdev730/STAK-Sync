@@ -1,0 +1,35 @@
+Please create a new file at `pages/event-attendees.tsx` for the STAK Sync app.
+
+Goals:
+1. Display the full list of event attendees sorted by `match_score` (highest first).
+2. Fetch data from `/api/events/:eventId/attendees/ranked` (already used in `MeetAttendeesContent.tsx`).
+3. Reuse the existing `AttendeeCard` component for each attendee.
+4. Include filters and sorting controls:
+   - Filter by industry tags.
+   - Sort by highest score (default), alphabetical, or company.
+5. Provide a header with the event title (fetch from `/api/events/:eventId`).
+6. Show total attendee count and a breakdown of top industries (if available via analytics endpoint `/api/matches/analytics`).
+7. Add a sticky filter/sort bar at the top of the list for mobile usability.
+8. Include a “Back to Event Prep” button that routes to `/events/:eventId/prep`.
+
+Technical Requirements:
+- Use `useQuery` from `@tanstack/react-query` for fetching attendees and event info.
+- Reuse `AttendeeCard.tsx` for rendering each attendee in a vertical list.
+- Add skeleton loaders (see `MeetAttendeesContent.tsx` for pattern).
+- Add error state with retry button if API fails.
+- Follow UI patterns already present in `MissionBoard`, `ProgramContent`, and `MeetAttendeesContent`.
+- Ensure data-testid attributes exist for key parts (`attendee-list`, `filter-bar`, `sort-select`, etc.) for testing.
+
+Integration Notes:
+- The `MeetAttendeesContent` “See All” button should route here (`/events/:eventId/attendees`).
+- Keep consistent styling with `Layout.tsx` (main container already wraps pages).
+- Use `wouter`’s `useRoute` or `useParams` to get `eventId`.
+
+Before finalizing:
+- Review whether any existing hooks (like `useWebSocket.ts`) should update attendee lists in real time. If yes, implement live updates with `useWebSocket`.
+- Check for conflicts with `queryClient` cache keys (avoid duplicates, use the same queryKey as in `MeetAttendeesContent` for consistency).
+- If unclear about the analytics endpoint shape, confirm with me before coding.
+
+Do not hardcode eventId — always pull from route params.
+
+Please generate the full `event-attendees.tsx` file in React + TypeScript.

@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Users, Filter, Search } from "lucide-react";
+import { ArrowLeft, Users, Filter, Search, Target, TrendingUp, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AttendeeCard } from "@/components/AttendeeCard";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,6 +33,22 @@ interface AttendeesResponse {
   generated_at: string;
 }
 
+interface EventInfo {
+  event_id: string;
+  title: string;
+  start_iso: string;
+  end_iso: string;
+  venue: string;
+  city: string;
+}
+
+interface AnalyticsData {
+  total_matches: number;
+  top_industries: Array<{ name: string; count: number }>;
+  avg_match_score: number;
+  high_quality_matches: number;
+}
+
 export default function EventAttendeesPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const { toast } = useToast();
@@ -44,6 +61,18 @@ export default function EventAttendeesPage() {
   // Fetch all attendees for the event
   const { data: attendeesData, isLoading, error } = useQuery<AttendeesResponse>({
     queryKey: [`/api/events/${eventId}/attendees/ranked`],
+    enabled: !!eventId,
+  });
+
+  // Fetch event information
+  const { data: eventInfo } = useQuery<EventInfo>({
+    queryKey: [`/api/events/${eventId}`],
+    enabled: !!eventId,
+  });
+
+  // Fetch analytics data
+  const { data: analyticsData } = useQuery<AnalyticsData>({
+    queryKey: [`/api/matches/analytics`],
     enabled: !!eventId,
   });
 
@@ -117,7 +146,7 @@ export default function EventAttendeesPage() {
   };
 
   const handleBack = () => {
-    window.history.back();
+    window.location.href = `/events/${eventId}/prep`;
   };
 
   if (isLoading) {
@@ -210,70 +239,117 @@ export default function EventAttendeesPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" onClick={handleBack}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                All Event Attendees
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                {processedAttendees.length} of {attendeesData.attendees.length} attendees shown
-              </p>
-            </div>
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" size="sm" onClick={handleBack} data-testid="back-to-prep">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Event Prep
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              {eventInfo?.title || 'Event'} Attendees
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {eventInfo?.venue} • {eventInfo?.city}
+            </p>
           </div>
-          
+        </div>
+
+        {/* Analytics Overview */}
+        {analyticsData && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                  Match Quality
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{Math.round(analyticsData.avg_match_score * 100)}%</div>
+                <p className="text-xs text-gray-600">Average compatibility</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Target className="h-4 w-4 text-blue-600" />
+                  High Quality
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analyticsData.high_quality_matches}</div>
+                <p className="text-xs text-gray-600">80%+ matches</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Building className="h-4 w-4 text-purple-600" />
+                  Top Industry
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analyticsData.top_industries[0]?.name || 'N/A'}</div>
+                <p className="text-xs text-gray-600">{analyticsData.top_industries[0]?.count || 0} attendees</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        
+        {/* Attendee Count */}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Showing {processedAttendees.length} of {attendeesData.attendees.length} attendees
+          </p>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Users className="w-4 h-4" />
             {attendeesData.total_count || attendeesData.attendees.length} total
           </div>
         </div>
 
-        {/* Filters and Search */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search attendees by name, company, or title..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-attendees"
-              />
+        {/* Sticky Filters and Search */}
+        <div className="sticky top-16 z-30 bg-gray-50 dark:bg-gray-900 -mx-6 px-6 py-4 mb-6" data-testid="filter-bar">
+          <div className="flex flex-col sm:flex-row gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search attendees by name, company, or title..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-attendees"
+                />
+              </div>
             </div>
-          </div>
-          
-          <div className="flex gap-2">
-            <Select value={selectedTag} onValueChange={setSelectedTag}>
-              <SelectTrigger className="w-40" data-testid="select-filter-tags">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Filter by tag" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Tags</SelectItem>
-                {allTags.map((tag) => (
-                  <SelectItem key={tag} value={tag}>
-                    {tag}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-32" data-testid="select-sort-by">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="score">Sync Score</SelectItem>
-                <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="company">Company</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={selectedTag} onValueChange={setSelectedTag}>
+                <SelectTrigger className="w-40" data-testid="select-filter-tags">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Filter by tag" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Industries</SelectItem>
+                  {allTags.map((tag) => (
+                    <SelectItem key={tag} value={tag}>
+                      {tag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-32" data-testid="select-sort-by">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="score">Sync Score</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="company">Company</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -307,9 +383,9 @@ export default function EventAttendeesPage() {
           </div>
         )}
 
-        {/* Attendees Grid */}
+        {/* Attendees List */}
         {processedAttendees.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-4" data-testid="attendee-list">
             {processedAttendees.map((attendee) => (
               <AttendeeCard
                 key={attendee.member_id}
