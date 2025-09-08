@@ -38,15 +38,12 @@ export function SpeakerMessageModal({ isOpen, onClose, eventId, speakers = [] }:
 
   const submitMessageMutation = useMutation({
     mutationFn: async (data: Partial<InsertSpeakerMessage>) => {
-      return await apiRequest(`/api/events/${eventId}/speaker-messages`, {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      return apiRequest(`/api/events/${eventId}/speaker-messages`, 'POST', data);
     },
-    onSuccess: (response) => {
+    onSuccess: (response: any) => {
       toast({
         title: "Message Submitted! 🎯",
-        description: `Your ${formData.messageType} has been sent to ${formData.speakerName}. You earned ${response.syncPointsAwarded} Sync Points!`,
+        description: `Your ${formData.messageType} has been sent to ${formData.speakerName}. You earned ${response.syncPointsAwarded || 5} Sync Points!`,
         variant: "default",
       });
       
@@ -219,7 +216,7 @@ export function SpeakerMessageModal({ isOpen, onClose, eventId, speakers = [] }:
               data-testid="textarea-message-content"
             />
             <div className="text-xs text-gray-500">
-              {formData.messageContent.length}/500 characters
+              {(formData.messageContent || '').length}/500 characters
             </div>
           </div>
 
@@ -228,7 +225,7 @@ export function SpeakerMessageModal({ isOpen, onClose, eventId, speakers = [] }:
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="anonymous"
-                checked={formData.isAnonymous}
+                checked={!!formData.isAnonymous}
                 onCheckedChange={(checked) => 
                   setFormData(prev => ({ ...prev, isAnonymous: !!checked }))
                 }
@@ -242,7 +239,7 @@ export function SpeakerMessageModal({ isOpen, onClose, eventId, speakers = [] }:
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="include-summary"
-                checked={formData.isIncludedInSummary}
+                checked={!!formData.isIncludedInSummary}
                 onCheckedChange={(checked) => 
                   setFormData(prev => ({ ...prev, isIncludedInSummary: !!checked }))
                 }
