@@ -3335,15 +3335,12 @@ END:VCALENDAR`;
     }
   });
 
-  // Get today's live events
+  // Get next upcoming event (regardless of date)
   app.get('/api/events/live-today', async (req: any, res) => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      const now = new Date();
 
-      const [liveEvent] = await db
+      const [nextEvent] = await db
         .select({
           id: events.id,
           title: events.title,
@@ -3363,19 +3360,19 @@ END:VCALENDAR`;
         .from(events)
         .where(
           and(
-            gte(events.startDate, today.toISOString()),
-            lt(events.startDate, tomorrow.toISOString()),
+            gte(events.startDate, now.toISOString()),
             eq(events.status, "published"),
             eq(events.isPublic, true)
           )
         )
+        .orderBy(events.startDate)
         .limit(1);
 
-      if (!liveEvent) {
-        return res.json(null); // Return null instead of 404 for no events today
+      if (!nextEvent) {
+        return res.json(null); // Return null if no upcoming events
       }
 
-      res.json(liveEvent);
+      res.json(nextEvent);
     } catch (error) {
       console.error('Error fetching live event:', error);
       res.status(500).json({ error: 'Unable to fetch live event information. Please try again.' });
