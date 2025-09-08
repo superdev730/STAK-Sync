@@ -5,36 +5,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { Link } from "wouter";
 import { 
   Users, 
   Calendar as CalendarIcon, 
-  TrendingUp, 
-  Activity, 
-  MessageSquare, 
-  Target,
   BarChart3,
-  PieChart,
   Settings,
-  UserCheck,
   Search,
-  UserX,
-  Ban,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
   CheckCircle,
-  AlertTriangle,
-  ChevronRight,
-  CreditCard
+  XCircle,
+  TrendingUp,
+  DollarSign,
+  Activity,
+  UserCheck,
+  ArrowUpRight,
+  ArrowDownRight
 } from "lucide-react";
-import { STAKReceptionImport } from "@/components/STAKReceptionImport";
-import { ObjectUploader } from "@/components/ObjectUploader";
-import { AIMatchmakingManager } from "@/components/AIMatchmakingManager";
-import { BadgeManager } from "@/components/BadgeManager";
-import { Calculator, Brain, Award } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface User {
   id: string;
