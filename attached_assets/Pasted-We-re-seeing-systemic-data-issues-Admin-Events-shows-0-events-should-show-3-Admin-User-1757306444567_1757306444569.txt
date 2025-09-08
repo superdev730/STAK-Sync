@@ -1,0 +1,148 @@
+We’re seeing systemic data issues:
+- Admin > Events shows 0 events (should show ≥3)
+- Admin > Users shows 0 users (should show many)
+- Multiple pages look empty → likely DB connectivity/migrations/filters/caching.
+
+Please run a full health check + repair with the plan below.
+If anything conflicts with our stack, STOP and list blockers + suggested alternatives.
+
+=====================================================
+A) SAFETY FIRST — BACKUP + READ-ONLY DRY RUN
+=====================================================
+1) Create an immediate DB backup (dump) for the current environment.
+   - If using Postgres: pg_dump (structure+data). Save artifact link in PR notes.
+2) Enable a “dry-run” mode for destructive steps; do not drop or re-init data without sign-off.
+3) Confirm environment (dev/staging/prod) and the active .env is correct for this deployment.
+
+=====================================================
+B) ENV & CONNECTIVITY CHECKS
+=====================================================
+1) Print the ACTIVE DB config (sanitized):
+   - DB_URL / DATABASE_URL (mask creds), DB_SSL, DB_POOL_MAX/MIN, DB_SCHEMA.
+   - NODE_ENV, RUNTIME (serverless/full), REGION.
+2) TCP connectivity test from the app container → DB host:port, including SSL mode.
+3) ORM client version + config:
+   - Prisma: client + engine versions, pool settings.
+   - If NOT Prisma, state the ORM and version.
+
+If any env var is missing/wrong (e.g., DATABASE_URL not set, wrong host, SSL mode required), fix it and restart the app.
+
+=====================================================
+C) MIGRATIONS INTEGRITY
+=====================================================
+(Assume Prisma; if not, adapt to TypeORM/Drizzle and note changes.)
+1) List migration status:
+   - Show pending/applied.
+   - Check migration table integrity (no partial failures).
+2) If pending migrations exist:
+   - Run migrations in DRY RUN.
+   - If safe, run for real.
+   - If a migration fails, STOP, paste the error, and propose a squash/fix plan.
+3) Verify schema objects exist for critical tables:
+   - events, users/members, organizations/tenants, event_missions, event_groups, event_group_members,
+     event_sponsors, event_sponsor_offers, telemetry, matches/match_scores (if applicable).
+4) Confirm indexes & FKs for joins used by admin lists:
+   - events(org_id, status, start_ts)
+   - users(org_id)
+   - event_group_members(event_id, group_id, member_id)
+   - missions tables keys
+
+=====================================================
+D) RBAC / TENANT SCOPING
+=====================================================
+1) Identify active admin user (id, org_id/tenant_id, roles).
+2) Inspect the admin list queries/handlers:
+   - GET /api/admin/events
+   - GET /api/admin/users
+   Verify WHERE clause:
+     - Must be scoped by org_id = admin.org_id (not created_by=currentUser unless intended).
+     - Do NOT silently filter to status='published' for admin; default to ALL statuses.
+     - Do NOT silently limit to upcoming only; default to ALL time scopes for admin.
+3) Print the effective SQL (or ORM query) for those routes.
+   If it filters out the 3 known events/users, fix the filter logic.
+
+=====================================================
+E) CACHING / CDN / REACT-QUERY
+=====================================================
+1) Confirm admin API routes return headers:
+   - Cache-Control: private, no-store (or very short TTL).
+   - Bypass CDN/edge cache for /api/admin/*.
+2) Confirm the frontend uses tuple query keys and invalidates correctly after writes (missions, groups, attendees).
+3) If stale empty responses are cached, purge them.
+
+=====================================================
+F) SANITY SQL QUERIES (RUN READ-ONLY)
+=====================================================
+(Replace schema/table names if different. Paste results in PR notes.)
+
+-- 1) Count by status/time for events (org scoped)
+SELECT status, COUNT(*)
+FROM events
+WHERE org_id = :admin_org
+GROUP BY status;
+
+-- 2) Upcoming vs past
+SELECT
+  SUM((start_ts >= NOW())::int) AS upcoming,
+  SUM((start_ts <  NOW())::int) AS past
+FROM events
+WHERE org_id = :admin_org;
+
+-- 3) Sample the 10 most recent events for this org
+SELECT id, title, status, start_ts
+FROM events
+WHERE org_id = :admin_org
+ORDER BY start_ts DESC
+LIMIT 10;
+
+-- 4) Users count for this org
+SELECT COUNT(*) FROM users WHERE org_id = :admin_org;
+
+-- 5) Quick referential sanity around groups/missions (optional)
+SELECT COUNT(*) FROM event_groups WHERE event_id IN (SELECT id FROM events WHERE org_id = :admin_org);
+SELECT COUNT(*) FROM event_missions WHERE event_id IN (SELECT id FROM events WHERE org_id = :admin_org);
+
+If these come back non-zero but admin endpoints still return empty arrays, the problem is API filters or RBAC, not data.
+
+=====================================================
+G) API CONTRACT PROBE
+=====================================================
+1) Log and compare the responses of:
+   - GET /api/events (public)
+   - GET /api/admin/events (admin)
+   Ensure identical org scope and that admin returns ALL statuses/time by default.
+2) Log and compare:
+   - GET /api/admin/users?org_id=:admin_org  vs any public users endpoint (if exists).
+3) Fix parameter parsing for page/page_size (avoid defaults that yield 0 rows).
+4) Add error logging around DB calls; surface 500s with structured logs.
+
+=====================================================
+H) CONNECTION POOL / TIMEOUTS / SSL
+=====================================================
+1) Check pool usage and timeouts:
+   - Max pool size appropriate for runtime (serverless: LOW; long-lived app: appropriate for threads).
+   - Statement timeout, idle timeout.
+2) If SSL is required by the DB (e.g., managed Postgres), ensure ?sslmode=require (or equivalent).
+3) If we detect ECONNRESET/ETIMEDOUT spikes, enable exponential backoff + retries in ORM client for GETs in admin views.
+
+=====================================================
+I) REMEDIATION & TESTS
+=====================================================
+Make code/config changes as needed (small PRs OK). Then verify:
+
+Acceptance Criteria:
+- Admin > Events shows the same >=3 events visible on public pages by default (ALL statuses/time).
+- Admin > Users lists users for the admin’s org_id.
+- Filtering by status/time/search works and returns expected counts.
+- No 401/403 unless the admin lacks org access.
+- No stale cache: updating an event reflects in admin list within ~1s (React Query invalidation).
+- Logs show successful DB connection; no migration pending, no connection errors.
+
+Smoke Tests (automate in CI if possible):
+- GET /api/admin/events with no filters returns >=3.
+- GET /api/admin/events?status=published returns a subset or equal.
+- GET /api/admin/users returns >=1.
+- Flip an event status from draft->published, list refreshes.
+- Create a new event; appears in admin list immediately after create.
+
+If anything is unclear (ORM used, exact table names, multi-tenant rules), ASK for clarification before changing queries. If a step is impossible in Replit’s environment, say so and propose an alternative (e.g., local tunnel to DB for psql).
