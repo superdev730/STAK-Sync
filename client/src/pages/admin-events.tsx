@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,14 +58,50 @@ interface Event {
   registrationCount?: number;
 }
 
+interface AdminEventsResponse {
+  events: Event[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export default function AdminEvents() {
   const [createDialog, setCreateDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const { toast } = useToast();
 
-  const { data: events = [], isLoading } = useQuery<Event[]>({
-    queryKey: ["/api/events"],
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState<string>('draft,published,archived');
+  const [timeScope, setTimeScope] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [page, setPage] = useState<number>(1);
+
+  // Build query parameters
+  const queryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set('status', statusFilter);
+    if (timeScope !== 'all') params.set('time_scope', timeScope);
+    if (searchQuery.trim()) params.set('q', searchQuery.trim());
+    params.set('page', page.toString());
+    params.set('page_size', '25');
+    return params.toString();
+  }, [statusFilter, timeScope, searchQuery, page]);
+
+  const { data: adminEventsData, isLoading } = useQuery<AdminEventsResponse>({
+    queryKey: ["/api/admin/events", { statusFilter, timeScope, searchQuery, page }],
+    queryFn: async () => {
+      const response = await fetch(`/api/admin/events?${queryParams}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    staleTime: 0, // Always fresh for admin data
   });
+
+  const events = adminEventsData?.events || [];
+  const total = adminEventsData?.total || 0;
 
   const createEventMutation = useMutation({
     mutationFn: async (eventData: Partial<Event>) => {
@@ -73,6 +109,7 @@ export default function AdminEvents() {
     },
     onSuccess: () => {
       // Invalidate all event-related queries to ensure immediate refresh everywhere
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events/live-today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
@@ -97,6 +134,7 @@ export default function AdminEvents() {
     },
     onSuccess: () => {
       // Invalidate all event-related queries to ensure immediate refresh everywhere
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events/live-today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
@@ -114,6 +152,7 @@ export default function AdminEvents() {
     },
     onSuccess: () => {
       // Invalidate all event-related queries to ensure immediate refresh everywhere
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events/live-today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
@@ -198,13 +237,30 @@ export default function AdminEvents() {
     }
   };
 
+  // Helper functions for filtering
+  const clearFilters = () => {
+    setStatusFilter('draft,published,archived');
+    setTimeScope('all');
+    setSearchQuery('');
+    setPage(1);
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'published': return 'bg-green-100 text-green-800';
+      case 'draft': return 'bg-yellow-100 text-yellow-800';
+      case 'archived': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-blue-100 text-blue-800';
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-playfair font-bold text-navy mb-4">Event Management</h1>
-          <p className="text-xl text-charcoal">Create and manage STAK networking events</p>
+          <p className="text-xl text-charcoal">Create and manage STAK networking events ({total} total events)</p>
         </div>
         
         <Dialog open={createDialog} onOpenChange={setCreateDialog}>
@@ -372,6 +428,73 @@ export default function AdminEvents() {
         </Dialog>
       </div>
 
+      {/* Filter Bar */}
+      <Card className="p-4">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+          {/* Search */}
+          <div className="flex-1 min-w-0">
+            <Input
+              placeholder="Search events by title or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
+          
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Status:</label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft,published,archived">All Statuses</SelectItem>
+                <SelectItem value="published">Published Only</SelectItem>
+                <SelectItem value="draft">Draft Only</SelectItem>
+                <SelectItem value="archived">Archived Only</SelectItem>
+                <SelectItem value="draft,published">Draft + Published</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Time Scope Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Time:</label>
+            <Select value={timeScope} onValueChange={setTimeScope}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="past">Past</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Clear Filters Button */}
+          <Button 
+            variant="outline" 
+            onClick={clearFilters}
+            disabled={statusFilter === 'draft,published,archived' && timeScope === 'all' && !searchQuery}
+          >
+            Clear Filters
+          </Button>
+        </div>
+      </Card>
+
+      {/* Empty State for No Results */}
+      {!isLoading && events.length === 0 && (searchQuery || statusFilter !== 'draft,published,archived' || timeScope !== 'all') && (
+        <Card className="p-8 text-center">
+          <h3 className="text-lg font-medium text-gray-600 mb-2">No events match your filters</h3>
+          <p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p>
+          <Button variant="outline" onClick={clearFilters}>
+            Clear all filters
+          </Button>
+        </Card>
+      )}
+
       {/* Events List */}
       <div className="grid gap-6">
         {isLoading ? (
@@ -425,6 +548,9 @@ export default function AdminEvents() {
                         </div>
                         <Badge className={getEventTypeColor(event.eventType)}>
                           {getEventTypeName(event.eventType)}
+                        </Badge>
+                        <Badge className={getStatusBadgeColor(event.status || 'published')}>
+                          {(event.status || 'published').charAt(0).toUpperCase() + (event.status || 'published').slice(1)}
                         </Badge>
                       </div>
                       
