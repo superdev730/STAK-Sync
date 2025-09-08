@@ -107,17 +107,7 @@ function AdminDashboard() {
         params.set('search', userSearchQuery.trim());
       }
       
-      const res = await fetch(`/api/admin/users?${params}`, {
-        credentials: 'include',
-      });
-      
-      if (!res.ok) {
-        console.error('Failed to fetch users:', res.status, res.statusText);
-        // Return empty data instead of throwing
-        return { users: [], total: 0 };
-      }
-      
-      return res.json();
+      return apiRequest(`/api/admin/users?${params}`);
     },
     retry: false, // Don't retry on auth errors
     staleTime: 0, // Don't cache - always fetch fresh data for admin panel
@@ -129,10 +119,15 @@ function AdminDashboard() {
   });
 
   // Add admin events query to show actual event data with admin privileges
-  const { data: events, isLoading: eventsLoading } = useQuery({
+  const { data: eventsResponse, isLoading: eventsLoading } = useQuery({
     queryKey: ['/api/admin/events'],
+    queryFn: async () => {
+      return apiRequest('/api/admin/events');
+    },
     retry: false, // Don't retry if endpoint doesn't exist
   });
+
+  const events = eventsResponse?.events || [];
 
   const { data: searchSuggestions, isLoading: searchLoading } = useQuery({
     queryKey: ['/api/admin/users/search', userSearchQuery],
