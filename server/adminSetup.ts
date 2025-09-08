@@ -78,6 +78,11 @@ export class AdminSetupService {
         lastName: 'Behring'
       },
       {
+        email: 'colinbehring@gmail.com',
+        firstName: 'Colin',
+        lastName: 'Behring'
+      },
+      {
         email: 'dhoelle@behringco.com',
         firstName: 'Donald',
         lastName: 'Hoelle'
