@@ -71,6 +71,7 @@ export const MeetAttendeesContent: React.FC<MeetAttendeesContentProps> = ({
     onSuccess: () => {
       // Invalidate missions cache to refresh status
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/missions`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', eventId, 'missions'] });
       onMissionUpdate?.();
     },
     onError: (error) => {

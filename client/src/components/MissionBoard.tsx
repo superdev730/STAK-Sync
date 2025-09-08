@@ -104,9 +104,16 @@ export function MissionBoard({ eventId, missions, progress, onMissionStart }: Mi
       // Refresh missions data - invalidate all mission-related queries
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/missions`] });
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/prep`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', eventId, 'missions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', eventId, 'prep'] });
+      queryClient.invalidateQueries({ predicate: ({ queryKey }) => 
+        Array.isArray(queryKey) && queryKey.includes('/api/events') && queryKey.includes(eventId) && queryKey.includes('missions')
+      });
       
       // Also refetch immediately to ensure UI updates quickly
-      queryClient.refetchQueries({ queryKey: [`/api/events/${eventId}/missions`] }).then(() => {
+      queryClient.refetchQueries({ queryKey: [`/api/events/${eventId}/missions`] });
+      queryClient.refetchQueries({ queryKey: ['/api/events', eventId, 'missions'] });
+      queryClient.refetchQueries({ queryKey: ['/api/events', eventId, 'prep'] }).then(() => {
         console.log(`🔄 Mission data refetched successfully`);
       });
     },
