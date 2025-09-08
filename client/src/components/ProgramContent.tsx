@@ -75,7 +75,7 @@ export default function ProgramContent({ eventId, onMissionUpdate }: ProgramCont
   // Create new group mutation
   const createGroupMutation = useMutation({
     mutationFn: async ({ name, description }: { name: string; description: string }) => {
-      return apiRequest('POST', `/api/events/${eventId}/groups`, { name, description });
+      return apiRequest(`/api/events/${eventId}/groups`, 'POST', { name, description });
     },
     onSuccess: (data) => {
       toast({
@@ -115,9 +115,9 @@ export default function ProgramContent({ eventId, onMissionUpdate }: ProgramCont
   const groupMutation = useMutation({
     mutationFn: async ({ groupId, action }: { groupId: string; action: 'join' | 'leave' }) => {
       if (action === 'join') {
-        return apiRequest('POST', `/api/events/${eventId}/groups/${groupId}/join`);
+        return apiRequest(`/api/events/${eventId}/groups/${groupId}/join`, 'POST');
       } else {
-        return apiRequest('DELETE', `/api/events/${eventId}/groups/${groupId}/join`);
+        return apiRequest(`/api/events/${eventId}/groups/${groupId}/join`, 'DELETE');
       }
     },
     onSuccess: (data, variables) => {
