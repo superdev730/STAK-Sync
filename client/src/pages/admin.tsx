@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Users, 
   Calendar as CalendarIcon, 
@@ -22,7 +24,17 @@ import {
   Activity,
   UserCheck,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  CreditCard,
+  Building2,
+  Award,
+  Database,
+  FileSpreadsheet,
+  Bot,
+  Download,
+  Upload,
+  Filter,
+  MoreHorizontal
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -35,6 +47,8 @@ interface User {
   company?: string;
   title?: string;
   profileImageUrl?: string;
+  billingPlan?: string;
+  billingStatus?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +63,68 @@ interface Event {
   eventType: string;
   status: string;
   registrations?: number;
+}
+
+interface BillingStats {
+  userStats: Array<{ billingPlan: string; count: number }>;
+  tokenStats: { totalTokens: number; totalCost: number };
+  monthlyRevenue: number;
+  totalRevenue: number;
+}
+
+interface BillingUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  billingPlan: string;
+  billingStatus: string;
+  stakMembershipVerified: boolean;
+  tokensUsedThisMonth: number;
+  monthlyTokenAllowance: number;
+  monthlyCost: number;
+}
+
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  userEmail: string;
+  userName: string;
+  billingPeriodStart: string;
+  billingPeriodEnd: string;
+  subscriptionAmount: string;
+  tokenUsageAmount: string;
+  totalAmount: string;
+  status: string;
+  dueDate: string;
+  paidAt?: string;
+  createdAt: string;
+}
+
+interface Sponsor {
+  id: string;
+  name: string;
+  description: string;
+  logoUrl?: string;
+  websiteUrl?: string;
+  contactEmail?: string;
+  tier: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  badgeType: string;
+  tier: string;
+  backgroundColor: string;
+  textColor: string;
+  rarity: string;
+  points: number;
+  isEventSpecific: boolean;
+  eventId?: string;
 }
 
 interface Analytics {
@@ -69,6 +145,9 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showCreateSponsorDialog, setShowCreateSponsorDialog] = useState(false);
+  const [showCreateBadgeDialog, setShowCreateBadgeDialog] = useState(false);
 
   // Fetch analytics data
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
@@ -94,12 +173,54 @@ export default function AdminDashboard() {
     },
   });
 
+  // Fetch billing data
+  const { data: billingStats, isLoading: billingLoading } = useQuery<BillingStats>({
+    queryKey: ['/api/admin/billing/stats'],
+    queryFn: async () => {
+      return apiRequest('/api/admin/billing/stats');
+    },
+    enabled: activeTab === "billing",
+  });
+
+  const { data: billingUsers, isLoading: billingUsersLoading } = useQuery<BillingUser[]>({
+    queryKey: ['/api/admin/billing/users'],
+    queryFn: async () => {
+      return apiRequest('/api/admin/billing/users');
+    },
+    enabled: activeTab === "billing",
+  });
+
+  const { data: invoices, isLoading: invoicesLoading } = useQuery<Invoice[]>({
+    queryKey: ['/api/admin/billing/invoices'],
+    queryFn: async () => {
+      return apiRequest('/api/admin/billing/invoices');
+    },
+    enabled: activeTab === "billing",
+  });
+
+  // Fetch sponsors data
+  const { data: sponsors, isLoading: sponsorsLoading } = useQuery<Sponsor[]>({
+    queryKey: ['/api/sponsors'],
+    queryFn: async () => {
+      return apiRequest('/api/sponsors');
+    },
+    enabled: activeTab === "sponsors",
+  });
+
+  // Fetch badges data
+  const { data: badges, isLoading: badgesLoading } = useQuery<Badge[]>({
+    queryKey: ['/api/badges'],
+    queryFn: async () => {
+      return apiRequest('/api/badges');
+    },
+    enabled: activeTab === "badges",
+  });
+
   const users = usersData?.users || [];
   const events = eventsData?.events || [];
 
   // Format analytics data
   const formatAnalytics = (data: any): Analytics => {
-    // Use actual counts from API calls as fallback
     const userCount = users.length;
     const eventCount = events.length;
     
@@ -117,186 +238,292 @@ export default function AdminDashboard() {
       totalEvents: data.eventStats?.totalEvents || data.eventStats?.upcomingEvents || eventCount,
       activeUsers: data.userStats?.activeUsers || data.userStats?.newUsersThisWeek || Math.floor(userCount * 0.3),
       totalConnections: data.matchingStats?.totalMatches || data.engagementStats?.totalMatches || 0,
-      revenue: data.revenue || 0,
+      revenue: billingStats?.totalRevenue || 0,
       growth: {
-        users: data.growth?.users || 5, // Default 5% growth
-        events: data.growth?.events || 10, // Default 10% growth  
-        revenue: data.growth?.revenue || 15 // Default 15% growth
+        users: data.growth?.users || 5,
+        events: data.growth?.events || 10,  
+        revenue: data.growth?.revenue || 15
       }
     };
   };
 
   const analyticsFormatted = formatAnalytics(analytics);
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">STAK Sync Admin</h1>
-              <p className="text-gray-600">Platform administration and management</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                  data-testid="input-admin-search"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+  // Export billing data
+  const exportBillingMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/billing/export'),
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `billing-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast({
+        title: "Export Complete",
+        description: "Billing data has been exported successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export billing data.",
+        variant: "destructive",
+      });
+    },
+  });
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview" data-testid="tab-overview">
-              <BarChart3 className="h-4 w-4 mr-2" />
+  // Update user billing plan
+  const updateBillingPlanMutation = useMutation({
+    mutationFn: ({ userId, plan }: { userId: string; plan: string }) =>
+      apiRequest('PUT', `/api/admin/billing/users/${userId}/plan`, { plan }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/billing/users'] });
+      toast({
+        title: "Plan Updated",
+        description: "User billing plan has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update user billing plan.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Generate invoice
+  const generateInvoiceMutation = useMutation({
+    mutationFn: (userId: string) =>
+      apiRequest('POST', `/api/admin/billing/users/${userId}/generate-invoice`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/billing/invoices'] });
+      toast({
+        title: "Invoice Generated",
+        description: "Invoice has been generated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Generation Failed", 
+        description: "Failed to generate invoice.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const getBillingPlanColor = (plan: string) => {
+    switch (plan) {
+      case 'enterprise': return 'bg-purple-100 text-purple-800';
+      case 'paid_monthly': return 'bg-green-100 text-green-800';
+      case 'free_stak_basic': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'past_due': return 'bg-yellow-100 text-yellow-800';
+      case 'canceled': return 'bg-red-100 text-red-800';
+      case 'incomplete': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getInvoiceStatusColor = (status: string) => {
+    switch (status) {
+      case 'paid': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'overdue': return 'bg-red-100 text-red-800';
+      case 'draft': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">STAK Sync Admin Panel</h1>
+          <p className="text-gray-600">Comprehensive business management dashboard</p>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-8">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="users" data-testid="tab-users">
-              <Users className="h-4 w-4 mr-2" />
-              Users ({users.length})
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Users
             </TabsTrigger>
-            <TabsTrigger value="events" data-testid="tab-events">
-              <CalendarIcon className="h-4 w-4 mr-2" />
-              Events ({events.length})
+            <TabsTrigger value="events" className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4" />
+              Events
             </TabsTrigger>
-            <TabsTrigger value="settings" data-testid="tab-settings">
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
+            <TabsTrigger value="billing" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Billing
+            </TabsTrigger>
+            <TabsTrigger value="sponsors" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Sponsors
+            </TabsTrigger>
+            <TabsTrigger value="badges" className="flex items-center gap-2">
+              <Award className="h-4 w-4" />
+              Badges
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="system" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              System
             </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card data-testid="card-total-users">
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Users</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-users">
-                    {analyticsLoading ? "..." : analyticsFormatted.totalUsers}
-                  </div>
+                  <div className="text-2xl font-bold">{analyticsFormatted.totalUsers}</div>
                   <p className="text-xs text-muted-foreground">
-                    <span className={`inline-flex items-center ${analyticsFormatted.growth.users >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {analyticsFormatted.growth.users >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                      {Math.abs(analyticsFormatted.growth.users)}%
-                    </span>
-                    {" from last month"}
+                    <span className="inline-flex items-center text-green-600">
+                      <ArrowUpRight className="h-3 w-3 mr-1" />
+                      +{analyticsFormatted.growth.users}%
+                    </span> from last month
                   </p>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-total-events">
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Events</CardTitle>
                   <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-events">
-                    {eventsLoading ? "..." : analyticsFormatted.totalEvents}
-                  </div>
+                  <div className="text-2xl font-bold">{analyticsFormatted.totalEvents}</div>
                   <p className="text-xs text-muted-foreground">
-                    <span className={`inline-flex items-center ${analyticsFormatted.growth.events >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {analyticsFormatted.growth.events >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                      {Math.abs(analyticsFormatted.growth.events)}%
-                    </span>
-                    {" from last month"}
+                    <span className="inline-flex items-center text-green-600">
+                      <ArrowUpRight className="h-3 w-3 mr-1" />
+                      +{analyticsFormatted.growth.events}%
+                    </span> from last month
                   </p>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-active-users">
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Active Users</CardTitle>
                   <Activity className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-active-users">
-                    {analyticsLoading ? "..." : analyticsFormatted.activeUsers}
-                  </div>
+                  <div className="text-2xl font-bold">{analyticsFormatted.activeUsers}</div>
                   <p className="text-xs text-muted-foreground">
-                    Last 30 days
+                    Last 7 days activity
                   </p>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-total-connections">
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Connections</CardTitle>
-                  <UserCheck className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-connections">
-                    {analyticsLoading ? "..." : analyticsFormatted.totalConnections}
-                  </div>
+                  <div className="text-2xl font-bold">${analyticsFormatted.revenue}</div>
                   <p className="text-xs text-muted-foreground">
-                    AI-powered matches
+                    <span className="inline-flex items-center text-green-600">
+                      <ArrowUpRight className="h-3 w-3 mr-1" />
+                      +{analyticsFormatted.growth.revenue}%
+                    </span> from last month
                   </p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Recent Activity */}
-            <Card data-testid="card-recent-activity">
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Latest platform events and user activity</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {analyticsLoading ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-4 bg-gray-200 rounded animate-pulse" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Users</CardTitle>
+                  <CardDescription>Latest user registrations</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {users.slice(0, 5).map((user) => (
+                      <div key={user.id} className="flex items-center space-x-4">
+                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                          {user.firstName?.[0] || '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {user.firstName} {user.lastName}
+                          </p>
+                          <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                ) : (
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Events</CardTitle>
+                  <CardDescription>Latest event activities</CardDescription>
+                </CardHeader>
+                <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-2 h-2 bg-green-500 rounded-full" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">New user registered</p>
-                        <p className="text-xs text-gray-500">2 minutes ago</p>
+                    {events.slice(0, 5).map((event) => (
+                      <div key={event.id} className="flex items-center space-x-4">
+                        <div className="w-8 h-8 bg-copper-100 rounded-full flex items-center justify-center">
+                          <CalendarIcon className="h-4 w-4 text-copper-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {event.title}
+                          </p>
+                          <p className="text-sm text-gray-500 truncate">{event.location}</p>
+                        </div>
+                        <Badge className={event.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                          {event.status}
+                        </Badge>
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Event created</p>
-                        <p className="text-xs text-gray-500">15 minutes ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">AI match made</p>
-                        <p className="text-xs text-gray-500">1 hour ago</p>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-medium">User Management</h3>
-                <p className="text-gray-600">Manage user accounts and permissions</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search users..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 w-[300px]"
+                    data-testid="input-search-users"
+                  />
+                </div>
               </div>
               <Button data-testid="button-add-user">
                 <Plus className="h-4 w-4 mr-2" />
@@ -304,97 +531,61 @@ export default function AdminDashboard() {
               </Button>
             </div>
 
-            <Card data-testid="card-users-table">
-              <CardContent className="p-0">
+            <Card>
+              <CardHeader>
+                <CardTitle>User Management</CardTitle>
+                <CardDescription>Manage all registered users</CardDescription>
+              </CardHeader>
+              <CardContent>
                 {usersLoading ? (
-                  <div className="p-6">
-                    <div className="space-y-3">
-                      {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="h-4 bg-gray-200 rounded animate-pulse" />
-                      ))}
-                    </div>
-                  </div>
-                ) : users.length === 0 ? (
-                  <div className="p-6 text-center text-gray-500">
-                    No users found
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            User
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Company
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Join Date
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {users.slice(0, 10).map((user: User) => (
-                          <tr key={user.id} data-testid={`row-user-${user.id}`}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                                  {user.profileImageUrl ? (
-                                    <img 
-                                      src={user.profileImageUrl} 
-                                      alt={`${user.firstName} ${user.lastName}`}
-                                      className="h-10 w-10 rounded-full object-cover"
-                                      data-testid={`img-avatar-${user.id}`}
-                                    />
-                                  ) : (
-                                    <span className="text-sm font-medium text-gray-700">
-                                      {user.firstName?.[0]}{user.lastName?.[0]}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900" data-testid={`text-username-${user.id}`}>
-                                    {user.firstName} {user.lastName}
-                                  </div>
-                                  <div className="text-sm text-gray-500">{user.email}</div>
-                                </div>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-500 border-b pb-2">
+                      <div className="col-span-3">User</div>
+                      <div className="col-span-3">Email</div>
+                      <div className="col-span-2">Company</div>
+                      <div className="col-span-2">Created</div>
+                      <div className="col-span-2">Actions</div>
+                    </div>
+                    {users
+                      .filter(user => 
+                        !searchQuery || 
+                        user.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        user.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        user.company?.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .map((user) => (
+                        <div key={user.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 hover:bg-gray-50">
+                          <div className="col-span-3 flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                              {user.firstName?.[0] || '?'}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {user.firstName} {user.lastName}
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`text-company-${user.id}`}>
-                              {user.company || '-'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(user.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <Badge variant="outline" className="bg-green-100 text-green-800">
-                                Active
-                              </Badge>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex space-x-2">
-                                <Button size="sm" variant="ghost" data-testid={`button-view-${user.id}`}>
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button size="sm" variant="ghost" data-testid={`button-edit-${user.id}`}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button size="sm" variant="ghost" className="text-red-600" data-testid={`button-delete-${user.id}`}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                              <div className="text-sm text-gray-500">{user.title}</div>
+                            </div>
+                          </div>
+                          <div className="col-span-3 text-sm text-gray-900">{user.email}</div>
+                          <div className="col-span-2 text-sm text-gray-500">{user.company || '-'}</div>
+                          <div className="col-span-2 text-sm text-gray-500">
+                            {new Date(user.createdAt).toLocaleDateString()}
+                          </div>
+                          <div className="col-span-2 flex items-center space-x-2">
+                            <Button variant="outline" size="sm" data-testid={`button-view-user-${user.id}`}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" data-testid={`button-edit-user-${user.id}`}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 )}
               </CardContent>
@@ -403,11 +594,8 @@ export default function AdminDashboard() {
 
           {/* Events Tab */}
           <TabsContent value="events" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-medium">Event Management</h3>
-                <p className="text-gray-600">Create and manage platform events</p>
-              </div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Event Management</h3>
               <Button data-testid="button-create-event">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Event
@@ -416,40 +604,20 @@ export default function AdminDashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {eventsLoading ? (
-                [1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="h-4 bg-gray-200 rounded mb-2" />
-                      <div className="h-3 bg-gray-200 rounded mb-4" />
-                      <div className="h-3 bg-gray-200 rounded w-1/2" />
-                    </CardContent>
-                  </Card>
-                ))
-              ) : events.length === 0 ? (
-                <Card className="col-span-full" data-testid="card-no-events">
-                  <CardContent className="p-6 text-center">
-                    <CalendarIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Events Yet</h3>
-                    <p className="text-gray-600 mb-4">Create your first event to get started</p>
-                    <Button data-testid="button-create-first-event">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create First Event
-                    </Button>
-                  </CardContent>
-                </Card>
+                <div className="col-span-full flex items-center justify-center py-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
               ) : (
-                events.map((event: Event) => (
-                  <Card key={event.id} data-testid={`card-event-${event.id}`}>
+                events.map((event) => (
+                  <Card key={event.id} className="hover:shadow-md transition-shadow">
                     <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg" data-testid={`text-event-title-${event.id}`}>
-                          {event.title}
-                        </CardTitle>
-                        <Badge variant="outline" data-testid={`badge-event-type-${event.id}`}>
-                          {event.eventType}
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{event.title}</CardTitle>
+                        <Badge className={event.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                          {event.status}
                         </Badge>
                       </div>
-                      <CardDescription data-testid={`text-event-description-${event.id}`}>
+                      <CardDescription className="line-clamp-2">
                         {event.description}
                       </CardDescription>
                     </CardHeader>
@@ -461,21 +629,22 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex items-center">
                           <Users className="h-4 w-4 mr-2" />
-                          {event.capacity} capacity
+                          {event.registrations || 0} / {event.capacity} attendees
+                        </div>
+                        <div className="flex items-center">
+                          <Badge variant="outline">{event.eventType}</Badge>
                         </div>
                       </div>
-                      <div className="flex justify-between items-center mt-4">
-                        <div className="flex space-x-2">
-                          <Button size="sm" variant="ghost" data-testid={`button-view-event-${event.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" data-testid={`button-edit-event-${event.id}`}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="text-red-600" data-testid={`button-delete-event-${event.id}`}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      <div className="flex items-center space-x-2 mt-4">
+                        <Button variant="outline" size="sm" data-testid={`button-view-event-${event.id}`}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid={`button-edit-event-${event.id}`}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid={`button-delete-event-${event.id}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -484,53 +653,419 @@ export default function AdminDashboard() {
             </div>
           </TabsContent>
 
-          {/* Settings Tab */}
-          <TabsContent value="settings" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium">Platform Settings</h3>
-              <p className="text-gray-600">Configure platform preferences and settings</p>
+          {/* Billing Tab */}
+          <TabsContent value="billing" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Billing Management</h3>
+              <Button 
+                onClick={() => exportBillingMutation.mutate()}
+                disabled={exportBillingMutation.isPending}
+                data-testid="button-export-billing"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Data
+              </Button>
+            </div>
+
+            {/* Billing Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">${billingStats?.totalRevenue || 0}</div>
+                  <p className="text-xs text-muted-foreground">All time</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">${billingStats?.monthlyRevenue || 0}</div>
+                  <p className="text-xs text-muted-foreground">This month</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Token Usage</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{billingStats?.tokenStats?.totalTokens || 0}</div>
+                  <p className="text-xs text-muted-foreground">Total tokens used</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Token Costs</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">${billingStats?.tokenStats?.totalCost || 0}</div>
+                  <p className="text-xs text-muted-foreground">Total token costs</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Billing Users Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing Users</CardTitle>
+                <CardDescription>Manage user billing plans and token usage</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {billingUsersLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-500 border-b pb-2">
+                      <div className="col-span-2">User</div>
+                      <div className="col-span-2">Plan</div>
+                      <div className="col-span-2">Status</div>
+                      <div className="col-span-2">Tokens Used</div>
+                      <div className="col-span-2">Monthly Cost</div>
+                      <div className="col-span-2">Actions</div>
+                    </div>
+                    {billingUsers?.map((user) => (
+                      <div key={user.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100">
+                        <div className="col-span-2">
+                          <div className="font-medium">{user.firstName} {user.lastName}</div>
+                          <div className="text-sm text-gray-500">{user.email}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <Badge className={getBillingPlanColor(user.billingPlan)}>
+                            {user.billingPlan.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                        <div className="col-span-2">
+                          <Badge className={getStatusColor(user.billingStatus)}>
+                            {user.billingStatus}
+                          </Badge>
+                        </div>
+                        <div className="col-span-2">
+                          <div>{user.tokensUsedThisMonth} / {user.monthlyTokenAllowance}</div>
+                          <div className="text-sm text-gray-500">
+                            {user.stakMembershipVerified && <span className="text-green-600">STAK Verified</span>}
+                          </div>
+                        </div>
+                        <div className="col-span-2 font-medium">${user.monthlyCost}</div>
+                        <div className="col-span-2 flex items-center space-x-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" data-testid={`button-edit-billing-${user.id}`}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Update Billing Plan</DialogTitle>
+                                <DialogDescription>
+                                  Change the billing plan for {user.firstName} {user.lastName}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <Select 
+                                  defaultValue={user.billingPlan}
+                                  onValueChange={(plan) => updateBillingPlanMutation.mutate({ userId: user.id, plan })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="free_stak_basic">Free STAK Basic</SelectItem>
+                                    <SelectItem value="paid_monthly">Paid Monthly</SelectItem>
+                                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => generateInvoiceMutation.mutate(user.id)}
+                            disabled={generateInvoiceMutation.isPending}
+                            data-testid={`button-generate-invoice-${user.id}`}
+                          >
+                            <FileSpreadsheet className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Invoices Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Invoices</CardTitle>
+                <CardDescription>All generated invoices and payment status</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {invoicesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-500 border-b pb-2">
+                      <div className="col-span-2">Invoice #</div>
+                      <div className="col-span-2">User</div>
+                      <div className="col-span-2">Period</div>
+                      <div className="col-span-2">Amount</div>
+                      <div className="col-span-2">Status</div>
+                      <div className="col-span-2">Due Date</div>
+                    </div>
+                    {invoices?.map((invoice) => (
+                      <div key={invoice.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100">
+                        <div className="col-span-2 font-medium">{invoice.invoiceNumber}</div>
+                        <div className="col-span-2">
+                          <div className="font-medium">{invoice.userName}</div>
+                          <div className="text-sm text-gray-500">{invoice.userEmail}</div>
+                        </div>
+                        <div className="col-span-2 text-sm">
+                          {new Date(invoice.billingPeriodStart).toLocaleDateString()} - {new Date(invoice.billingPeriodEnd).toLocaleDateString()}
+                        </div>
+                        <div className="col-span-2 font-medium">${invoice.totalAmount}</div>
+                        <div className="col-span-2">
+                          <Badge className={getInvoiceStatusColor(invoice.status)}>
+                            {invoice.status}
+                          </Badge>
+                        </div>
+                        <div className="col-span-2 text-sm">
+                          {new Date(invoice.dueDate).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Sponsors Tab */}
+          <TabsContent value="sponsors" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Sponsorship Management</h3>
+              <Button onClick={() => setShowCreateSponsorDialog(true)} data-testid="button-create-sponsor">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Sponsor
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {sponsorsLoading ? (
+                <div className="col-span-full flex items-center justify-center py-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : (
+                sponsors?.map((sponsor) => (
+                  <Card key={sponsor.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{sponsor.name}</CardTitle>
+                        <Badge className={sponsor.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                          {sponsor.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline">{sponsor.tier}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600 mb-4">{sponsor.description}</p>
+                      <div className="space-y-2 text-sm">
+                        {sponsor.websiteUrl && (
+                          <a href={sponsor.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            {sponsor.websiteUrl}
+                          </a>
+                        )}
+                        {sponsor.contactEmail && (
+                          <div className="text-gray-600">{sponsor.contactEmail}</div>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2 mt-4">
+                        <Button variant="outline" size="sm" data-testid={`button-view-sponsor-${sponsor.id}`}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid={`button-edit-sponsor-${sponsor.id}`}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid={`button-delete-sponsor-${sponsor.id}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Badges Tab */}
+          <TabsContent value="badges" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Badge Management</h3>
+              <Button onClick={() => setShowCreateBadgeDialog(true)} data-testid="button-create-badge">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Badge
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {badgesLoading ? (
+                <div className="col-span-full flex items-center justify-center py-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : (
+                badges?.map((badge) => (
+                  <Card key={badge.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{badge.name}</CardTitle>
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                          style={{ backgroundColor: badge.backgroundColor, color: badge.textColor }}
+                        >
+                          {badge.name[0]}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline">{badge.tier}</Badge>
+                        <Badge variant="outline">{badge.rarity}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600 mb-4">{badge.description}</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Type:</span>
+                          <span className="font-medium">{badge.badgeType}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Points:</span>
+                          <span className="font-medium">{badge.points}</span>
+                        </div>
+                        {badge.isEventSpecific && badge.eventId && (
+                          <div className="flex justify-between">
+                            <span>Event Specific:</span>
+                            <span className="font-medium">Yes</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2 mt-4">
+                        <Button variant="outline" size="sm" data-testid={`button-view-badge-${badge.id}`}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid={`button-edit-badge-${badge.id}`}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid={`button-award-badge-${badge.id}`}>
+                          <Award className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Advanced Analytics</h3>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" data-testid="button-export-analytics">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+                <Button variant="outline" data-testid="button-filter-analytics">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filter
+                </Button>
+              </div>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Platform Analytics</CardTitle>
+                <CardDescription>Detailed metrics and insights</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-gray-500">
+                  Advanced analytics dashboard coming soon...
+                  <br />
+                  Will include user engagement, event performance, and revenue analytics.
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* System Tab */}
+          <TabsContent value="system" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">System Management</h3>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" data-testid="button-import-data">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import Data
+                </Button>
+                <Button variant="outline" data-testid="button-backup-system">
+                  <Database className="h-4 w-4 mr-2" />
+                  Backup
+                </Button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card data-testid="card-general-settings">
+              <Card>
                 <CardHeader>
-                  <CardTitle>General Settings</CardTitle>
-                  <CardDescription>Basic platform configuration</CardDescription>
+                  <CardTitle>Data Import/Export</CardTitle>
+                  <CardDescription>Manage bulk data operations</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Platform Name</label>
-                    <Input defaultValue="STAK Sync" data-testid="input-platform-name" />
+                <CardContent>
+                  <div className="space-y-4">
+                    <Button className="w-full" variant="outline" data-testid="button-stak-reception-import">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Import from STAK Reception App
+                    </Button>
+                    <Button className="w-full" variant="outline" data-testid="button-csv-export">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export All Data (CSV)
+                    </Button>
+                    <Button className="w-full" variant="outline" data-testid="button-user-export">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Users
+                    </Button>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">Admin Email</label>
-                    <Input defaultValue="admin@staksync.com" data-testid="input-admin-email" />
-                  </div>
-                  <Button data-testid="button-save-general">Save Changes</Button>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-security-settings">
+              <Card>
                 <CardHeader>
-                  <CardTitle>Security Settings</CardTitle>
-                  <CardDescription>Platform security and authentication</CardDescription>
+                  <CardTitle>AI & Services</CardTitle>
+                  <CardDescription>Monitor AI systems and backend services</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Two-Factor Authentication</p>
-                      <p className="text-sm text-gray-600">Require 2FA for admin access</p>
-                    </div>
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                <CardContent>
+                  <div className="space-y-4">
+                    <Button className="w-full" variant="outline" data-testid="button-ai-matching-status">
+                      <Bot className="h-4 w-4 mr-2" />
+                      AI Matching Status
+                    </Button>
+                    <Button className="w-full" variant="outline" data-testid="button-token-usage-monitor">
+                      <Activity className="h-4 w-4 mr-2" />
+                      Token Usage Monitor
+                    </Button>
+                    <Button className="w-full" variant="outline" data-testid="button-profile-enrichment">
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Profile Enrichment Status
+                    </Button>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Session Timeout</p>
-                      <p className="text-sm text-gray-600">Auto-logout after inactivity</p>
-                    </div>
-                    <span className="text-sm text-gray-500">30 minutes</span>
-                  </div>
-                  <Button data-testid="button-save-security">Update Security</Button>
                 </CardContent>
               </Card>
             </div>
