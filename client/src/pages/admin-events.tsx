@@ -64,16 +64,15 @@ export default function AdminEvents() {
   const { toast } = useToast();
 
   const { data: events = [], isLoading } = useQuery<Event[]>({
-    queryKey: ["/api/admin/events"],
+    queryKey: ["/api/events"],
   });
 
   const createEventMutation = useMutation({
     mutationFn: async (eventData: Partial<Event>) => {
-      return apiRequest('POST', '/api/admin/events', eventData);
+      return apiRequest('/api/admin/events', 'POST', eventData);
     },
     onSuccess: () => {
       // Invalidate all event-related queries to ensure immediate refresh everywhere
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events/live-today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
@@ -94,11 +93,10 @@ export default function AdminEvents() {
 
   const updateEventMutation = useMutation({
     mutationFn: async ({ id, ...eventData }: Partial<Event> & { id: string }) => {
-      return apiRequest('PUT', `/api/admin/events/${id}`, eventData);
+      return apiRequest(`/api/admin/events/${id}`, 'PUT', eventData);
     },
     onSuccess: () => {
       // Invalidate all event-related queries to ensure immediate refresh everywhere
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events/live-today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
@@ -112,11 +110,10 @@ export default function AdminEvents() {
 
   const deleteEventMutation = useMutation({
     mutationFn: async (eventId: string) => {
-      return apiRequest('DELETE', `/api/admin/events/${eventId}`);
+      return apiRequest(`/api/admin/events/${eventId}`, 'DELETE');
     },
     onSuccess: () => {
       // Invalidate all event-related queries to ensure immediate refresh everywhere
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events/live-today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
