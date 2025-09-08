@@ -1,0 +1,206 @@
+
+=== COMPLETE SERVER CONTRACTS & WEBSOCKET PATTERNS ===
+
+## 1. CANONICAL apiRequest SIGNATURE
+// From client/src/lib/queryClient.ts
+export async function apiRequest(
+  url: string,
+  method: string,
+  data?: unknown | undefined,
+): Promise<Response>
+
+// With logging & comprehensive error handling:
+- Console logs for 🔍 API DEBUG on errors
+- Structured error extraction (error || message || details)
+- Status-specific fallbacks (401, 400, 500)
+- Credentials: 'include' for session auth
+
+## 2. WEBSOCKET CLIENT PATTERN
+// From client/src/hooks/useWebSocket.ts
+interface UseWebSocketOptions {
+  onMessage?: (data: any) => void;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+}
+
+Returns: {
+  isConnected: boolean,
+  sendMessage: (data: any) => void,
+  disconnect: () => void
+}
+
+Auto-reconnect: 3 seconds
+URL Pattern: wss://host/ws or ws://host/ws
+Message Format: JSON.parse(event.data)
+
+## 3. MISSION SYSTEM ENDPOINTS
+
+### PATCH /api/events/:eventId/missions/:missionId (Status Updates)
+Body: { status: 'completed' | 'in_progress', submissionData?: any }
+Auth: isAuthenticatedGeneral
+Response: { ok: true, pointsEarned?: number }
+
+### POST /api/events/:eventId/missions/*/telemetry (Multiple endpoints)
+- /api/events/:eventId/missions/meet_attendees/telemetry
+  Body: { action: 'view_profile' | 'message_sent' | 'sync_created', target_member_id: string }
+- /api/events/:eventId/missions/see_program_content/telemetry  
+  Body: { action: 'view_agenda' | 'open_component' | 'join_group' }
+
+## 4. EVENT & ATTENDEE ENDPOINTS
+
+### GET /api/events/:eventId/attendees/ranked
+Query: { limit?: number }
+Response: {
+  event_id: string,
+  member_id: string,
+  attendees: Array<{
+    member_id: string,
+    name: string,
+    company?: string,
+    headline?: string,  
+    avatar_url?: string,
+    match_score?: number,
+    overlap_tags?: string[]
+  }>
+}
+
+### GET /api/events/:eventId/agenda  
+Response: {
+  event_id: string,
+  components: Array<EventComponent>
+}
+
+### GET /api/events/:eventId/groups
+Response: {
+  event_id: string,
+  groups: Array<{
+    id: string,
+    name: string,
+    description?: string,
+    member_count: number,
+    is_active: boolean,
+    planned_start_ts?: string,
+    planned_end_ts?: string
+  }>
+}
+
+### POST /api/events/:eventId/groups
+Body: { name: string, description?: string }
+Response: { ok: true, group_id: string }
+
+## 5. LIVE EVENT & STATS ENDPOINTS
+
+### GET /api/events/live-today
+Response: LiveEvent {
+  id: string,
+  title: string,
+  startDate: string,
+  endDate: string,
+  location?: string,
+  isVirtual: boolean,
+  eventType: string,
+  attendeeCount?: number,
+  imageUrl?: string,
+  registrationCount: number,
+  isMatchmakingActive: boolean
+}
+
+### GET /api/events/:eventId/stats
+Response: EventStats (real-time stats)
+Refetch: 10 seconds interval
+
+### POST /api/events/:eventId/start-matchmaking
+Auth: isAuthenticatedGeneral
+Response: { ok: true }
+
+## 6. SPEAKER MESSAGES & AI SUMMARY
+
+### POST /api/events/:eventId/speaker-messages
+Body: {
+  speakerName: string,
+  sessionTitle?: string,
+  messageContent: string,
+  category?: string
+}
+Response: { ok: true, briefGenerated?: boolean }
+Side Effect: Triggers generateSpeakerBrief() with OpenAI GPT-5
+
+## 7. DATABASE SCHEMAS (Key Types)
+
+### EventComponent (Agenda Items)
+{
+  id: string,
+  eventId: string,
+  kind: string, // keynote, panel, workshop, roundtable, breakout, social, sponsor
+  title: string,
+  description?: string,
+  startTime?: Date,
+  endTime?: Date,
+  location?: string,
+  speakers?: string[],
+  maxCapacity?: number,
+  requiresRegistration: boolean
+}
+
+### EventRoom (Sync Groups)  
+{
+  id: string,
+  eventId: string,
+  name: string,
+  description?: string,
+  roomType: string, // breakout, industry-focus, skill-level, sync_group
+  isActive: boolean,
+  maxCapacity?: number,
+  plannedStartTs?: Date,
+  plannedEndTs?: Date
+}
+
+### EventMissionProgress
+{
+  id: string,
+  eventId: string,
+  userId: string,
+  missionId: string, // 'meet_attendees', 'see_program_content', etc
+  status: string, // pending, in_progress, completed
+  submissionData?: JSON,
+  pointsEarned?: number,
+  completedAt?: Date
+}
+
+### SpeakerMessage
+{
+  id: string,
+  eventId: string,
+  userId: string,
+  speakerName: string,
+  sessionTitle?: string,
+  messageContent: string,
+  category?: string,
+  submittedAt: Date
+}
+
+## 8. ANALYTICS ENDPOINTS
+
+### GET /api/admin/analytics
+Query: { timeRange: '7d' | '30d' | '90d' }
+Auth: isAdmin
+Response: AdminAnalytics (from storage.getAdminAnalytics())
+
+### GET /api/matches/analytics (User-level)
+Response: {
+  totalMatches: number,
+  connectedMatches: number,
+  pendingMatches: number,
+  passedMatches: number,
+  connectionRate: number,
+  avgMatchScore: number,
+  topIndustries: Array<{industry: string, count: number}>
+}
+
+## 9. RATE LIMITING & VALIDATION PATTERNS
+- All mutations use Zod schemas from drizzle-zod
+- Mission telemetry validates action types
+- Group creation requires name validation
+- Speaker messages validate required fields
+
+
