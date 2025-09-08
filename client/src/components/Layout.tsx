@@ -13,7 +13,7 @@ export default function Layout({ children }: LayoutProps) {
       <div className="sticky top-0 z-40">
         <LiveEventBanner />
       </div>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 transition-all duration-200">
         {children}
       </main>
     </div>
