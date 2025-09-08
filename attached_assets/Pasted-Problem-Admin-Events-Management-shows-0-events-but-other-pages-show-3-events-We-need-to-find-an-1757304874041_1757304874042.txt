@@ -1,0 +1,77 @@
+Problem
+Admin > Events Management shows 0 events, but other pages show 3 events. We need to find and fix the discrepancy so admins can see and edit all relevant events.
+
+Hypothesis
+- Admin UI is calling a different endpoint than public views, OR
+- The admin endpoint applies filters (status, date, org/tenant, created_by) that hide rows, OR
+- RBAC scoping removes events for this admin user, OR
+- The React Query cache key or CDN cache points to an empty dataset, OR
+- Pagination defaults to page=1 with page_size=0/undefined, OR
+- Environment/config base URL mismatch.
+
+Scope: Please locate and review these (names are examples; search if different):
+- Frontend admin list component/page: `src/pages/admin-events.tsx` or `src/pages/admin/events/index.tsx`
+- Frontend data hook for admin events list (if separate)
+- Backend handlers:
+  - GET `/api/admin/events` (or similar admin list route)
+  - GET `/api/events` (public list) — to compare
+- RBAC/tenant middleware (org_id scoping)
+- Any constants/enums for Event.status (e.g., draft/published/archived)
+
+Step 1 — Instrument and confirm API calls
+- In the Admin Events page, open DevTools and confirm which URL it calls. Log request + response (status, body length).
+- Compare with the public events page call that shows 3 events. Note all query params (status, date range, org_id, page, page_size).
+- Check auth headers and cookies in both calls.
+
+Step 2 — Align the admin endpoint behavior
+- Admin list should return events for the current org/tenant across statuses (draft, published, archived) and across time windows (past, current, future), unless filters are explicitly set in the UI.
+- If the admin endpoint currently defaults to `status=published` or `start_ts >= now()`, remove that default. Instead, support optional query params:
+    - `status` (multi) e.g., `?status=draft,published,archived`
+    - `time_scope` e.g., `all|upcoming|past`
+    - `q` (search by title)
+    - `org_id` (if superadmin)
+- Ensure pagination params have sensible defaults: `page=1`, `page_size=25`.
+
+Step 3 — Fix RBAC/org scoping
+- Confirm the admin user’s `org_id` matches the events’ `org_id`. If admin view is wrongly scoping by `created_by = currentUser`, remove that constraint; admins need to see all events in their org.
+- If multi-tenant, include `"WHERE events.org_id = :org_id"` in the admin list query and pass the org_id from the session.
+
+Step 4 — Normalize status enum & date filters
+- Verify DB has statuses exactly `draft|published|archived` (or your enum). Map them consistently in code.
+- Remove implicit date windows from the admin endpoint. The UI should choose the filter; default to `time_scope=all`.
+
+Step 5 — Frontend: show filters and wire them to the endpoint
+- In the admin list page, add a filter bar with:
+  - Status multiselect (defaults to ALL)
+  - Time scope select: All | Upcoming | Past (defaults to All)
+  - Search by title
+- Pass these as query params to the admin endpoint and render results.
+- Use React Query with a tuple key:
+  `['/api/admin/events', { org_id, status, time_scope, q, page, page_size }]`
+- On mutation (create/update/delete event), `invalidateQueries` with this exact key.
+
+Step 6 — Caching & hydration
+- Ensure the admin list endpoint sets `Cache-Control: private, no-store` (or very short TTL).
+- If you have an edge cache/CDN, bypass cache for `/api/admin/*`.
+- Verify React Query `staleTime` is short (e.g., 0–5s) for the admin list.
+
+Step 7 — Empty states & errors
+- If server returns an empty array, show “No events match your filters” with a “Clear filters” button.
+- If the request fails (401/403), show a permissions hint and log the auth context (org_id, role) in dev console.
+
+Step 8 — Add a smoke test
+- With an admin user in the same org as the 3 events:
+  - Admin page (no filters) should show all 3.
+  - Filter `status=published` should show the subset accordingly.
+  - Changing `time_scope=upcoming` should match the public list.
+  - Click an event → “Edit Event” page loads with populated form.
+
+Acceptance Criteria
+- Admin Events Management shows the same 3 events by default (no filters) that public pages surface under that org, plus any drafts/archived (if present) unless filtered out.
+- Editing is possible (the row’s “Edit” opens a form with current data).
+- Changing filters updates the list correctly.
+- No stale cache issues after create/update/delete — list refreshes within 1s.
+
+Please implement the above; if route names differ, update them; if RBAC blocks org-level read for admins, add/adjust the policy to allow `READ events WHERE org_id = admin.org_id`.
+
+If anything here conflicts with existing security/tenant design, STOP and summarize blockers with suggested alternatives.
