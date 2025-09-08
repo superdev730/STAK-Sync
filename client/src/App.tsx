@@ -18,7 +18,7 @@ import AdminUserProfile from "@/pages/admin-user-profile";
 import AdminEvents from "@/pages/admin-events";
 import AdminBilling from "@/pages/admin-billing";
 import AdminSponsors from "@/pages/admin-sponsors";
-import Attendees from "@/pages/attendees";
+import EventAttendeesPage from "@/pages/event-attendees";
 import Profile from "@/pages/profile";
 import ConnectRequest from "@/pages/connect-request";
 import MatchAnalysis from "@/pages/match-analysis";
@@ -66,7 +66,7 @@ function Router() {
             <Route path="/events" component={EventsNew} />
             <Route path="/events/:eventId" component={EventSignup} />
             <Route path="/events/:eventId/prep" component={EventPreparation} />
-            <Route path="/events/:eventId/attendees" component={Attendees} />
+            <Route path="/events/:eventId/attendees" component={EventAttendeesPage} />
             <Route path="/events/live/:eventId" component={LiveEvent} />
             <Route path="/events/live/:eventId/preparation" component={EventPreparation} />
             <Route path="/live-dashboard" component={LiveDashboard} />
