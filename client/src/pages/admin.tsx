@@ -232,7 +232,7 @@ export default function AdminDashboard() {
   const sponsors = Array.isArray(sponsorsResponse) ? sponsorsResponse : (sponsorsResponse?.sponsors || []);
   const badges = Array.isArray(badgesResponse) ? badgesResponse : (badgesResponse?.badges || []);
 
-  const users = usersData?.users || [];
+  const users = usersData || [];
   const events = eventsData?.events || [];
 
   // Format analytics data
