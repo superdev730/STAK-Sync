@@ -20,6 +20,9 @@ import { z } from "zod";
 // Admin role enumeration
 export const adminRoleEnum = pgEnum("admin_role", ["admin", "super_admin", "owner"]);
 
+// Authentication provider enumeration
+export const authProviderEnum = pgEnum("auth_provider", ["general", "replit"]);
+
 // Billing plan enumeration
 export const billingPlanEnum = pgEnum("billing_plan", ["free_stak_basic", "paid_monthly", "enterprise"]);
 
@@ -123,6 +126,19 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Authentication identities - links different auth providers to the same user
+export const authIdentities = pgTable("auth_identities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  provider: authProviderEnum("provider").notNull(),
+  providerUserId: varchar("provider_user_id").notNull(), // email for general auth, OIDC sub for Replit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueProviderUser: unique().on(table.provider, table.providerUserId),
+  userProviderIndex: index("auth_identities_user_provider_idx").on(table.userId, table.provider),
+}));
 
 // Profile field metadata for provenance tracking and zero-friction onboarding
 export const profileMetadata = pgTable("profile_metadata", {
@@ -969,6 +985,12 @@ export const insertUserSchema = createInsertSchema(users).omit({
   updatedAt: true,
 });
 
+export const insertAuthIdentitySchema = createInsertSchema(authIdentities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertMatchSchema = createInsertSchema(matches).omit({
   id: true,
   createdAt: true,
@@ -1388,6 +1410,9 @@ export const insertEventAttendeeImportSchema = createInsertSchema(eventAttendeeI
 export type User = typeof users.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type AuthIdentity = typeof authIdentities.$inferSelect;
+export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
 
 export type ProfileRecommendation = typeof profileRecommendations.$inferSelect;
 export type InsertProfileRecommendation = typeof profileRecommendations.$inferInsert;

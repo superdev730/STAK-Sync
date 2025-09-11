@@ -68,6 +68,9 @@ import {
   type InsertProfileRecommendation,
   type ProfileAssistanceRequest,
   type InsertProfileAssistanceRequest,
+  authIdentities,
+  type AuthIdentity,
+  type InsertAuthIdentity,
   profileFacts,
   profileEnrichmentRuns,
   type ProfileFact,
@@ -85,6 +88,12 @@ export interface IStorage {
   createUser(user: UpsertUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
+
+  // Authentication identity operations
+  findUserByIdentity(provider: 'general' | 'replit', providerUserId: string): Promise<User | undefined>;
+  linkAuthIdentity(userId: string, provider: 'general' | 'replit', providerUserId: string): Promise<AuthIdentity>;
+  ensureUserForReplit(claims: { sub: string; email: string; email_verified: boolean; name?: string }): Promise<User>;
+  ensureUserForGeneral(email: string): Promise<User>;
   
   // Match operations
   getMatches(userId: string): Promise<(Match & { matchedUser: User })[]>;
@@ -289,6 +298,87 @@ export class DatabaseStorage implements IStorage {
       
     console.log('Database update successful:', user);
     return user;
+  }
+
+  // Authentication identity implementations
+  async findUserByIdentity(provider: 'general' | 'replit', providerUserId: string): Promise<User | undefined> {
+    const result = await db
+      .select({ user: users })
+      .from(authIdentities)
+      .innerJoin(users, eq(authIdentities.userId, users.id))
+      .where(and(
+        eq(authIdentities.provider, provider),
+        eq(authIdentities.providerUserId, providerUserId)
+      ));
+    
+    return result[0]?.user;
+  }
+
+  async linkAuthIdentity(userId: string, provider: 'general' | 'replit', providerUserId: string): Promise<AuthIdentity> {
+    const [identity] = await db
+      .insert(authIdentities)
+      .values({
+        userId,
+        provider,
+        providerUserId,
+      })
+      .returning();
+    
+    return identity;
+  }
+
+  async ensureUserForReplit(claims: { sub: string; email: string; email_verified: boolean; name?: string }): Promise<User> {
+    // First, try to find user by Replit identity
+    let user = await this.findUserByIdentity('replit', claims.sub);
+    
+    if (user) {
+      return user;
+    }
+
+    // If no identity exists, check if user exists by email (only if email is verified)
+    if (claims.email_verified && claims.email) {
+      user = await this.getUserByEmail(claims.email);
+      
+      if (user) {
+        // Link existing user to Replit identity
+        await this.linkAuthIdentity(user.id, 'replit', claims.sub);
+        return user;
+      }
+    }
+
+    // Create new user and link to Replit identity
+    const userData: UpsertUser = {
+      email: claims.email,
+      emailVerified: claims.email_verified,
+      firstName: claims.name?.split(' ')[0] || '',
+      lastName: claims.name?.split(' ').slice(1).join(' ') || '',
+    };
+
+    user = await this.createUser(userData);
+    await this.linkAuthIdentity(user.id, 'replit', claims.sub);
+    
+    return user;
+  }
+
+  async ensureUserForGeneral(email: string): Promise<User> {
+    // First, try to find user by general auth identity  
+    let user = await this.findUserByIdentity('general', email);
+    
+    if (user) {
+      return user;
+    }
+
+    // If no identity exists, check if user exists by email
+    user = await this.getUserByEmail(email);
+    
+    if (user) {
+      // Link existing user to general auth identity
+      await this.linkAuthIdentity(user.id, 'general', email);
+      return user;
+    }
+
+    // This shouldn't happen in normal flow - general users should be created first
+    throw new Error('User not found for general authentication');
   }
 
   async getMatches(userId: string): Promise<(Match & { matchedUser: User })[]> {

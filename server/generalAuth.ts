@@ -237,11 +237,14 @@ export function setupGeneralAuth(app: Express) {
           action: 'forgot_password'
         });
       }
+
+      // Ensure identity mapping exists for general auth (unified authentication)
+      const unifiedUser = await storage.ensureUserForGeneral(email);
       
-      // Create session
+      // Create session with unified user ID
       req.login({ 
-        id: user.id, 
-        email: user.email,
+        id: unifiedUser.id, 
+        email: unifiedUser.email,
         authType: 'general'
       }, (err) => {
         if (err) {
@@ -266,18 +269,13 @@ export function setupGeneralAuth(app: Express) {
 }
 
 /**
- * Helper function to get user ID from different auth types
+ * Helper function to get unified user ID regardless of auth type
  */
 export const getUserId = (req: any): string | null => {
   if (!req.user) return null;
   
-  // For general auth, user ID is at req.user.id
-  if (req.user.authType === 'general') {
-    return req.user.id;
-  }
-  
-  // For Replit auth, user ID is at req.user.claims.sub
-  return req.user.claims?.sub || null;
+  // Both auth systems now store the unified user ID at req.user.id
+  return req.user.id || null;
 };
 
 /**

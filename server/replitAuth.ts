@@ -59,17 +59,7 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(
-  claims: any,
-) {
-  await storage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
-  });
-}
+// Removed - now using unified ensureUserForReplit method
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
@@ -86,9 +76,26 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    const claims = tokens.claims();
+    
+    // Use unified authentication system to ensure user exists and get consistent user ID
+    const dbUser = await storage.ensureUserForReplit({
+      sub: claims.sub,
+      email: claims.email,
+      email_verified: claims.email_verified || false,
+      name: claims.name || `${claims.first_name || ''} ${claims.last_name || ''}`.trim()
+    });
+
+    // Create session user with unified format
+    const user = {
+      id: dbUser.id, // Use database user ID, not OIDC sub
+      authType: 'replit',
+      claims,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: claims.exp
+    };
+    
     verified(null, user);
   };
 
