@@ -3437,7 +3437,7 @@ END:VCALENDAR`;
   });
 
   // Admin event management routes with comprehensive filtering
-  app.get('/api/admin/events', isAuthenticated, isAdmin, async (req, res) => {
+  app.get('/api/admin/events', isAuthenticatedGeneral, isAdmin, async (req, res) => {
     try {
       const { 
         status, 
@@ -3533,7 +3533,7 @@ END:VCALENDAR`;
     }
   });
 
-  app.post("/api/objects/upload", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/objects/upload", isAuthenticatedGeneral, isAdmin, async (req, res) => {
     const { ObjectStorageService } = await import('./objectStorage');
     const objectStorageService = new ObjectStorageService();
     const { fileName } = req.body;
@@ -3546,7 +3546,7 @@ END:VCALENDAR`;
     }
   });
 
-  app.post('/api/admin/events', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/events', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const eventData = { 
@@ -3620,7 +3620,7 @@ END:VCALENDAR`;
     }
   });
 
-  app.put('/api/admin/events/:id', isAuthenticated, isAdmin, async (req, res) => {
+  app.put('/api/admin/events/:id', isAuthenticatedGeneral, isAdmin, async (req, res) => {
     try {
       const event = await storage.updateEvent(req.params.id, req.body);
       res.json(event);
@@ -3631,7 +3631,7 @@ END:VCALENDAR`;
   });
 
   // Admin endpoint to approve/reject member event proposals
-  app.put('/api/admin/events/:id/approval', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put('/api/admin/events/:id/approval', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { action, notes, venueFee, revenueSharePercentage } = req.body;
@@ -3670,7 +3670,7 @@ END:VCALENDAR`;
   });
 
   // Get pending member event proposals for admin review
-  app.get('/api/admin/events/pending', isAuthenticated, isAdmin, async (req, res) => {
+  app.get('/api/admin/events/pending', isAuthenticatedGeneral, isAdmin, async (req, res) => {
     try {
       const pendingEvents = await storage.getPendingEvents();
       res.json(pendingEvents);
@@ -3680,7 +3680,7 @@ END:VCALENDAR`;
     }
   });
 
-  app.delete('/api/admin/events/:id', isAuthenticated, isAdmin, async (req, res) => {
+  app.delete('/api/admin/events/:id', isAuthenticatedGeneral, isAdmin, async (req, res) => {
     try {
       await storage.deleteEvent(req.params.id);
       res.json({ success: true });
@@ -3690,7 +3690,7 @@ END:VCALENDAR`;
     }
   });
 
-  app.get('/api/admin/events', isAuthenticated, isAdmin, async (req, res) => {
+  app.get('/api/admin/events', isAuthenticatedGeneral, isAdmin, async (req, res) => {
     try {
       const events = await storage.getAllEventsForAdmin();
       res.json(events);
@@ -6760,7 +6760,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Admin: Create new badge
-  app.post('/api/admin/badges', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/badges', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const badgeData = req.body;
       const newBadge = await storage.createBadge(badgeData);
@@ -6772,7 +6772,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Admin: Update badge
-  app.patch('/api/admin/badges/:badgeId', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.patch('/api/admin/badges/:badgeId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { badgeId } = req.params;
       const updates = req.body;
@@ -6785,7 +6785,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Admin: Award badge to user
-  app.post('/api/admin/badges/:badgeId/award', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/badges/:badgeId/award', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { badgeId } = req.params;
       const { userId, eventId, metadata } = req.body;
@@ -6809,7 +6809,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Admin: Remove badge from user
-  app.delete('/api/admin/users/:userId/badges/:badgeId', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete('/api/admin/users/:userId/badges/:badgeId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { userId, badgeId } = req.params;
       await storage.removeBadge(userId, badgeId);
@@ -6823,7 +6823,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   // ===== BILLING SYSTEM ROUTES =====
   
   // Admin billing statistics
-  app.get('/api/admin/billing/stats', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/billing/stats', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const currentMonth = new Date();
       const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
@@ -6873,7 +6873,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Get billing users with usage info
-  app.get('/api/admin/billing/users', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/billing/users', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const billingUsers = await db
         .select({
@@ -6932,7 +6932,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Update user billing plan
-  app.put('/api/admin/billing/users/:userId/plan', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put('/api/admin/billing/users/:userId/plan', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { plan } = req.body;
@@ -6957,7 +6957,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Get invoices
-  app.get('/api/admin/billing/invoices', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/billing/invoices', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const invoiceList = await db
         .select({
@@ -7056,7 +7056,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Generate invoice for user (updated with sales tax)
-  app.post('/api/admin/billing/users/:userId/generate-invoice', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/billing/users/:userId/generate-invoice', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
       
@@ -7209,7 +7209,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Export billing data
-  app.post('/api/admin/billing/export', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/billing/export', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const billingUsers = await db
         .select({
@@ -7710,7 +7710,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Admin analytics endpoints
-  app.get('/api/admin/analytics', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/analytics', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -7738,7 +7738,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Admin user management endpoints
-  app.get('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/users', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -7776,7 +7776,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Search users endpoint
-  app.get('/api/admin/users/search', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/users/search', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const query = req.query.q as string;
       if (!query || query.trim().length < 2) {
@@ -7791,7 +7791,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     }
   });
 
-  app.post('/api/admin/users/:userId/status', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/users/:userId/status', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const currentUserId = getUserId(req);
       const adminUser = await storage.getUser(currentUserId);
@@ -7852,7 +7852,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     }
   });
 
-  app.get('/api/admin/users/search', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/users/search', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -7871,7 +7871,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Admin user management routes
-  app.post('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/users', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const currentUserId = getUserId(req);
       const adminUser = await storage.getUser(currentUserId);
@@ -7933,7 +7933,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     }
   });
 
-  app.put('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put('/api/admin/users/:userId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const currentUserId = getUserId(req);
       const adminUser = await storage.getUser(currentUserId);
@@ -7980,7 +7980,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     }
   });
 
-  app.delete('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete('/api/admin/users/:userId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const currentUserId = getUserId(req);
       const adminUser = await storage.getUser(currentUserId);
@@ -8021,7 +8021,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Password reset endpoint
-  app.post('/api/admin/users/:userId/reset-password', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/users/:userId/reset-password', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const currentUserId = getUserId(req);
       const adminUser = await storage.getUser(currentUserId);
@@ -8076,7 +8076,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Platform insights for stakeholders, investors, and advertisers
-  app.get('/api/admin/platform-insights', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/platform-insights', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -8166,7 +8166,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Urgent actions endpoint
-  app.get('/api/admin/urgent-actions', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/urgent-actions', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -8224,7 +8224,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Drill-down endpoints for detailed metric data
-  app.get('/api/admin/users-detailed', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/users-detailed', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -8247,7 +8247,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     }
   });
 
-  app.get('/api/admin/messages-detailed', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/messages-detailed', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -8283,7 +8283,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     }
   });
 
-  app.get('/api/admin/events-detailed', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/events-detailed', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -8304,7 +8304,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     }
   });
 
-  app.get('/api/admin/matches-detailed', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/matches-detailed', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -8727,7 +8727,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
   });
 
   // Detailed advertising metrics for advertisers
-  app.get('/api/admin/advertising-performance', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/advertising-performance', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -9311,7 +9311,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // Search users endpoint
-  app.get('/api/admin/users/search', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/users/search', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const query = req.query.q as string;
       if (!query || query.length < 2) {
@@ -9327,7 +9327,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // New user management API endpoints - rebuilt from scratch
-  app.get('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/users', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -9352,7 +9352,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
     }
   });
 
-  app.post('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/users', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const adminUser = await storage.getUser(userId);
@@ -9386,7 +9386,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
     }
   });
 
-  app.put('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put('/api/admin/users/:userId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const userData = req.body;
@@ -9421,7 +9421,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
     }
   });
 
-  app.delete('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete('/api/admin/users/:userId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
 
@@ -9453,7 +9453,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // Invite system API endpoints
-  app.post('/api/admin/invites', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/admin/invites', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const adminUserId = req.user.claims.sub;
       const inviteData = req.body;
@@ -9495,7 +9495,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
     }
   });
 
-  app.get('/api/admin/invites', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/admin/invites', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const adminUserId = req.user.claims.sub;
       const invites = await storage.getInvitesByUser(adminUserId);
@@ -9576,7 +9576,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   // ===============================================
 
   // Get all sponsors
-  app.get('/api/sponsors', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get('/api/sponsors', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const allSponsors = await db.select().from(sponsors);
       res.json(allSponsors);
@@ -9587,7 +9587,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // Create new sponsor
-  app.post('/api/sponsors', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/sponsors', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const sponsorData = insertSponsorSchema.parse(req.body);
       const [newSponsor] = await db.insert(sponsors).values(sponsorData).returning();
@@ -9599,7 +9599,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // Update sponsor
-  app.put('/api/sponsors/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put('/api/sponsors/:id', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { id } = req.params;
       const sponsorData = insertSponsorSchema.parse(req.body);
@@ -9621,7 +9621,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // Delete sponsor
-  app.delete('/api/sponsors/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete('/api/sponsors/:id', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { id } = req.params;
       
@@ -9668,7 +9668,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // Add sponsor to event
-  app.post('/api/events/:eventId/sponsors', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post('/api/events/:eventId/sponsors', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { eventId } = req.params;
       const eventSponsorData = insertEventSponsorSchema.parse({
@@ -9689,7 +9689,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // Update event sponsor
-  app.put('/api/events/:eventId/sponsors/:sponsorshipId', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put('/api/events/:eventId/sponsors/:sponsorshipId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { sponsorshipId } = req.params;
       const eventSponsorData = insertEventSponsorSchema.partial().parse(req.body);
@@ -9712,7 +9712,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // Remove sponsor from event
-  app.delete('/api/events/:eventId/sponsors/:sponsorshipId', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete('/api/events/:eventId/sponsors/:sponsorshipId', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
     try {
       const { sponsorshipId } = req.params;
       
@@ -9733,7 +9733,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // STAK Reception App database import routes
-  app.post('/api/admin/import/stak-reception', isAuthenticated, isAdmin, async (req, res) => {
+  app.post('/api/admin/import/stak-reception', isAuthenticatedGeneral, isAdmin, async (req, res) => {
     try {
       const { connectionString } = req.body;
       
@@ -9777,7 +9777,7 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
   });
 
   // Test STAK Reception App database connection
-  app.post('/api/admin/import/stak-reception/test', isAuthenticated, isAdmin, async (req, res) => {
+  app.post('/api/admin/import/stak-reception/test', isAuthenticatedGeneral, isAdmin, async (req, res) => {
     try {
       const { connectionString } = req.body;
       
