@@ -153,7 +153,7 @@ export default function AdminDashboard() {
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ['/api/admin/analytics/30d'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/analytics/30d');
+      const response = await apiRequest('/api/admin/analytics/30d', 'GET');
       return response.json();
     },
   });
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/users?limit=50');
+      const response = await apiRequest('/api/admin/users?limit=50', 'GET');
       return response.json();
     },
   });
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
   const { data: eventsData, isLoading: eventsLoading } = useQuery({
     queryKey: ['/api/admin/events'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/events');
+      const response = await apiRequest('/api/admin/events', 'GET');
       return response.json();
     },
   });
@@ -180,7 +180,7 @@ export default function AdminDashboard() {
   const { data: billingStats, isLoading: billingLoading } = useQuery({
     queryKey: ['/api/admin/billing/stats'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/billing/stats');
+      const response = await apiRequest('/api/admin/billing/stats', 'GET');
       return response.json();
     },
     enabled: activeTab === "billing",
@@ -189,7 +189,7 @@ export default function AdminDashboard() {
   const { data: billingUsersResponse, isLoading: billingUsersLoading } = useQuery({
     queryKey: ['/api/admin/billing/users'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/billing/users');
+      const response = await apiRequest('/api/admin/billing/users', 'GET');
       return response.json();
     },
     enabled: activeTab === "billing",
@@ -198,7 +198,7 @@ export default function AdminDashboard() {
   const { data: invoicesResponse, isLoading: invoicesLoading } = useQuery({
     queryKey: ['/api/admin/billing/invoices'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/billing/invoices');
+      const response = await apiRequest('/api/admin/billing/invoices', 'GET');
       return response.json();
     },
     enabled: activeTab === "billing",
@@ -212,7 +212,7 @@ export default function AdminDashboard() {
   const { data: sponsorsResponse, isLoading: sponsorsLoading } = useQuery({
     queryKey: ['/api/sponsors'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/sponsors');
+      const response = await apiRequest('/api/sponsors', 'GET');
       return response.json();
     },
     enabled: activeTab === "sponsors",
@@ -222,7 +222,7 @@ export default function AdminDashboard() {
   const { data: badgesResponse, isLoading: badgesLoading } = useQuery({
     queryKey: ['/api/badges'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/badges');
+      const response = await apiRequest('/api/badges', 'GET');
       return response.json();
     },
     enabled: activeTab === "badges",
@@ -268,7 +268,7 @@ export default function AdminDashboard() {
   // Export billing data
   const exportBillingMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/admin/billing/export');
+      const response = await apiRequest('/api/admin/billing/export', 'POST');
       return response.blob();
     },
     onSuccess: (blob) => {
@@ -297,7 +297,7 @@ export default function AdminDashboard() {
   // Update user billing plan
   const updateBillingPlanMutation = useMutation({
     mutationFn: ({ userId, plan }: { userId: string; plan: string }) =>
-      apiRequest('PUT', `/api/admin/billing/users/${userId}/plan`, { plan }),
+      apiRequest(`/api/admin/billing/users/${userId}/plan`, 'PUT', { plan }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/billing/users'] });
       toast({
@@ -317,7 +317,7 @@ export default function AdminDashboard() {
   // Generate invoice
   const generateInvoiceMutation = useMutation({
     mutationFn: (userId: string) =>
-      apiRequest('POST', `/api/admin/billing/users/${userId}/generate-invoice`),
+      apiRequest(`/api/admin/billing/users/${userId}/generate-invoice`, 'POST'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/billing/invoices'] });
       toast({
