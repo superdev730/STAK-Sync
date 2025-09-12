@@ -86,6 +86,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import express from 'express';
 import { EnrichmentService } from './enrichmentService';
+import { z } from 'zod';
 
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -245,6 +246,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ Interview Flow Validation Schemas ============
+  
+  const stage1Schema = z.object({
+    firstName: z.string().min(1, "First name is required").max(50),
+    lastName: z.string().min(1, "Last name is required").max(50),
+    preferredDisplayName: z.string().max(100).optional(),
+    headline: z.string().max(200).optional(),
+    city: z.string().max(100).optional(),
+    region: z.string().max(100).optional(),
+    timezone: z.string().max(50).optional(),
+    phone: z.string().regex(/^[\d\s\+\-\(\)]*$/, "Invalid phone format").max(20).optional().or(z.literal('')),
+    linkedinUrl: z.string().url("Invalid LinkedIn URL").optional().or(z.literal('')),
+    linkedinVisible: z.boolean().optional(),
+    twitterUrl: z.string().url("Invalid Twitter URL").optional().or(z.literal('')),
+    twitterVisible: z.boolean().optional(),
+    githubUrl: z.string().url("Invalid GitHub URL").optional().or(z.literal('')),
+    githubVisible: z.boolean().optional(),
+    personalWebsite: z.string().url("Invalid website URL").optional().or(z.literal('')),
+    personalWebsiteVisible: z.boolean().optional(),
+    portfolioUrl: z.string().url("Invalid portfolio URL").optional().or(z.literal('')),
+    portfolioVisible: z.boolean().optional()
+  });
+
+  const stage2Schema = z.object({
+    personas: z.array(z.enum([
+      "VC", "Angel", "Family Office", "Founder", "Co-Founder", "CEO",
+      "Operator", "Engineer", "Designer", "Product Manager", "Sales", "Marketing",
+      "Advisor", "Consultant", "Other"
+    ])).min(1, "At least one persona is required").max(5, "Maximum 5 personas allowed"),
+    primaryPersona: z.enum([
+      "VC", "Angel", "Family Office", "Founder", "Co-Founder", "CEO",
+      "Operator", "Engineer", "Designer", "Product Manager", "Sales", "Marketing",
+      "Advisor", "Consultant", "Other"
+    ])
+  });
+
+  const stage3Schema = z.object({
+    goalStatement: z.string().min(10, "Goal statement must be at least 10 characters").max(500),
+    goals: z.array(z.string().min(1).max(200)).min(1, "At least one goal is required").max(3, "Maximum 3 goals allowed"),
+    timelineUrgency: z.enum(["now", "30-60d", "60-180d", "exploratory"]).optional()
+  });
+
+  const stage4VCSchema = z.object({
+    aum: z.string().max(100).optional(),
+    fundStage: z.string().max(100).optional(),
+    checkSizeMin: z.string().max(50).optional(),
+    checkSizeMax: z.string().max(50).optional(),
+    investmentThesis: z.string().min(50, "Investment thesis must be at least 50 characters").max(2000),
+    sectors: z.array(z.string()).min(1, "At least one sector is required").max(10),
+    geography: z.array(z.string()).max(20).optional(),
+    stages: z.array(z.string()).max(10).optional(),
+    portfolioCount: z.number().min(0).optional(),
+    notableWins: z.string().max(1000).optional(),
+    diligenceStyle: z.string().max(500).optional()
+  });
+
+  const stage4FounderSchema = z.object({
+    companyName: z.string().min(1, "Company name is required").max(100),
+    companyStage: z.string().min(1, "Company stage is required").max(50),
+    companyWebsite: z.string().url("Invalid company website URL").optional().or(z.literal('')),
+    industry: z.string().min(1, "Industry is required").max(100),
+    targetMarket: z.string().max(200).optional(),
+    teamSize: z.string().max(50).optional(),
+    foundingTeam: z.string().max(500).optional(),
+    revenueStatus: z.string().max(50).optional(),
+    monthlyRevenue: z.string().max(50).optional(),
+    previousFunding: z.string().max(200).optional(),
+    currentRunway: z.string().max(50).optional(),
+    burnRate: z.string().max(50).optional(),
+    pitchDeck: z.string().url("Invalid pitch deck URL").optional().or(z.literal('')),
+    companyDescription: z.string().min(50, "Company description must be at least 50 characters").max(2000),
+    fundingNeeds: z.string().max(1000).optional(),
+    supportNeeds: z.array(z.string()).max(10).optional(),
+    biggestChallenge: z.string().max(1000).optional()
+  });
+
+  const stage4OperatorSchema = z.object({
+    currentCompany: z.string().min(1, "Company is required").max(100),
+    currentRole: z.string().min(1, "Current role is required").max(100),
+    careerStage: z.string().min(1, "Career stage is required").max(50),
+    yearsExperience: z.string().max(20).optional(),
+    industries: z.array(z.string()).max(10).optional(),
+    expertiseAreas: z.array(z.string()).min(1, "At least one area of expertise is required").max(10),
+    notableAchievements: z.string().max(2000).optional(),
+    skillset: z.array(z.string()).max(20).optional(),
+    lookingFor: z.array(z.string()).max(10).optional(),
+    idealNextRole: z.string().max(200).optional(),
+    portfolioUrl: z.string().url("Invalid portfolio URL").optional().or(z.literal('')),
+    githubUrl: z.string().url("Invalid GitHub URL").optional().or(z.literal('')),
+    personalWebsite: z.string().url("Invalid website URL").optional().or(z.literal('')),
+    availableForMentoring: z.boolean().optional(),
+    openToRelocation: z.boolean().optional(),
+    preferredWorkStyle: z.string().max(100).optional()
+  });
+
+  const stage4GeneralSchema = z.object({
+    organizationName: z.string().min(1, "Organization name is required").max(100),
+    organizationType: z.string().min(1, "Organization type is required").max(50),
+    currentRole: z.string().min(1, "Current role is required").max(100),
+    yearsInField: z.string().max(20).optional(),
+    expertiseAreas: z.array(z.string()).max(10).optional(),
+    professionalSummary: z.string().min(50, "Professional summary must be at least 50 characters").max(2000),
+    keyAchievements: z.string().max(1000).optional(),
+    offeringToNetwork: z.string().max(500).optional(),
+    seekingFromNetwork: z.string().max(500).optional(),
+    networkingGoals: z.array(z.string()).max(5).optional(),
+    availableForSpeaking: z.boolean().optional(),
+    availableForAdvisory: z.boolean().optional(),
+    availableForCollaboration: z.boolean().optional(),
+    personalWebsite: z.string().url("Invalid website URL").optional().or(z.literal('')),
+    publicationUrl: z.string().url("Invalid publication URL").optional().or(z.literal(''))
+  });
+
   // ============ Interview Flow Endpoints ============
   
   // 1. GET /api/interview/status - Get user's interview status and progress
@@ -285,6 +399,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not authenticated" });
       }
 
+      // Validate input with Zod schema
+      const validationResult = stage1Schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          details: validationResult.error.flatten()
+        });
+      }
+
       const {
         firstName,
         lastName,
@@ -304,12 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         personalWebsiteVisible,
         portfolioUrl,
         portfolioVisible
-      } = req.body;
-
-      // Validate required fields
-      if (!firstName || !lastName) {
-        return res.status(400).json({ error: "First name and last name are required" });
-      }
+      } = validationResult.data;
 
       // Update user record
       const updatedUser = await storage.updateUser(userId, {
@@ -355,16 +473,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not authenticated" });
       }
 
-      const { personas, primaryPersona } = req.body;
-
-      // Validate required fields
-      if (!personas || !Array.isArray(personas) || personas.length === 0) {
-        return res.status(400).json({ error: "At least one persona is required" });
+      // Validate input with Zod schema
+      const validationResult = stage2Schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          details: validationResult.error.flatten()
+        });
       }
 
-      if (!primaryPersona) {
-        return res.status(400).json({ error: "Primary persona is required" });
-      }
+      const { personas, primaryPersona } = validationResult.data;
 
       // Update user record
       const updatedUser = await storage.updateUser(userId, {
@@ -392,20 +510,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not authenticated" });
       }
 
-      const { goalStatement, goals, timelineUrgency } = req.body;
-
-      // Validate required fields
-      if (!goalStatement) {
-        return res.status(400).json({ error: "Goal statement is required" });
+      // Validate input with Zod schema
+      const validationResult = stage3Schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          details: validationResult.error.flatten()
+        });
       }
 
-      if (!goals || !Array.isArray(goals) || goals.length === 0) {
-        return res.status(400).json({ error: "At least one goal is required" });
-      }
-
-      if (goals.length > 3) {
-        return res.status(400).json({ error: "Maximum 3 goals allowed" });
-      }
+      const { goalStatement, goals, timelineUrgency } = validationResult.data;
 
       // Update user record
       const updatedUser = await storage.updateUser(userId, {
@@ -434,6 +548,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not authenticated" });
       }
 
+      // Validate input with Zod schema
+      const validationResult = stage4VCSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          details: validationResult.error.flatten()
+        });
+      }
+
       const {
         aum,
         fundStage,
@@ -446,16 +569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         portfolioCount,
         notableWins,
         diligenceStyle
-      } = req.body;
-
-      // Validate required fields
-      if (!investmentThesis) {
-        return res.status(400).json({ error: "Investment thesis is required" });
-      }
-
-      if (!sectors || !Array.isArray(sectors) || sectors.length === 0) {
-        return res.status(400).json({ error: "At least one sector is required" });
-      }
+      } = validationResult.data;
 
       // Update user record - store VC data in JSON fields
       const updatedUser = await storage.updateUser(userId, {
@@ -475,14 +589,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           notableWins,
           diligenceStyle
         },
-        profileStatus: 'complete',
-        lastInterviewStage: 'complete'
+        // Don't mark as complete here - client should call /api/interview/complete
+        lastInterviewStage: 'stage4vc'
       });
 
       res.json({
         success: true,
         message: "VC profile data saved successfully",
-        profileStatus: updatedUser.profileStatus,
         lastInterviewStage: updatedUser.lastInterviewStage
       });
     } catch (error) {
@@ -497,6 +610,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Validate input with Zod schema
+      const validationResult = stage4FounderSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          details: validationResult.error.flatten()
+        });
       }
 
       const {
@@ -517,16 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fundingNeeds,
         supportNeeds,
         biggestChallenge
-      } = req.body;
-
-      // Validate required fields
-      if (!companyName || !companyStage || !industry) {
-        return res.status(400).json({ error: "Company name, stage, and industry are required" });
-      }
-
-      if (!companyDescription || companyDescription.length < 50) {
-        return res.status(400).json({ error: "Company description is required (min 50 characters)" });
-      }
+      } = validationResult.data;
 
       // Update user record - store founder data
       const updatedUser = await storage.updateUser(userId, {
@@ -551,14 +664,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           supportNeeds,
           biggestChallenge
         },
-        profileStatus: 'complete',
-        lastInterviewStage: 'complete'
+        // Don't mark as complete here - client should call /api/interview/complete
+        lastInterviewStage: 'stage4founder'
       });
 
       res.json({
         success: true,
         message: "Founder profile data saved successfully",
-        profileStatus: updatedUser.profileStatus,
         lastInterviewStage: updatedUser.lastInterviewStage
       });
     } catch (error) {
@@ -573,6 +685,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Validate input with Zod schema
+      const validationResult = stage4OperatorSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          details: validationResult.error.flatten()
+        });
       }
 
       const {
@@ -592,16 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         availableForMentoring,
         openToRelocation,
         preferredWorkStyle
-      } = req.body;
-
-      // Validate required fields
-      if (!currentCompany || !currentRole || !careerStage) {
-        return res.status(400).json({ error: "Company, role, and career stage are required" });
-      }
-
-      if (!expertiseAreas || !Array.isArray(expertiseAreas) || expertiseAreas.length === 0) {
-        return res.status(400).json({ error: "At least one area of expertise is required" });
-      }
+      } = validationResult.data;
 
       // Update user record - store operator data
       const updatedUser = await storage.updateUser(userId, {
@@ -624,14 +736,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           openToRelocation,
           preferredWorkStyle
         },
-        profileStatus: 'complete',
-        lastInterviewStage: 'complete'
+        // Don't mark as complete here - client should call /api/interview/complete
+        lastInterviewStage: 'stage4operator'
       });
 
       res.json({
         success: true,
         message: "Operator profile data saved successfully",
-        profileStatus: updatedUser.profileStatus,
         lastInterviewStage: updatedUser.lastInterviewStage
       });
     } catch (error) {
@@ -646,6 +757,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Validate input with Zod schema
+      const validationResult = stage4GeneralSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          details: validationResult.error.flatten()
+        });
       }
 
       const {
@@ -664,16 +784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         availableForCollaboration,
         personalWebsite,
         publicationUrl
-      } = req.body;
-
-      // Validate required fields
-      if (!organizationName || !organizationType || !currentRole) {
-        return res.status(400).json({ error: "Organization, type, and role are required" });
-      }
-
-      if (!professionalSummary || professionalSummary.length < 50) {
-        return res.status(400).json({ error: "Professional summary is required (min 50 characters)" });
-      }
+      } = validationResult.data;
 
       // Update user record - store general persona data
       const updatedUser = await storage.updateUser(userId, {
@@ -695,14 +806,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           personalWebsite,
           publicationUrl
         },
-        profileStatus: 'complete',
-        lastInterviewStage: 'complete'
+        // Don't mark as complete here - client should call /api/interview/complete
+        lastInterviewStage: 'stage4general'
       });
 
       res.json({
         success: true,
         message: "Professional profile data saved successfully",
-        profileStatus: updatedUser.profileStatus,
         lastInterviewStage: updatedUser.lastInterviewStage
       });
     } catch (error) {

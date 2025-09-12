@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, ChevronLeft, ChevronRight, User, Briefcase, Target, Building } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 import Stage0SessionState from "@/components/interview/Stage0SessionState";
 import Stage1Identity from "@/components/interview/Stage1Identity";
@@ -47,7 +47,6 @@ export default function Interview() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Fetch interview status
   const { data: interviewStatus, isLoading: statusLoading } = useQuery<InterviewStatus>({
@@ -59,6 +58,12 @@ export default function Interview() {
   // Set initial stage based on status
   useEffect(() => {
     if (interviewStatus) {
+      // Prevent re-entering completed interviews unless explicitly editing
+      if (interviewStatus.profileStatus === "complete" && currentStage !== 0) {
+        setCurrentStage(0);
+        return;
+      }
+      
       if (interviewStatus.profileStatus === "new") {
         setCurrentStage(1);
       } else if (interviewStatus.profileStatus === "incomplete") {
@@ -96,11 +101,18 @@ export default function Interview() {
       let endpoint = `/api/interview/stage${stage}`;
       
       // Use persona-specific endpoint for Stage 4
-      if (stage === 4 && stage4Type) {
+      if (stage === 4) {
+        if (!stage4Type) {
+          throw new Error('Stage 4 type not set. Please select your persona first.');
+        }
         endpoint = `/api/interview/stage4/${stage4Type}`;
       }
       
       const response = await apiRequest(endpoint, "POST", data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to save data');
+      }
       return response.json();
     },
     onSuccess: (data, variables) => {
@@ -108,7 +120,10 @@ export default function Interview() {
         title: "Progress Saved",
         description: "Your information has been saved successfully.",
       });
+      // Invalidate all relevant caches
       queryClient.invalidateQueries({ queryKey: ["/api/interview/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/interview/data"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       
       // Check if we need to show Stage 4 after persona selection
       if (variables.stage === 2) {
@@ -133,10 +148,10 @@ export default function Interview() {
         }
       }
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to save your progress. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to save your progress. Please try again.",
         variant: "destructive",
       });
     },
@@ -152,13 +167,22 @@ export default function Interview() {
     // Move to next stage
     if (currentStage === 3 && !showStage4) {
       // If no Stage 4 needed, complete the interview
-      handleComplete();
+      await handleComplete();
     } else if (currentStage === 4) {
       // Stage 4 is the last stage
-      handleComplete();
+      await handleComplete();
     } else if (currentStage < 3) {
       setCurrentStage(currentStage + 1);
     } else if (currentStage === 3 && showStage4) {
+      // Ensure stage4Type is set before advancing
+      if (!stage4Type) {
+        toast({
+          title: "Error",
+          description: "Unable to determine profile type. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
       setCurrentStage(4);
     }
   };
@@ -169,14 +193,36 @@ export default function Interview() {
     }
   };
 
-  const handleComplete = () => {
-    toast({
-      title: "Interview Complete!",
-      description: "Thank you for completing your profile. Redirecting to home...",
-    });
-    setTimeout(() => {
-      setLocation("/");
-    }, 2000);
+  const handleComplete = async () => {
+    try {
+      // Save completion status to backend
+      const response = await apiRequest('/api/interview/complete', 'POST', {});
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to complete interview');
+      }
+      
+      // Invalidate the interview status cache
+      queryClient.invalidateQueries({ queryKey: ['/api/interview/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      
+      toast({
+        title: "Interview Complete!",
+        description: "Thank you for completing your profile. Redirecting to home...",
+      });
+      
+      setTimeout(() => {
+        setLocation("/");
+      }, 2000);
+    } catch (error) {
+      console.error('Error completing interview:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to complete interview. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleResumeInterview = () => {
