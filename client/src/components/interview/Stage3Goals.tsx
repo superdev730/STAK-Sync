@@ -41,19 +41,19 @@ const MAX_GOALS = 3;
 
 const stage3Schema = z.object({
   goalStatement: z.string()
-    .min(20, "Please provide a meaningful intent statement (min 20 characters)")
-    .max(500, "Intent statement is too long (max 500 characters)"),
+    .min(20, "Your intent statement needs at least 20 characters. Please add more detail about what you're looking for.")
+    .max(500, "Your intent statement is too long (maximum 500 characters). Please shorten it to be more concise."),
   selectedChipGoals: z.array(z.string())
-    .max(3, "Please select up to 3 goals from the suggestions"),
+    .max(3, "You can only select up to 3 goals from the suggestions. Please deselect some goals."),
   customGoalsInput: z.string().optional(),
   goals: z.array(z.string()), // This will be the combined array sent to backend
   timelineUrgency: z.enum(["now", "30-60d", "60-180d", "exploratory"], {
-    required_error: "Please select your timeline",
+    required_error: "Please select when you need to achieve your goals by clicking one of the timeline options.",
   }),
 }).refine((data) => {
   // Parse custom goals
   const customGoals = data.customGoalsInput
-    ? data.customGoalsInput.split(',').map(g => g.trim()).filter(g => g.length > 0)
+    ? data.customGoalsInput.split(',').map((g: string) => g.trim()).filter((g: string) => g.length > 0)
     : [];
   
   // Combine selected chips and custom goals
@@ -62,12 +62,12 @@ const stage3Schema = z.object({
   // Check minimum requirement
   return totalGoals.length >= 1;
 }, {
-  message: "Please select or enter at least 1 goal",
+  message: "You need at least 1 goal to continue. Please select a goal from the suggestions or enter your own custom goal.",
   path: ["goals"],
 }).refine((data) => {
   // Parse custom goals
   const customGoals = data.customGoalsInput
-    ? data.customGoalsInput.split(',').map(g => g.trim()).filter(g => g.length > 0)
+    ? data.customGoalsInput.split(',').map((g: string) => g.trim()).filter((g: string) => g.length > 0)
     : [];
   
   // Combine selected chips and custom goals
@@ -75,9 +75,16 @@ const stage3Schema = z.object({
   
   // Check maximum limit (backend requirement)
   return totalGoals.length <= MAX_GOALS;
-}, {
-  message: `Maximum ${MAX_GOALS} goals allowed total (including custom goals). Please remove some goals.`,
-  path: ["goals"],
+}, (data) => {
+  const customGoals = data.customGoalsInput
+    ? data.customGoalsInput.split(',').map((g: string) => g.trim()).filter((g: string) => g.length > 0)
+    : [];
+  const totalGoals = Array.from(new Set([...data.selectedChipGoals, ...customGoals]));
+  const excess = totalGoals.length - MAX_GOALS;
+  return {
+    message: `You have selected ${totalGoals.length} goals but the maximum is ${MAX_GOALS}. Please remove ${excess} goal${excess > 1 ? 's' : ''} to continue.`,
+    path: ["goals"],
+  };
 });
 
 type Stage3Data = z.infer<typeof stage3Schema>;
@@ -100,6 +107,7 @@ export default function Stage3Goals({
   const { toast } = useToast();
   const [totalGoalsCount, setTotalGoalsCount] = useState(0);
   const [isAtMaxLimit, setIsAtMaxLimit] = useState(false);
+  const [goalStatementLength, setGoalStatementLength] = useState(0);
   
   // Handle initial data - separate predefined goals from custom ones
   const initialChipGoals = initialData?.goals?.filter(g => 
@@ -124,6 +132,12 @@ export default function Stage3Goals({
   const selectedChipGoals = form.watch("selectedChipGoals");
   const customGoalsInput = form.watch("customGoalsInput");
   const timelineUrgency = form.watch("timelineUrgency");
+  const goalStatement = form.watch("goalStatement");
+
+  // Update goal statement length
+  useEffect(() => {
+    setGoalStatementLength(goalStatement?.length || 0);
+  }, [goalStatement]);
 
   // Update total goals count whenever selections change
   useEffect(() => {
@@ -148,9 +162,10 @@ export default function Stage3Goals({
     
     // Show warning when at limit
     if (count > MAX_GOALS) {
+      const excess = count - MAX_GOALS;
       toast({
-        title: "Goal limit exceeded",
-        description: `Maximum ${MAX_GOALS} goals allowed. You have selected ${count} goals.`,
+        title: "Too many goals selected",
+        description: `You have ${count} goals but the maximum is ${MAX_GOALS}. Please remove ${excess} goal${excess > 1 ? 's' : ''} to continue.`,
         variant: "destructive",
       });
     }
@@ -173,9 +188,10 @@ export default function Stage3Goals({
     });
     
     if (totalWithCustom > MAX_GOALS) {
+      const canSelectMore = MAX_GOALS - customGoals.length;
       toast({
-        title: "Cannot select more goals",
-        description: `Maximum ${MAX_GOALS} goals allowed total. You have ${customGoals.length} custom goal(s), so you can only select ${MAX_GOALS - customGoals.length} chip goal(s).`,
+        title: "Cannot add more goals",
+        description: `You already have ${customGoals.length} custom goal${customGoals.length !== 1 ? 's' : ''}. You can only select ${canSelectMore} more goal${canSelectMore !== 1 ? 's' : ''} from the suggestions (maximum ${MAX_GOALS} total).`,
         variant: "destructive",
       });
       return;
@@ -209,22 +225,21 @@ export default function Stage3Goals({
       
       // Final validation check
       if (allGoals.length > MAX_GOALS) {
-        const errorMsg = `Cannot submit: Maximum ${MAX_GOALS} goals allowed, but you have ${allGoals.length} goals`;
-        console.error('[Stage3Goals] Validation error:', errorMsg);
+        const excess = allGoals.length - MAX_GOALS;
+        console.error('[Stage3Goals] Validation error: Too many goals');
         toast({
           title: "Too many goals selected",
-          description: errorMsg,
+          description: `You have ${allGoals.length} goals but the maximum is ${MAX_GOALS}. Please remove ${excess} goal${excess > 1 ? 's' : ''} before continuing.`,
           variant: "destructive",
         });
         return;
       }
       
       if (allGoals.length === 0) {
-        const errorMsg = "Please select or enter at least 1 goal";
-        console.error('[Stage3Goals] Validation error:', errorMsg);
+        console.error('[Stage3Goals] Validation error: No goals selected');
         toast({
           title: "No goals selected",
-          description: errorMsg,
+          description: "You need at least 1 goal to continue. Please select a goal from the suggestions or type your own custom goal.",
           variant: "destructive",
         });
         return;
@@ -242,9 +257,28 @@ export default function Stage3Goals({
       
     } catch (error) {
       console.error('[Stage3Goals] Submit error:', error);
+      
+      // Parse backend error if available
+      let errorMessage = "Unable to save your goals. Please check your connection and try again.";
+      
+      if (error instanceof Error) {
+        // Check for specific field errors
+        if (error.message.includes('goalStatement')) {
+          errorMessage = "There's an issue with your intent statement. Please ensure it's between 20-500 characters.";
+        } else if (error.message.includes('goals')) {
+          errorMessage = "There's an issue with your selected goals. Please ensure you have 1-3 goals selected.";
+        } else if (error.message.includes('timeline')) {
+          errorMessage = "Please select your timeline before continuing.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Connection error. Please check your internet and try again.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
-        title: "Submission failed",
-        description: error instanceof Error ? error.message : "Failed to submit goals. Please try again.",
+        title: "Could not save your goals",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -284,8 +318,15 @@ export default function Stage3Goals({
                   data-testid="textarea-goal-statement"
                 />
               </FormControl>
-              <FormDescription>
-                Be specific about what you're looking for (20-500 characters)
+              <FormDescription className="flex justify-between">
+                <span>Be specific about what you're looking for (20-500 characters)</span>
+                <span className={`text-sm font-medium ${
+                  goalStatementLength < 20 ? 'text-orange-500' : 
+                  goalStatementLength > 500 ? 'text-red-500' : 
+                  'text-green-600'
+                }`}>
+                  {goalStatementLength}/500 characters
+                </span>
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -311,13 +352,12 @@ export default function Stage3Goals({
             <AlertDescription>
               {isAtMaxLimit ? (
                 <span className="text-red-600">
-                  You have reached the maximum of {MAX_GOALS} goals. Remove some goals before adding new ones.
+                  Maximum reached: You have {totalGoalsCount} goals selected. To add different goals, please remove existing ones first.
                 </span>
               ) : (
                 <span>
-                  Select from suggestions below or enter your own custom goals. 
-                  <strong>Maximum {MAX_GOALS} goals total</strong> (including custom). 
-                  You need at least 1 goal.
+                  Select from suggestions below or type your own custom goals. 
+                  <strong>You need 1-{MAX_GOALS} goals total</strong> to continue.
                 </span>
               )}
             </AlertDescription>
@@ -387,9 +427,10 @@ export default function Stage3Goals({
                         : [];
                       const totalWithChips = selectedChipGoals.length + newCustomGoals.length;
                       if (totalWithChips > MAX_GOALS) {
+                        const excess = totalWithChips - MAX_GOALS;
                         form.setError("goals", {
                           type: "manual",
-                          message: `Maximum ${MAX_GOALS} goals allowed. You have ${selectedChipGoals.length} chip goal(s) and ${newCustomGoals.length} custom goal(s) = ${totalWithChips} total.`
+                          message: `You have ${totalWithChips} goals (${selectedChipGoals.length} selected + ${newCustomGoals.length} custom) but the maximum is ${MAX_GOALS}. Please remove ${excess} goal${excess > 1 ? 's' : ''}.`
                         });
                       } else {
                         form.clearErrors("goals");
@@ -400,13 +441,13 @@ export default function Stage3Goals({
                 <FormDescription>
                   {selectedChipGoals.length >= MAX_GOALS ? (
                     <span className="text-red-500">
-                      Custom goals disabled: You have already selected {MAX_GOALS} chip goals
+                      Cannot add custom goals: You already have {MAX_GOALS} goals selected. Remove some selections to add custom goals.
                     </span>
                   ) : (
                     <span>
-                      Add any specific goals not listed above, separated by commas. 
+                      Enter specific goals not listed above, separated by commas. 
                       {selectedChipGoals.length > 0 && (
-                        <strong> (You can add {MAX_GOALS - selectedChipGoals.length} more goal{MAX_GOALS - selectedChipGoals.length !== 1 ? 's' : ''})</strong>
+                        <strong className="text-stak-copper"> You can add {MAX_GOALS - selectedChipGoals.length} more goal{MAX_GOALS - selectedChipGoals.length !== 1 ? 's' : ''}</strong>
                       )}
                     </span>
                   )}
