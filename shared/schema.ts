@@ -547,6 +547,22 @@ export const questionnaireResponses = pgTable("questionnaire_responses", {
   completedAt: timestamp("completed_at").defaultNow(),
 });
 
+// Interview responses tracking table for multi-stage interview flow
+export const interviewResponses = pgTable("interview_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  stageId: varchar("stage_id").notNull(), // stage0, stage1, stage2, stage3, stage4vc, stage4founder, etc.
+  stageName: varchar("stage_name").notNull(), // "Session State", "Identity", "Persona", "Goals", "Deep Dive"
+  responses: jsonb("responses").notNull(), // JSON blob of form data for this stage
+  isComplete: boolean("is_complete").default(false),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userStageIndex: unique().on(table.userId, table.stageId), // One response per stage per user
+  userIdIndex: index("interview_responses_user_id_idx").on(table.userId),
+}));
+
 // Events table - comprehensive event system with user-generated events and ticket pricing
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1622,6 +1638,15 @@ export type Meetup = typeof meetups.$inferSelect;
 export type InsertMeetup = z.infer<typeof insertMeetupSchema>;
 export type QuestionnaireResponse = typeof questionnaireResponses.$inferSelect;
 export type InsertQuestionnaireResponse = z.infer<typeof insertQuestionnaireResponseSchema>;
+
+// Interview responses types
+export const insertInterviewResponseSchema = createInsertSchema(interviewResponses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InterviewResponse = typeof interviewResponses.$inferSelect;
+export type InsertInterviewResponse = z.infer<typeof insertInterviewResponseSchema>;
 
 // Billing Types
 export type TokenUsage = typeof tokenUsage.$inferSelect;

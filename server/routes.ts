@@ -1110,7 +1110,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 6. GET /api/interview/data - Get all interview data for the user
+  // 6. POST /api/interview/save-stage - Save progress for a stage (for tracking)
+  app.post('/api/interview/save-stage', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const { stageId, stageName, responses, isComplete } = req.body;
+
+      if (!stageId || !stageName || !responses) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Save interview response for tracking
+      const interviewResponse = await storage.saveInterviewResponse({
+        userId,
+        stageId,
+        stageName,
+        responses,
+        isComplete: isComplete || false,
+        completedAt: isComplete ? new Date() : null,
+      });
+
+      res.json({
+        success: true,
+        message: "Stage response saved successfully",
+        response: interviewResponse
+      });
+    } catch (error) {
+      console.error('Error saving stage response:', error);
+      res.status(500).json({ error: 'Failed to save stage response' });
+    }
+  });
+
+  // 7. GET /api/interview/data - Get all interview data for the user
   app.get('/api/interview/data', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const userId = getUserId(req);

@@ -4,6 +4,7 @@ import {
   messages,
   meetups,
   questionnaireResponses,
+  interviewResponses,
   events,
   eventRegistrations,
   eventRooms,
@@ -32,6 +33,8 @@ import {
   type InsertMeetup,
   type QuestionnaireResponse,
   type InsertQuestionnaireResponse,
+  type InterviewResponse,
+  type InsertInterviewResponse,
   type Event,
   type InsertEvent,
   type EventRegistration,
@@ -115,6 +118,12 @@ export interface IStorage {
   // Questionnaire operations
   saveQuestionnaireResponse(response: InsertQuestionnaireResponse): Promise<QuestionnaireResponse>;
   getUserQuestionnaireResponse(userId: string): Promise<QuestionnaireResponse | undefined>;
+  
+  // Interview response operations
+  saveInterviewResponse(response: InsertInterviewResponse): Promise<InterviewResponse>;
+  getInterviewResponses(userId: string): Promise<InterviewResponse[]>;
+  getInterviewResponseByStage(userId: string, stageId: string): Promise<InterviewResponse | undefined>;
+  updateInterviewResponse(id: string, updates: Partial<InterviewResponse>): Promise<InterviewResponse>;
   
   // Event operations
   getEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]>;
@@ -556,6 +565,56 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(questionnaireResponses.completedAt))
       .limit(1);
     return response;
+  }
+
+  // Interview response operations
+  async saveInterviewResponse(response: InsertInterviewResponse): Promise<InterviewResponse> {
+    const [newResponse] = await db
+      .insert(interviewResponses)
+      .values(response)
+      .onConflictDoUpdate({
+        target: [interviewResponses.userId, interviewResponses.stageId],
+        set: {
+          responses: response.responses,
+          isComplete: response.isComplete,
+          completedAt: response.completedAt,
+          updatedAt: sql`now()`,
+        },
+      })
+      .returning();
+    return newResponse;
+  }
+
+  async getInterviewResponses(userId: string): Promise<InterviewResponse[]> {
+    return await db
+      .select()
+      .from(interviewResponses)
+      .where(eq(interviewResponses.userId, userId))
+      .orderBy(interviewResponses.createdAt);
+  }
+
+  async getInterviewResponseByStage(userId: string, stageId: string): Promise<InterviewResponse | undefined> {
+    const [response] = await db
+      .select()
+      .from(interviewResponses)
+      .where(and(
+        eq(interviewResponses.userId, userId),
+        eq(interviewResponses.stageId, stageId)
+      ))
+      .limit(1);
+    return response;
+  }
+
+  async updateInterviewResponse(id: string, updates: Partial<InterviewResponse>): Promise<InterviewResponse> {
+    const [updatedResponse] = await db
+      .update(interviewResponses)
+      .set({
+        ...updates,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(interviewResponses.id, id))
+      .returning();
+    return updatedResponse;
   }
 
   // Event operations
