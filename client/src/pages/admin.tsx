@@ -303,6 +303,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
   const [showCreateSponsorDialog, setShowCreateSponsorDialog] = useState(false);
   const [showCreateBadgeDialog, setShowCreateBadgeDialog] = useState(false);
   const [showEditUserDialog, setShowEditUserDialog] = useState(false);
@@ -527,6 +528,30 @@ export default function AdminDashboard() {
   };
 
   // User management mutations
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: any) => {
+      const response = await apiRequest('/api/admin/users', 'POST', userData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: "User Created",
+        description: "New user has been created successfully.",
+      });
+      setShowCreateUserDialog(false);
+      createUserForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Creation Failed",
+        description: error.message || "Failed to create user.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // User management mutations
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, updates }: { userId: string; updates: Partial<User> }) => {
       const response = await apiRequest(`/api/admin/users/${userId}`, 'PUT', updates);
@@ -594,6 +619,19 @@ export default function AdminDashboard() {
     },
   });
 
+  // Form schema for creating user
+  const createUserSchema = z.object({
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    email: z.string().email("Invalid email address"),
+    headline: z.string().optional(),
+    company: z.string().optional(),
+    role: z.string().optional(),
+    adminRole: z.enum(["none", "admin", "super_admin", "owner"]).default("none"),
+  });
+
+  type CreateUserFormData = z.infer<typeof createUserSchema>;
+
   // Form schema for editing user
   const editUserSchema = z.object({
     firstName: z.string().min(1, "First name is required"),
@@ -621,6 +659,32 @@ export default function AdminDashboard() {
       adminRole: (user.adminRole || "none") as any,
     });
     setShowEditUserDialog(true);
+  };
+
+  const onCreateUserSubmit = (data: CreateUserFormData) => {
+    const userData = {
+      email: data.email,
+      identity: {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        headline: data.headline || null,
+        email: data.email,
+      },
+      persona: {
+        primary: "general",
+      },
+      adminRole: data.adminRole !== "none" ? data.adminRole : null,
+    };
+
+    // Add company and role if provided
+    if (data.company || data.role) {
+      userData.founder_block = {
+        company: data.company || null,
+        role: data.role || null,
+      };
+    }
+
+    createUserMutation.mutate(userData);
   };
 
   const onEditUserSubmit = (data: EditUserFormData) => {
@@ -673,7 +737,20 @@ export default function AdminDashboard() {
     }
   };
 
-  // Create form inside component but after state declarations
+  // Create forms inside component but after state declarations
+  const createUserForm = useForm<CreateUserFormData>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      headline: "",
+      company: "",
+      role: "",
+      adminRole: "none",
+    },
+  });
+
   const editUserForm = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
     defaultValues: {
@@ -876,7 +953,10 @@ export default function AdminDashboard() {
                   />
                 </div>
               </div>
-              <Button data-testid="button-add-user">
+              <Button 
+                onClick={() => setShowCreateUserDialog(true)}
+                data-testid="button-add-user"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add User
               </Button>
@@ -1454,6 +1534,155 @@ export default function AdminDashboard() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Create User Dialog */}
+        <Dialog 
+          open={showCreateUserDialog} 
+          onOpenChange={setShowCreateUserDialog}
+        >
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New User</DialogTitle>
+              <DialogDescription>
+                Add a new user to the system
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...createUserForm}>
+              <form onSubmit={createUserForm.handleSubmit(onCreateUserSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={createUserForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name *</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-create-first-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createUserForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name *</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-create-last-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={createUserForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email *</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="email" data-testid="input-create-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={createUserForm.control}
+                    name="headline"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Headline</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="e.g., CEO at Company" data-testid="input-create-headline" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createUserForm.control}
+                    name="company"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="e.g., STAK Ventures" data-testid="input-create-company" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={createUserForm.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Role</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="e.g., Founder" data-testid="input-create-role" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createUserForm.control}
+                    name="adminRole"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Admin Role</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-create-admin-role">
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="super_admin">Super Admin</SelectItem>
+                            <SelectItem value="owner">Owner</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Admin privileges for system access
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowCreateUserDialog(false);
+                      createUserForm.reset();
+                    }}
+                    data-testid="button-cancel-create"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={createUserMutation.isPending}
+                    data-testid="button-submit-create-user"
+                  >
+                    {createUserMutation.isPending ? "Creating..." : "Create User"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
 
         {/* Edit User Dialog */}
         <Dialog 
