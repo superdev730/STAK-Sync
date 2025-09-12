@@ -87,6 +87,7 @@ import { randomUUID } from 'crypto';
 import express from 'express';
 import { EnrichmentService } from './enrichmentService';
 import { z } from 'zod';
+import { generateMatchSignals } from './services/matchSignalsGenerator';
 
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -1237,6 +1238,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profileStatus: 'complete',
         lastInterviewStage: 'complete',
         audit
+      });
+
+      // Generate match signals after profile completion
+      // This runs asynchronously and doesn't block the response
+      generateMatchSignals(userId).catch(error => {
+        console.error('Failed to generate match signals:', error);
+        // Continue anyway - match signals are not critical for profile completion
       });
 
       res.json({
