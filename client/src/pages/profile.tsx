@@ -114,11 +114,40 @@ export default function Profile() {
 
   // Extract values from profile objects
   const getProfileValue = (field: any) => {
-    if (typeof field === 'object' && field?.value !== undefined) {
-      return field.value;
+    // Handle nested JSON structure
+    if (typeof field === 'object' && field !== null) {
+      // Check if it's a provenance object with value
+      if (field?.value !== undefined) {
+        return field.value;
+      }
+      // For objects, stringify them to avoid [object Object]
+      return '';
     }
     return field || '';
   };
+
+  // Helper to safely get nested values from user JSON structure
+  const getProfileField = (fieldPath: string) => {
+    if (!profile) return '';
+    
+    const paths = fieldPath.split('.');
+    let value: any = profile;
+    
+    for (const path of paths) {
+      value = value?.[path];
+      if (value === undefined || value === null) return '';
+    }
+    
+    return getProfileValue(value);
+  };
+
+  // Extract user details from new JSON structure
+  const firstName = getProfileField('identity.first_name') || getProfileField('firstName');
+  const lastName = getProfileField('identity.last_name') || getProfileField('lastName');
+  const fullName = `${firstName} ${lastName}`.trim() || 'User Name';
+  const jobTitle = getProfileField('persona.role_title') || getProfileField('title') || '';
+  const userCompany = getProfileField('persona.company') || getProfileField('company') || '';
+  const userLocation = getProfileField('identity.location') || getProfileField('location') || '';
 
   
   // State for consolidated AI profile builder and photo cropper
@@ -254,7 +283,7 @@ export default function Profile() {
                   />
                 ) : (
                   <div className="rounded-full w-24 h-24 flex items-center justify-center bg-orange-400 text-white text-xl font-bold">
-                    {(getProfileValue(profile?.firstName)?.[0] || 'U')}{(getProfileValue(profile?.lastName)?.[0] || 'N')}
+                    {(firstName?.[0] || 'U')}{(lastName?.[0] || 'N')}
                   </div>
                 )}
                 
@@ -275,14 +304,17 @@ export default function Profile() {
                   <h1 className="text-3xl font-bold text-stak-black mb-2">
                     {isOwnProfile ? (
                       <Input
-                        value={`${getProfileValue(profile?.firstName)} ${getProfileValue(profile?.lastName)}`.trim()}
+                        value={fullName}
                         onChange={(e) => {
                           try {
-                            const [firstName, ...lastNameParts] = e.target.value.split(' ');
-                            const lastName = lastNameParts.join(' ');
+                            const [firstNameInput, ...lastNameParts] = e.target.value.split(' ');
+                            const lastNameInput = lastNameParts.join(' ');
                             updateProfile({ 
-                              firstName: firstName || null, 
-                              lastName: lastName || null
+                              identity: {
+                                ...(profile?.identity || {}),
+                                first_name: firstNameInput || null,
+                                last_name: lastNameInput || null
+                              }
                             });
                           } catch (error) {
                             console.error('Profile ERROR: Name update failed', error);
@@ -293,7 +325,7 @@ export default function Profile() {
                         data-testid="input-user-name"
                       />
                     ) : (
-                      `${getProfileValue(profile?.firstName)} ${getProfileValue(profile?.lastName)}`.trim() || 'User Name'
+                      fullName
                     )}
                   </h1>
                   
@@ -301,8 +333,13 @@ export default function Profile() {
                     {isOwnProfile ? (
                       <div className="flex items-center gap-2">
                         <Input
-                          value={getProfileValue(profile?.title)}
-                          onChange={(e) => updateProfile({ title: e.target.value })}
+                          value={jobTitle}
+                          onChange={(e) => updateProfile({ 
+                            persona: {
+                              ...(profile?.persona || {}),
+                              role_title: e.target.value
+                            }
+                          })}
                           className="text-xl border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
                           placeholder="Your Job Title"
                           data-testid="input-job-title"
@@ -315,7 +352,7 @@ export default function Profile() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span>{getProfileValue(profile?.title) || 'Job Title'}</span>
+                        <span>{jobTitle || 'Job Title'}</span>
                         <ProvenanceBadge
                           fieldName="title"
                           getFieldProvenance={getFieldProvenance}
@@ -331,15 +368,20 @@ export default function Profile() {
                       {isOwnProfile ? (
                         <div className="flex items-center gap-1">
                           <Input
-                            value={getProfileValue(profile?.company)}
-                            onChange={(e) => updateProfile({ company: e.target.value })}
+                            value={userCompany}
+                            onChange={(e) => updateProfile({ 
+                              persona: {
+                                ...(profile?.persona || {}),
+                                company: e.target.value
+                              }
+                            })}
                             className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
                             placeholder="Company"
                             data-testid="input-company"
                           />
                         </div>
                       ) : (
-                        <span>{getProfileValue(profile?.company) || 'No company specified'}</span>
+                        <span>{userCompany || 'No company specified'}</span>
                       )}
                     </div>
                     
@@ -348,15 +390,20 @@ export default function Profile() {
                       {isOwnProfile ? (
                         <div className="flex items-center gap-1">
                           <Input
-                            value={getProfileValue(profile?.location)}
-                            onChange={(e) => updateProfile({ location: e.target.value })}
+                            value={userLocation}
+                            onChange={(e) => updateProfile({ 
+                              identity: {
+                                ...(profile?.identity || {}),
+                                location: e.target.value
+                              }
+                            })}
                             className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
                             placeholder="Location"
                             data-testid="input-location"
                           />
                         </div>
                       ) : (
-                        <span>{getProfileValue(profile?.location) || 'No location specified'}</span>
+                        <span>{userLocation || 'No location specified'}</span>
                       )}
                     </div>
                   </div>
