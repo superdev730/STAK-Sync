@@ -560,22 +560,43 @@ export class DatabaseStorage implements IStorage {
 
   // Event operations
   async getEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]> {
-    const result = await db
+    // First get all events with organizers
+    const eventsData = await db
       .select({
         event: events,
         organizer: users,
-        registrationCount: count(eventRegistrations.id),
       })
       .from(events)
       .leftJoin(users, eq(events.organizerId, users.id))
-      .leftJoin(eventRegistrations, eq(events.id, eventRegistrations.eventId))
-      .groupBy(events.id, users.id)
       .orderBy(desc(events.createdAt));
-    
-    return result.map(row => ({
+
+    // Get registration counts for all events in one query
+    const registrationCounts = await db
+      .select({
+        eventId: eventRegistrations.eventId,
+        count: count(),
+      })
+      .from(eventRegistrations)
+      .groupBy(eventRegistrations.eventId);
+
+    // Create a map of event ID to registration count
+    const countMap = new Map(
+      registrationCounts.map(r => [r.eventId, Number(r.count)])
+    );
+
+    // Combine the data
+    return eventsData.map(row => ({
       ...row.event,
-      organizer: row.organizer as User,
-      registrationCount: Number(row.registrationCount) || 0,
+      organizer: row.organizer || { 
+        firstName: 'Unknown', 
+        lastName: 'User', 
+        email: '', 
+        id: '',
+        password: '',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } as User,
+      registrationCount: countMap.get(row.event.id) || 0,
     }));
   }
 
@@ -754,23 +775,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPendingEvents(): Promise<(Event & { organizer: User; registrationCount: number })[]> {
-    const result = await db
+    // First get pending events with organizers
+    const eventsData = await db
       .select({
         event: events,
         organizer: users,
-        registrationCount: count(eventRegistrations.id),
       })
       .from(events)
       .leftJoin(users, eq(events.organizerId, users.id))
-      .leftJoin(eventRegistrations, eq(events.id, eventRegistrations.eventId))
       .where(eq(events.status, 'pending_approval'))
-      .groupBy(events.id, users.id)
       .orderBy(desc(events.createdAt));
-    
-    return result.map(row => ({
+
+    // Get registration counts for pending events in one query
+    const pendingEventIds = eventsData.map(e => e.event.id);
+    const registrationCounts = pendingEventIds.length > 0 
+      ? await db
+          .select({
+            eventId: eventRegistrations.eventId,
+            count: count(),
+          })
+          .from(eventRegistrations)
+          .where(sql`${eventRegistrations.eventId} IN (${sql.join(pendingEventIds.map(id => sql`${id}`), sql`, `)})`)
+          .groupBy(eventRegistrations.eventId)
+      : [];
+
+    // Create a map of event ID to registration count
+    const countMap = new Map(
+      registrationCounts.map(r => [r.eventId, Number(r.count)])
+    );
+
+    // Combine the data
+    return eventsData.map(row => ({
       ...row.event,
-      organizer: row.organizer as User,
-      registrationCount: Number(row.registrationCount) || 0,
+      organizer: row.organizer || { 
+        firstName: 'Unknown', 
+        lastName: 'User', 
+        email: '', 
+        id: '',
+        password: '',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } as User,
+      registrationCount: countMap.get(row.event.id) || 0,
     }));
   }
 
