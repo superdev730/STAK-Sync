@@ -3,11 +3,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { ChevronLeft, ChevronRight, Target, Clock, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Target, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -29,18 +27,18 @@ const GOALS = [
 ];
 
 const TIMELINE_OPTIONS = [
-  { value: "now", label: "Immediately", description: "Within the next 30 days" },
-  { value: "30-60d", label: "Soon", description: "30-60 days" },
-  { value: "60-180d", label: "This quarter", description: "60-180 days" },
+  { value: "now", label: "Now", description: "Within the next 30 days" },
+  { value: "30-60d", label: "30-60d", description: "30-60 days" },
+  { value: "60-180d", label: "60-180d", description: "60-180 days" },
   { value: "exploratory", label: "Exploratory", description: "Just exploring options" },
 ];
 
 const stage3Schema = z.object({
   goalStatement: z.string()
-    .min(20, "Please provide a meaningful goal statement (min 20 characters)")
-    .max(500, "Goal statement is too long (max 500 characters)"),
+    .min(20, "Please provide a meaningful intent statement (min 20 characters)")
+    .max(500, "Intent statement is too long (max 500 characters)"),
   selectedGoals: z.array(z.string())
-    .min(1, "Please select at least one goal")
+    .min(1, "Please select at least 1 goal")
     .max(3, "Please select up to 3 goals"),
   timelineUrgency: z.enum(["now", "30-60d", "60-180d", "exploratory"], {
     required_error: "Please select your timeline",
@@ -74,22 +72,13 @@ export default function Stage3Goals({
   });
 
   const selectedGoals = form.watch("selectedGoals");
+  const timelineUrgency = form.watch("timelineUrgency");
 
-  const handleGoalToggle = (goal: string, checked: boolean) => {
-    const currentGoals = form.getValues("selectedGoals");
-    if (checked && currentGoals.length >= 3) {
-      form.setError("selectedGoals", {
-        message: "You can select up to 3 goals",
-      });
-      return;
+  const handleGoalChange = (value: string[]) => {
+    if (value.length <= 3) {
+      form.setValue("selectedGoals", value);
+      form.clearErrors("selectedGoals");
     }
-    
-    const newGoals = checked
-      ? [...currentGoals, goal]
-      : currentGoals.filter(g => g !== goal);
-    
-    form.setValue("selectedGoals", newGoals);
-    form.clearErrors("selectedGoals");
   };
 
   const handleSubmit = (data: Stage3Data) => {
@@ -106,13 +95,13 @@ export default function Stage3Goals({
           </p>
         </div>
 
-        {/* Goal Statement */}
+        {/* Goal Statement - renamed to One-sentence intent */}
         <FormField
           control={form.control}
           name="goalStatement"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>What brings you to STAK Sync? *</FormLabel>
+              <FormLabel>One-sentence intent *</FormLabel>
               <FormControl>
                 <Textarea
                   {...field}
@@ -129,137 +118,125 @@ export default function Stage3Goals({
           )}
         />
 
-        {/* Goal Selection */}
-        <div className="space-y-4">
-          <FormField
-            control={form.control}
-            name="selectedGoals"
-            render={() => (
-              <FormItem>
-                <div className="flex items-center justify-between mb-3">
-                  <FormLabel>Select Your Goals (Max 3) *</FormLabel>
-                  <span className="text-sm text-gray-600">
-                    {selectedGoals.length}/3 selected
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {GOALS.map((goal) => (
-                    <Card
-                      key={goal.value}
-                      className={`cursor-pointer transition-all ${
-                        selectedGoals.includes(goal.value)
-                          ? "border-stak-copper bg-stak-copper/5"
-                          : "border-gray-200 hover:border-stak-copper/50"
-                      } ${
-                        !selectedGoals.includes(goal.value) && selectedGoals.length >= 3
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
-                      }`}
-                      onClick={() => {
-                        if (selectedGoals.includes(goal.value) || selectedGoals.length < 3) {
-                          const isChecked = selectedGoals.includes(goal.value);
-                          handleGoalToggle(goal.value, !isChecked);
-                        }
-                      }}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xl">{goal.icon}</span>
-                          <Checkbox
-                            checked={selectedGoals.includes(goal.value)}
-                            onCheckedChange={(checked) => 
-                              handleGoalToggle(goal.value, checked as boolean)
-                            }
-                            disabled={!selectedGoals.includes(goal.value) && selectedGoals.length >= 3}
-                            onClick={(e) => e.stopPropagation()}
-                            data-testid={`checkbox-goal-${goal.value}`}
-                          />
-                          <Label className="flex-1 cursor-pointer">
-                            {goal.label}
-                          </Label>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Timeline Urgency */}
-        <Card className="border-stak-copper/20">
-          <CardContent className="pt-6">
-            <FormField
-              control={form.control}
-              name="timelineUrgency"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2 mb-4">
-                    <Clock className="w-4 h-4 text-stak-copper" />
-                    What's your timeline? *
-                  </FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <div className="space-y-3">
-                        {TIMELINE_OPTIONS.map((option) => (
-                          <div key={option.value} className="flex items-center space-x-3">
-                            <RadioGroupItem 
-                              value={option.value} 
-                              id={`timeline-${option.value}`}
-                              data-testid={`radio-timeline-${option.value}`}
-                            />
-                            <Label
-                              htmlFor={`timeline-${option.value}`}
-                              className="flex-1 cursor-pointer"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <span className="font-medium">{option.label}</span>
-                                  <span className="text-sm text-gray-600 ml-2">
-                                    - {option.description}
-                                  </span>
-                                </div>
-                              </div>
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Selected Goals Summary */}
-        {selectedGoals.length > 0 && (
-          <Alert>
-            <Target className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Your selected goals:</strong>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {selectedGoals.map((goalValue) => {
-                  const goal = GOALS.find(g => g.value === goalValue);
-                  return (
-                    <span
-                      key={goalValue}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-stak-copper/20 text-stak-black"
-                    >
-                      <span>{goal?.icon}</span>
-                      {goal?.label}
-                    </span>
-                  );
-                })}
+        {/* Goal Selection - Chip-based multi-select */}
+        <FormField
+          control={form.control}
+          name="selectedGoals"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <div className="flex items-center justify-between">
+                <FormLabel>Select Your Goals (1-3 required) *</FormLabel>
+                <span className="text-sm text-gray-600">
+                  {selectedGoals.length}/3 selected
+                </span>
               </div>
-            </AlertDescription>
-          </Alert>
+              <FormDescription>
+                Choose 1-3 goals that best describe what you're looking for
+              </FormDescription>
+              <FormControl>
+                <ToggleGroup
+                  type="multiple"
+                  value={field.value}
+                  onValueChange={handleGoalChange}
+                  className="flex flex-wrap gap-2 justify-start"
+                >
+                  {GOALS.map((goal) => (
+                    <ToggleGroupItem
+                      key={goal.value}
+                      value={goal.value}
+                      disabled={!field.value.includes(goal.value) && field.value.length >= 3}
+                      className="data-[state=on]:bg-stak-copper data-[state=on]:text-white border-stak-copper/30 hover:bg-stak-copper/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                      data-testid={`chip-goal-${goal.value}`}
+                    >
+                      <span className="mr-1">{goal.icon}</span>
+                      {goal.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Timeline Urgency - Chip-based single select */}
+        <FormField
+          control={form.control}
+          name="timelineUrgency"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-stak-copper" />
+                What's your timeline? *
+              </FormLabel>
+              <FormDescription>
+                Select when you need to achieve your goals
+              </FormDescription>
+              <FormControl>
+                <ToggleGroup
+                  type="single"
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  className="flex flex-wrap gap-2 justify-start"
+                >
+                  {TIMELINE_OPTIONS.map((option) => (
+                    <ToggleGroupItem
+                      key={option.value}
+                      value={option.value}
+                      className="data-[state=on]:bg-stak-copper data-[state=on]:text-white border-stak-copper/30 hover:bg-stak-copper/10"
+                      data-testid={`chip-timeline-${option.value}`}
+                    >
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">{option.label}</span>
+                        <span className="text-xs opacity-80">{option.description}</span>
+                      </div>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Selected Summary */}
+        {(selectedGoals.length > 0 || timelineUrgency) && (
+          <Card className="border-stak-copper/30 bg-stak-copper/5">
+            <CardContent className="pt-6">
+              <h3 className="text-sm font-semibold text-stak-black mb-3">Your Selection Summary</h3>
+              
+              {selectedGoals.length > 0 && (
+                <div className="mb-3">
+                  <span className="text-xs font-medium text-gray-600">Goals:</span>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {selectedGoals.map((goalValue) => {
+                      const goal = GOALS.find(g => g.value === goalValue);
+                      return (
+                        <span
+                          key={goalValue}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-stak-copper text-white"
+                        >
+                          <span>{goal?.icon}</span>
+                          {goal?.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {timelineUrgency && (
+                <div>
+                  <span className="text-xs font-medium text-gray-600">Timeline:</span>
+                  <div className="mt-1">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-stak-copper/20 text-stak-black">
+                      {TIMELINE_OPTIONS.find(t => t.value === timelineUrgency)?.label} - {TIMELINE_OPTIONS.find(t => t.value === timelineUrgency)?.description}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         {/* Navigation Buttons */}

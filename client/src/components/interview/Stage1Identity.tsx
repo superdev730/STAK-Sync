@@ -5,18 +5,37 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { ChevronLeft, ChevronRight, Globe, Linkedin, Twitter, Github, Briefcase } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
+// Common timezones for selection
+const TIMEZONES = [
+  { value: "America/New_York", label: "Eastern Time (EST/EDT)" },
+  { value: "America/Chicago", label: "Central Time (CST/CDT)" },
+  { value: "America/Denver", label: "Mountain Time (MST/MDT)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (PST/PDT)" },
+  { value: "America/Phoenix", label: "Arizona Time (MST)" },
+  { value: "America/Anchorage", label: "Alaska Time (AKST/AKDT)" },
+  { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+  { value: "Europe/London", label: "London (GMT/BST)" },
+  { value: "Europe/Paris", label: "Central European (CET/CEST)" },
+  { value: "Asia/Tokyo", label: "Japan Time (JST)" },
+  { value: "Asia/Shanghai", label: "China Time (CST)" },
+  { value: "Asia/Singapore", label: "Singapore Time (SGT)" },
+  { value: "Australia/Sydney", label: "Sydney Time (AEDT/AEST)" },
+  { value: "UTC", label: "UTC" },
+];
+
 const stage1Schema = z.object({
+  email: z.string().email().optional(), // Pre-filled from user account
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  preferredDisplayName: z.string().optional(),
+  preferredDisplayName: z.string().min(1, "Display name is required"),
   headline: z.string().min(10, "Please provide a meaningful headline (min 10 characters)"),
-  city: z.string().min(1, "City is required"),
-  region: z.string().min(1, "State/Region is required"),
-  timezone: z.string().optional(),
+  location: z.string().min(1, "City and state/region is required"),
+  timezone: z.string().min(1, "Timezone is required"),
   phone: z.string().optional(),
   socialLinks: z.object({
     linkedinUrl: z.string().url().optional().or(z.literal("")),
@@ -39,6 +58,7 @@ interface Stage1IdentityProps {
   onBack?: () => void;
   initialData?: Partial<Stage1Data>;
   showBackButton?: boolean;
+  userEmail?: string; // Email from authenticated user
 }
 
 export default function Stage1Identity({
@@ -46,17 +66,20 @@ export default function Stage1Identity({
   onBack,
   initialData,
   showBackButton = false,
+  userEmail,
 }: Stage1IdentityProps) {
+  const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
   const form = useForm<Stage1Data>({
     resolver: zodResolver(stage1Schema),
     defaultValues: {
+      email: userEmail || initialData?.email || "",
       firstName: initialData?.firstName || "",
       lastName: initialData?.lastName || "",
       preferredDisplayName: initialData?.preferredDisplayName || "",
       headline: initialData?.headline || "",
-      city: initialData?.city || "",
-      region: initialData?.region || "",
-      timezone: initialData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      location: initialData?.location || (initialData?.city && initialData?.region ? `${initialData.city}, ${initialData.region}` : ""),
+      timezone: initialData?.timezone || detectedTimezone || "America/New_York",
       phone: initialData?.phone || "",
       socialLinks: {
         linkedinUrl: initialData?.socialLinks?.linkedinUrl || "",
@@ -89,6 +112,29 @@ export default function Stage1Identity({
 
         {/* Personal Information */}
         <div className="space-y-4">
+          {/* Email Field - Disabled and Pre-filled */}
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input 
+                    {...field} 
+                    type="email"
+                    disabled
+                    className="bg-gray-50"
+                    data-testid="input-email" 
+                  />
+                </FormControl>
+                <FormDescription>
+                  This is your account email and cannot be changed here
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -124,12 +170,12 @@ export default function Stage1Identity({
             name="preferredDisplayName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Preferred Display Name</FormLabel>
+                <FormLabel>Preferred Display Name *</FormLabel>
                 <FormControl>
-                  <Input {...field} placeholder="Johnny (optional)" data-testid="input-display-name" />
+                  <Input {...field} placeholder="Johnny" data-testid="input-display-name" />
                 </FormControl>
                 <FormDescription>
-                  How you'd like to be addressed (leave blank to use first name)
+                  How you'd like to be addressed
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -157,35 +203,50 @@ export default function Stage1Identity({
             )}
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="city"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>City *</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="San Francisco" data-testid="input-city" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <FormField
+            control={form.control}
+            name="location"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Location (City, State/Region) *</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="San Francisco, CA" data-testid="input-location" />
+                </FormControl>
+                <FormDescription>
+                  Enter your city and state/region
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-            <FormField
-              control={form.control}
-              name="region"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>State/Region *</FormLabel>
+          <FormField
+            control={form.control}
+            name="timezone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Timezone *</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <Input {...field} placeholder="CA" data-testid="input-region" />
+                    <SelectTrigger data-testid="select-timezone">
+                      <SelectValue placeholder="Select your timezone" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+                  <SelectContent>
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Your local timezone for scheduling
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}

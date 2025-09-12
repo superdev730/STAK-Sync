@@ -3,13 +3,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const PERSONAS = [
   { value: "VC", label: "Venture Capitalist", description: "Institutional investor in startups" },
@@ -31,21 +28,8 @@ const PERSONAS = [
 ];
 
 const stage2Schema = z.object({
-  selectedPersonas: z.array(z.string()).min(1, "Please select at least one persona"),
-  primaryPersona: z.string().optional(),
-}).refine((data) => {
-  // If multiple personas selected, primary is required
-  if (data.selectedPersonas.length > 1 && !data.primaryPersona) {
-    return false;
-  }
-  // Primary persona must be one of the selected personas
-  if (data.primaryPersona && !data.selectedPersonas.includes(data.primaryPersona)) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Please select a primary persona from your selected personas",
-  path: ["primaryPersona"],
+  primaryPersona: z.string().min(1, "Please select your primary persona"),
+  secondaryPersonas: z.array(z.string()).optional(),
 });
 
 type Stage2Data = z.infer<typeof stage2Schema>;
@@ -63,45 +47,20 @@ export default function Stage2Persona({
   initialData,
   showBackButton = false,
 }: Stage2PersonaProps) {
-  const [selectedPersonas, setSelectedPersonas] = useState<string[]>(
-    initialData?.selectedPersonas || []
-  );
-
   const form = useForm<Stage2Data>({
     resolver: zodResolver(stage2Schema),
     defaultValues: {
-      selectedPersonas: initialData?.selectedPersonas || [],
       primaryPersona: initialData?.primaryPersona || "",
+      secondaryPersonas: initialData?.secondaryPersonas || [],
     },
   });
 
-  const handlePersonaToggle = (persona: string, checked: boolean) => {
-    const newSelectedPersonas = checked
-      ? [...selectedPersonas, persona]
-      : selectedPersonas.filter(p => p !== persona);
-    
-    setSelectedPersonas(newSelectedPersonas);
-    form.setValue("selectedPersonas", newSelectedPersonas);
-    
-    // If only one persona is selected, set it as primary automatically
-    if (newSelectedPersonas.length === 1) {
-      form.setValue("primaryPersona", newSelectedPersonas[0]);
-    }
-    // If the removed persona was the primary, clear primary
-    if (!checked && form.getValues("primaryPersona") === persona) {
-      form.setValue("primaryPersona", "");
-    }
-  };
-
   const handleSubmit = (data: Stage2Data) => {
-    // If only one persona selected, set it as primary
-    if (data.selectedPersonas.length === 1) {
-      data.primaryPersona = data.selectedPersonas[0];
-    }
     onNext(data);
   };
 
-  const needsPrimarySelection = selectedPersonas.length > 1;
+  const primaryPersona = form.watch("primaryPersona");
+  const secondaryPersonas = form.watch("secondaryPersonas") || [];
 
   return (
     <Form {...form}>
@@ -109,141 +68,117 @@ export default function Stage2Persona({
         <div className="space-y-2">
           <h2 className="text-2xl font-bold text-stak-black">Your Professional Persona</h2>
           <p className="text-gray-600">
-            Select all roles that describe you. This helps us connect you with the right people.
+            Select your primary role and any additional roles that describe you
           </p>
         </div>
 
-        {/* Persona Selection */}
+        {/* Primary Persona Selection */}
         <FormField
           control={form.control}
-          name="selectedPersonas"
-          render={() => (
-            <FormItem>
-              <FormLabel>Select Your Personas</FormLabel>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {PERSONAS.map((persona) => (
-                  <Card
-                    key={persona.value}
-                    className={`cursor-pointer transition-all ${
-                      selectedPersonas.includes(persona.value)
-                        ? "border-stak-copper bg-stak-copper/5"
-                        : "border-gray-200 hover:border-stak-copper/50"
-                    }`}
-                    onClick={() => {
-                      const isChecked = selectedPersonas.includes(persona.value);
-                      handlePersonaToggle(persona.value, !isChecked);
-                    }}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedPersonas.includes(persona.value)}
-                          onCheckedChange={(checked) => 
-                            handlePersonaToggle(persona.value, checked as boolean)
-                          }
-                          onClick={(e) => e.stopPropagation()}
-                          data-testid={`checkbox-persona-${persona.value.toLowerCase()}`}
-                        />
-                        <div className="flex-1">
-                          <Label className="font-medium cursor-pointer">
-                            {persona.label}
-                          </Label>
-                          <p className="text-sm text-gray-600 mt-0.5">
-                            {persona.description}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+          name="primaryPersona"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>Primary Persona *</FormLabel>
+              <FormDescription>
+                Select your main professional identity
+              </FormDescription>
+              <FormControl>
+                <ToggleGroup
+                  type="single"
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  className="flex flex-wrap gap-2 justify-start"
+                >
+                  {PERSONAS.map((persona) => (
+                    <ToggleGroupItem
+                      key={persona.value}
+                      value={persona.value}
+                      className="data-[state=on]:bg-stak-copper data-[state=on]:text-white border-stak-copper/30 hover:bg-stak-copper/10"
+                      data-testid={`chip-primary-${persona.value.toLowerCase()}`}
+                    >
+                      {persona.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Primary Persona Selection */}
-        {needsPrimarySelection && (
+        {/* Secondary Personas Selection */}
+        <FormField
+          control={form.control}
+          name="secondaryPersonas"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>Secondary Personas (Optional)</FormLabel>
+              <FormDescription>
+                Select any additional roles that describe you
+              </FormDescription>
+              <FormControl>
+                <ToggleGroup
+                  type="multiple"
+                  value={field.value || []}
+                  onValueChange={(value) => {
+                    // Don't allow selecting the primary persona as secondary
+                    const filtered = value.filter(v => v !== primaryPersona);
+                    field.onChange(filtered);
+                  }}
+                  className="flex flex-wrap gap-2 justify-start"
+                >
+                  {PERSONAS.filter(p => p.value !== primaryPersona).map((persona) => (
+                    <ToggleGroupItem
+                      key={persona.value}
+                      value={persona.value}
+                      className="data-[state=on]:bg-stak-copper/20 data-[state=on]:text-stak-black border-stak-copper/30 hover:bg-stak-copper/10"
+                      data-testid={`chip-secondary-${persona.value.toLowerCase()}`}
+                    >
+                      {persona.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Selected Summary */}
+        {(primaryPersona || secondaryPersonas.length > 0) && (
           <Card className="border-stak-copper/30 bg-stak-copper/5">
             <CardContent className="pt-6">
-              <FormField
-                control={form.control}
-                name="primaryPersona"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-lg font-semibold">
-                      Select Your Primary Persona *
-                    </FormLabel>
-                    <Alert className="mt-2 mb-4">
-                      <Info className="h-4 w-4" />
-                      <AlertDescription>
-                        Since you selected multiple personas, please choose your primary role.
-                        This will be how you're primarily identified in the network.
-                      </AlertDescription>
-                    </Alert>
-                    <FormControl>
-                      <RadioGroup
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <div className="space-y-3">
-                          {selectedPersonas.map((personaValue) => {
-                            const persona = PERSONAS.find(p => p.value === personaValue);
-                            if (!persona) return null;
-                            
-                            return (
-                              <div key={persona.value} className="flex items-center space-x-3">
-                                <RadioGroupItem 
-                                  value={persona.value} 
-                                  id={`primary-${persona.value}`}
-                                  data-testid={`radio-primary-${persona.value.toLowerCase()}`}
-                                />
-                                <Label
-                                  htmlFor={`primary-${persona.value}`}
-                                  className="flex-1 cursor-pointer"
-                                >
-                                  <span className="font-medium">{persona.label}</span>
-                                  <span className="text-sm text-gray-600 ml-2">
-                                    - {persona.description}
-                                  </span>
-                                </Label>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <h3 className="text-sm font-semibold text-stak-black mb-3">Your Professional Identity</h3>
+              <div className="space-y-2">
+                {primaryPersona && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-600">Primary:</span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-stak-copper text-white">
+                      {PERSONAS.find(p => p.value === primaryPersona)?.label}
+                    </span>
+                  </div>
                 )}
-              />
+                {secondaryPersonas.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs font-medium text-gray-600 mt-1">Secondary:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {secondaryPersonas.map((personaValue) => {
+                        const persona = PERSONAS.find(p => p.value === personaValue);
+                        return (
+                          <span
+                            key={personaValue}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-stak-copper/20 text-stak-black"
+                          >
+                            {persona?.label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* Selected Count Display */}
-        {selectedPersonas.length > 0 && (
-          <div className="bg-stak-copper/10 rounded-lg p-4">
-            <p className="text-sm font-medium text-stak-black">
-              {selectedPersonas.length} persona{selectedPersonas.length !== 1 ? 's' : ''} selected
-            </p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {selectedPersonas.map((personaValue) => {
-                const persona = PERSONAS.find(p => p.value === personaValue);
-                return (
-                  <span
-                    key={personaValue}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-stak-copper/20 text-stak-black"
-                  >
-                    {persona?.label}
-                    {form.getValues("primaryPersona") === personaValue && (
-                      <span className="ml-1 text-xs font-semibold">(Primary)</span>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
         )}
 
         {/* Navigation Buttons */}
