@@ -19,11 +19,20 @@ import Stage4OperatorProfile from "@/components/interview/Stage4OperatorProfile"
 import Stage4GeneralProfile from "@/components/interview/Stage4GeneralProfile";
 
 interface InterviewStatus {
-  profileStatus: "new" | "incomplete" | "complete";
-  currentStage: number;
-  completedStages: string[];
-  selectedPersonas?: string[];
-  primaryPersona?: string;
+  profileStatus: "new" | "returning_incomplete" | "returning_complete";
+  nextStep: string;
+  completionPercentage: number;
+  completedSections: {
+    stage1: boolean;
+    stage2: boolean;
+    stage3: boolean;
+    stage4: boolean;
+  };
+  profileSummary?: {
+    name: string;
+    primaryPersona: string;
+    mainGoal: string;
+  } | null;
 }
 
 // Define Stage 4 personas mapping
@@ -65,21 +74,13 @@ export default function Interview() {
   // Set initial stage based on status
   useEffect(() => {
     if (interviewStatus) {
-      // Prevent re-entering completed interviews unless explicitly editing
-      if (interviewStatus.profileStatus === "complete" && currentStage !== 0) {
-        setCurrentStage(0);
+      // Always show Stage 0 first for all users to display proper welcome messages
+      // Stage 0 will handle the navigation based on the profile status
+      if (currentStage === 0) {
         return;
       }
-      
-      if (interviewStatus.profileStatus === "new") {
-        setCurrentStage(1);
-      } else if (interviewStatus.profileStatus === "incomplete") {
-        setCurrentStage(interviewStatus.currentStage || 1);
-      } else if (interviewStatus.profileStatus === "complete") {
-        setCurrentStage(0);
-      }
     }
-  }, [interviewStatus]);
+  }, [interviewStatus, currentStage]);
 
   // Determine which Stage 4 profile to show based on personas from interview data
   useEffect(() => {
@@ -238,13 +239,26 @@ export default function Interview() {
   };
 
   const handleResumeInterview = () => {
-    if (interviewStatus?.currentStage) {
-      setCurrentStage(interviewStatus.currentStage);
+    // Use nextStep from backend to determine where to resume
+    if (interviewStatus?.nextStep) {
+      const stageNumber = parseInt(interviewStatus.nextStep.replace('stage', ''));
+      if (!isNaN(stageNumber) && stageNumber >= 1 && stageNumber <= 4) {
+        setCurrentStage(stageNumber);
+      } else if (interviewStatus.nextStep === 'complete') {
+        // Should not happen but just in case
+        setCurrentStage(0);
+      }
     }
   };
 
   const handleUpdateProfile = () => {
+    // Start update from stage 1
     setCurrentStage(1);
+  };
+  
+  const handleSkipUpdate = () => {
+    // Redirect to home if user doesn't want to update
+    setLocation("/");
   };
 
   if (authLoading || statusLoading) {
@@ -367,12 +381,13 @@ export default function Interview() {
           <CardContent className="p-8">
             {CurrentStageComponent && (
               <CurrentStageComponent
-                onNext={handleStageComplete}
+                onNext={currentStage === 0 ? () => setCurrentStage(1) : handleStageComplete}
                 onBack={handleBack}
                 initialData={formData[`stage${currentStage}`]}
                 interviewStatus={interviewStatus}
                 onResume={handleResumeInterview}
                 onUpdate={handleUpdateProfile}
+                onSkipUpdate={handleSkipUpdate}
                 showBackButton={currentStage > 1}
                 isLastStage={
                   (currentStage === 3 && !showStage4) || 

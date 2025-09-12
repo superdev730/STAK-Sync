@@ -5,12 +5,24 @@ import { CheckCircle, ArrowRight, RefreshCw } from "lucide-react";
 interface Stage0SessionStateProps {
   onNext: () => void;
   interviewStatus?: {
-    profileStatus: "new" | "incomplete" | "complete";
-    currentStage: number;
-    completedStages: string[];
+    profileStatus: "new" | "returning_incomplete" | "returning_complete";
+    nextStep: string;
+    completionPercentage: number;
+    completedSections: {
+      stage1: boolean;
+      stage2: boolean;
+      stage3: boolean;
+      stage4: boolean;
+    };
+    profileSummary?: {
+      name: string;
+      primaryPersona: string;
+      mainGoal: string;
+    } | null;
   };
   onResume?: () => void;
   onUpdate?: () => void;
+  onSkipUpdate?: () => void;
 }
 
 export default function Stage0SessionState({
@@ -18,6 +30,7 @@ export default function Stage0SessionState({
   interviewStatus,
   onResume,
   onUpdate,
+  onSkipUpdate,
 }: Stage0SessionStateProps) {
   if (!interviewStatus) {
     return (
@@ -36,8 +49,7 @@ export default function Stage0SessionState({
             Welcome to STAK Sync!
           </h2>
           <p className="text-gray-600 max-w-lg mx-auto">
-            Let's build your professional profile to connect you with the right people in the STAK ecosystem.
-            This will only take about 5 minutes.
+            Welcome! I'll ask a few quick questions to personalize matches.
           </p>
         </div>
 
@@ -92,7 +104,7 @@ export default function Stage0SessionState({
     );
   }
 
-  if (interviewStatus.profileStatus === "incomplete") {
+  if (interviewStatus.profileStatus === "returning_incomplete") {
     return (
       <div className="text-center space-y-6">
         <div className="space-y-3">
@@ -100,7 +112,7 @@ export default function Stage0SessionState({
             Welcome back!
           </h2>
           <p className="text-gray-600 max-w-lg mx-auto">
-            Let's finish setting up your profile. You're almost done!
+            Welcome back—let's pick up where you left off.
           </p>
         </div>
 
@@ -108,14 +120,14 @@ export default function Stage0SessionState({
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-stak-black">Progress</span>
             <span className="text-sm text-gray-600">
-              Stage {interviewStatus.currentStage} of 4
+              {interviewStatus.completionPercentage}% Complete
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-stak-copper h-2 rounded-full transition-all"
               style={{
-                width: `${(interviewStatus.currentStage / 4) * 100}%`,
+                width: `${interviewStatus.completionPercentage}%`,
               }}
             />
           </div>
@@ -134,7 +146,7 @@ export default function Stage0SessionState({
     );
   }
 
-  if (interviewStatus.profileStatus === "complete") {
+  if (interviewStatus.profileStatus === "returning_complete") {
     return (
       <div className="text-center space-y-6">
         <div className="space-y-3">
@@ -142,30 +154,52 @@ export default function Stage0SessionState({
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
           <h2 className="text-2xl font-bold text-stak-black">
-            Your profile is complete!
+            Welcome back, {interviewStatus.profileSummary?.name || 'there'}!
           </h2>
+          
+          {/* Profile Summary - 3 lines */}
+          {interviewStatus.profileSummary && (
+            <div className="bg-gray-50 rounded-lg p-4 max-w-md mx-auto text-left">
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-sm font-medium text-gray-600">Name:</span>
+                  <span className="text-sm text-stak-black">{interviewStatus.profileSummary.name}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-sm font-medium text-gray-600">Role:</span>
+                  <span className="text-sm text-stak-black">{interviewStatus.profileSummary.primaryPersona}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-sm font-medium text-gray-600">Goal:</span>
+                  <span className="text-sm text-stak-black">{interviewStatus.profileSummary.mainGoal}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <p className="text-gray-600 max-w-lg mx-auto">
-            Great job! Your profile is all set up. Would you like to review or update any information?
+            Update anything?
           </p>
         </div>
 
         <div className="flex gap-4 justify-center">
           <Button
             onClick={onUpdate}
+            size="lg"
+            className="bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
+            data-testid="button-yes-update"
+          >
+            Yes
+          </Button>
+          <Button
+            onClick={onSkipUpdate}
             variant="outline"
             size="lg"
-            className="border-stak-copper text-stak-copper hover:bg-stak-copper/10"
-            data-testid="button-update-profile"
+            className="border-gray-300 text-gray-700 hover:bg-gray-50"
+            data-testid="button-no-skip"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Update Profile
+            No
           </Button>
-        </div>
-
-        <div className="pt-4">
-          <p className="text-sm text-gray-500">
-            You can also update your profile anytime from the Profile tab.
-          </p>
         </div>
       </div>
     );

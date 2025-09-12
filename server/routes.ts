@@ -400,6 +400,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return Math.round(totalScore);
   };
   
+  // Helper function to determine profile status
+  const getProfileStatus = (user: any): "new" | "returning_incomplete" | "returning_complete" => {
+    const completionPct = user.audit?.completion_pct || calculateCompletionPercentage(user);
+    
+    if (!user.audit || completionPct === 0) {
+      return "new";
+    } else if (completionPct > 0 && completionPct < 100) {
+      return "returning_incomplete";
+    } else {
+      return "returning_complete";
+    }
+  };
+  
+  // Helper function to determine next step
+  const getNextStep = (user: any): string => {
+    // Check what's been completed
+    const hasIdentity = Boolean(user.identity?.first_name && user.identity?.last_name);
+    const hasPersona = Boolean(user.persona?.primary);
+    const hasGoals = Boolean(user.goals?.statement && user.goals?.objectives?.length > 0);
+    const personaBlocks = ['vc_block', 'founder_block', 'talent_block', 'provider_block', 'student_block', 'creator_block'];
+    const hasPersonaBlock = personaBlocks.some(block => {
+      const blockData = user[block];
+      return blockData && Object.keys(blockData).some(key => blockData[key]);
+    });
+    
+    // Determine next step
+    if (!hasIdentity) {
+      return 'stage1';
+    } else if (!hasPersona) {
+      return 'stage2';
+    } else if (!hasGoals) {
+      return 'stage3';
+    } else if (!hasPersonaBlock) {
+      return 'stage4';
+    } else {
+      return 'complete';
+    }
+  };
+  
   // 1. GET /api/interview/status - Get user's interview status and progress
   app.get('/api/interview/status', isAuthenticatedGeneral, async (req: any, res) => {
     try {
@@ -416,17 +455,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate completion percentage
       const completionPct = calculateCompletionPercentage(user);
       
-      // Determine profile status based on completion
-      let profileStatus = user.profileStatus || 'new';
-      if (completionPct === 100) {
-        profileStatus = 'complete';
-      } else if (completionPct > 0) {
-        profileStatus = 'incomplete';
-      }
+      // Get profile status using the new function
+      const profileStatus = getProfileStatus(user);
+      
+      // Get next step
+      const nextStep = getNextStep(user);
 
       // Return interview status fields
       res.json({
         profileStatus,
+        nextStep,
         lastInterviewStage: user.lastInterviewStage || null,
         completionPercentage: completionPct,
         completedSections: {
@@ -434,7 +472,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           stage2: Boolean(user.persona?.primary),
           stage3: Boolean(user.goals?.statement && user.goals?.objectives?.length > 0),
           stage4: completionPct === 100
-        }
+        },
+        // Include profile summary for complete profiles
+        profileSummary: profileStatus === "returning_complete" ? {
+          name: `${user.identity?.first_name || ''} ${user.identity?.last_name || ''}`.trim() || user.firstName || 'User',
+          primaryPersona: user.persona?.primary || 'Professional',
+          mainGoal: user.goals?.statement || 'Building meaningful connections'
+        } : null
       });
     } catch (error) {
       console.error('Error fetching interview status:', error);
