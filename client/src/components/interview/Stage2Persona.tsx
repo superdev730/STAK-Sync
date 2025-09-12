@@ -56,7 +56,19 @@ export default function Stage2Persona({
   });
 
   const handleSubmit = (data: Stage2Data) => {
-    onNext(data);
+    // Create the personas array that includes the primary persona
+    const personas = [data.primaryPersona];
+    if (data.secondaryPersonas && data.secondaryPersonas.length > 0) {
+      personas.push(...data.secondaryPersonas);
+    }
+    
+    // Send data in the format the backend expects
+    const formattedData = {
+      ...data,
+      personas, // Add the complete personas array
+    };
+    
+    onNext(formattedData);
   };
 
   const primaryPersona = form.watch("primaryPersona");

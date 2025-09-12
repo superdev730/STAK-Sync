@@ -34,7 +34,8 @@ const stage1Schema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   preferredDisplayName: z.string().min(1, "Display name is required"),
   headline: z.string().min(10, "Please provide a meaningful headline (min 10 characters)"),
-  location: z.string().min(1, "City and state/region is required"),
+  city: z.string().min(1, "City is required"),
+  region: z.string().min(1, "State/region is required"),
   timezone: z.string().min(1, "Timezone is required"),
   phone: z.string().optional(),
   socialLinks: z.object({
@@ -78,7 +79,8 @@ export default function Stage1Identity({
       lastName: initialData?.lastName || "",
       preferredDisplayName: initialData?.preferredDisplayName || "",
       headline: initialData?.headline || "",
-      location: initialData?.location || (initialData?.city && initialData?.region ? `${initialData.city}, ${initialData.region}` : ""),
+      city: initialData?.city || "",
+      region: initialData?.region || "",
       timezone: initialData?.timezone || detectedTimezone || "America/New_York",
       phone: initialData?.phone || "",
       socialLinks: {
@@ -203,22 +205,35 @@ export default function Stage1Identity({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="location"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Location (City, State/Region) *</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="San Francisco, CA" data-testid="input-location" />
-                </FormControl>
-                <FormDescription>
-                  Enter your city and state/region
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>City *</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="San Francisco" data-testid="input-city" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="region"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>State/Region *</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="CA" data-testid="input-region" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           <FormField
             control={form.control}

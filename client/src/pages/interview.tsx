@@ -55,6 +55,13 @@ export default function Interview() {
     retry: 1,
   });
 
+  // Fetch full interview data to get persona information
+  const { data: interviewData } = useQuery({
+    queryKey: ["/api/interview/data"],
+    enabled: !!user && !!interviewStatus && interviewStatus.profileStatus !== "new",
+    retry: 1,
+  });
+
   // Set initial stage based on status
   useEffect(() => {
     if (interviewStatus) {
@@ -71,10 +78,14 @@ export default function Interview() {
       } else if (interviewStatus.profileStatus === "complete") {
         setCurrentStage(0);
       }
-      
-      // Determine which Stage 4 profile to show based on personas
-      const personas = interviewStatus.selectedPersonas || [];
-      const primaryPersona = interviewStatus.primaryPersona || personas[0];
+    }
+  }, [interviewStatus]);
+
+  // Determine which Stage 4 profile to show based on personas from interview data
+  useEffect(() => {
+    if (interviewData && interviewData.persona) {
+      const primaryPersona = interviewData.persona.primary;
+      const secondaryPersonas = interviewData.persona.secondary || [];
       
       if (primaryPersona) {
         setShowStage4(true);
@@ -93,7 +104,7 @@ export default function Interview() {
         setStage4Type(null);
       }
     }
-  }, [interviewStatus]);
+  }, [interviewData]);
 
   // Save stage data mutation
   const saveStageData = useMutation({
@@ -127,8 +138,9 @@ export default function Interview() {
       
       // Check if we need to show Stage 4 after persona selection
       if (variables.stage === 2) {
-        const personas = variables.data.selectedPersonas || [];
-        const primaryPersona = variables.data.primaryPersona || personas[0];
+        // Stage2Persona now sends personas array and primaryPersona
+        const primaryPersona = variables.data.primaryPersona;
+        const personas = variables.data.personas || [];
         
         if (primaryPersona) {
           setShowStage4(true);
