@@ -12373,6 +12373,67 @@ Compose a concise, fact-first profile card.`
     }
   });
 
+  // 6. Join-by-Email Endpoint (QR → email capture → short-lived invite link)
+  app.post('/api/join/link', async (req: any, res) => {
+    try {
+      const { email, eventId } = req.body;
+      const normalized = (email || '').toLowerCase().trim();
+      
+      if (!normalized) {
+        return res.status(400).json({ error: 'Email required' });
+      }
+
+      // Check if email is suppressed
+      const emailHash = hashEmail(normalized);
+      const suppressed = await db
+        .select()
+        .from(emailSuppression)
+        .where(eq(emailSuppression.emailHash, emailHash))
+        .limit(1);
+
+      if (suppressed.length > 0) {
+        return res.status(403).json({ error: 'This email has opted out.' });
+      }
+
+      // Find seeded profile for this email and event
+      let profileQuery = db
+        .select()
+        .from(seededProfiles)
+        .where(eq(seededProfiles.emailHash, emailHash));
+
+      if (eventId) {
+        profileQuery = profileQuery.where(eq(seededProfiles.eventId, eventId));
+      }
+
+      const profiles = await profileQuery.limit(1);
+
+      if (profiles.length === 0) {
+        return res.status(404).json({ error: 'Registration not found for this event.' });
+      }
+
+      const profile = profiles[0];
+
+      // Generate short-lived token
+      const token = generateInviteToken();
+      const expiresAt = getTokenExpiryDate();
+      
+      await db.insert(eventInviteTokens).values({
+        eventId: profile.eventId,
+        emailHash,
+        token,
+        expiresAt,
+        status: 'pending'
+      });
+
+      const url = `${process.env.APP_BASE_URL}/teaser/${token}`;
+      
+      res.json({ url, expiresAt });
+    } catch (error) {
+      console.error('Join-by-email error:', error);
+      res.status(500).json({ error: 'Failed to generate join link' });
+    }
+  });
+
   // ============ END SEEDED PROFILES API ENDPOINTS ============
 
   return httpServer;
