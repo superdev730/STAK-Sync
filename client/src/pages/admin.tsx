@@ -235,9 +235,47 @@ const getUserTitle = (user: User): string => {
   return '';
 };
 
-const getUserInitial = (user: User): string => {
+const getUserInitials = (user: User): string => {
   const firstName = getUserFirstName(user);
-  return firstName?.[0]?.toUpperCase() || '?';
+  const lastName = getUserLastName(user);
+  const email = getUserEmail(user);
+  
+  // If we have both first and last name, return first letter of each
+  if (firstName && lastName) {
+    return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  }
+  
+  // If only first name, return first two letters
+  if (firstName) {
+    return firstName.slice(0, 2).toUpperCase();
+  }
+  
+  // If no names but have email, use first two letters of email
+  if (email) {
+    const emailPrefix = email.split('@')[0];
+    return emailPrefix.slice(0, 2).toUpperCase();
+  }
+  
+  // Last resort, return "UK" for unknown
+  return 'UK';
+};
+
+// Helper function to get avatar background color based on initials
+const getAvatarColor = (initials: string): string => {
+  const colors = [
+    'bg-copper-500',
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-pink-500',
+    'bg-indigo-500',
+    'bg-amber-500',
+    'bg-teal-500'
+  ];
+  
+  // Use initials to consistently pick a color
+  const charCode = initials.charCodeAt(0) + (initials.charCodeAt(1) || 0);
+  return colors[charCode % colors.length];
 };
 
 // Similar helpers for BillingUser
@@ -764,8 +802,8 @@ export default function AdminDashboard() {
                   <div className="space-y-4">
                     {users.slice(0, 5).map((user: User) => (
                       <div key={user.id} className="flex items-center space-x-4">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                          {getUserInitial(user)}
+                        <div className={`w-8 h-8 ${getAvatarColor(getUserInitials(user))} text-white rounded-full flex items-center justify-center text-xs font-semibold`}>
+                          {getUserInitials(user)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
@@ -862,14 +900,14 @@ export default function AdminDashboard() {
                       .map((user: User) => (
                         <div key={user.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 hover:bg-gray-50">
                           <div className="col-span-3 flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                              {getUserInitial(user)}
+                            <div className={`w-8 h-8 ${getAvatarColor(getUserInitials(user))} text-white rounded-full flex items-center justify-center text-xs font-semibold`}>
+                              {getUserInitials(user)}
                             </div>
                             <div>
                               <div className="font-medium text-gray-900">
                                 {getUserFullName(user)}
                               </div>
-                              <div className="text-sm text-gray-500">{getUserTitle(user)}</div>
+                              <div className="text-sm text-gray-500 truncate max-w-[200px]">{getUserTitle(user)}</div>
                             </div>
                           </div>
                           <div className="col-span-3 text-sm text-gray-900">{getUserEmail(user)}</div>
