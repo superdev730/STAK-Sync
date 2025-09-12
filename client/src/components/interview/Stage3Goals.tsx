@@ -3,11 +3,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { ChevronLeft, ChevronRight, Target, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Target, Clock, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useState, useEffect } from "react";
 
 const GOALS = [
   { value: "raise_capital", label: "Raise capital", icon: "💰" },
@@ -37,20 +39,34 @@ const stage3Schema = z.object({
   goalStatement: z.string()
     .min(20, "Please provide a meaningful intent statement (min 20 characters)")
     .max(500, "Intent statement is too long (max 500 characters)"),
-  selectedGoals: z.array(z.string())
-    .min(1, "Please select at least 1 goal")
-    .max(3, "Please select up to 3 goals"),
+  selectedChipGoals: z.array(z.string())
+    .max(3, "Please select up to 3 goals from the suggestions"),
+  customGoalsInput: z.string().optional(),
+  goals: z.array(z.string()), // This will be the combined array sent to backend
   timelineUrgency: z.enum(["now", "30-60d", "60-180d", "exploratory"], {
     required_error: "Please select your timeline",
   }),
+}).refine((data) => {
+  // Parse custom goals
+  const customGoals = data.customGoalsInput
+    ? data.customGoalsInput.split(',').map(g => g.trim()).filter(g => g.length > 0)
+    : [];
+  
+  // Combine selected chips and custom goals
+  const totalGoals = Array.from(new Set([...data.selectedChipGoals, ...customGoals]));
+  
+  return totalGoals.length >= 1;
+}, {
+  message: "Please select or enter at least 1 goal",
+  path: ["goals"],
 });
 
 type Stage3Data = z.infer<typeof stage3Schema>;
 
 interface Stage3GoalsProps {
-  onNext: (data: Stage3Data) => void;
+  onNext: (data: Omit<Stage3Data, 'selectedChipGoals' | 'customGoalsInput'>) => void;
   onBack?: () => void;
-  initialData?: Partial<Stage3Data>;
+  initialData?: Partial<Omit<Stage3Data, 'selectedChipGoals' | 'customGoalsInput'>>;
   showBackButton?: boolean;
   isLastStage?: boolean;
 }
@@ -62,27 +78,73 @@ export default function Stage3Goals({
   showBackButton = false,
   isLastStage = false,
 }: Stage3GoalsProps) {
+  const [totalGoalsCount, setTotalGoalsCount] = useState(0);
+  
+  // Handle initial data - separate predefined goals from custom ones
+  const initialChipGoals = initialData?.goals?.filter(g => 
+    GOALS.some(goal => goal.value === g)
+  ) || [];
+  
+  const initialCustomGoals = initialData?.goals?.filter(g => 
+    !GOALS.some(goal => goal.value === g)
+  ).join(", ") || "";
+  
   const form = useForm<Stage3Data>({
     resolver: zodResolver(stage3Schema),
     defaultValues: {
       goalStatement: initialData?.goalStatement || "",
-      selectedGoals: initialData?.selectedGoals || [],
+      selectedChipGoals: initialChipGoals,
+      customGoalsInput: initialCustomGoals,
+      goals: initialData?.goals || [],
       timelineUrgency: initialData?.timelineUrgency || undefined,
     },
   });
 
-  const selectedGoals = form.watch("selectedGoals");
+  const selectedChipGoals = form.watch("selectedChipGoals");
+  const customGoalsInput = form.watch("customGoalsInput");
   const timelineUrgency = form.watch("timelineUrgency");
+
+  // Update total goals count whenever selections change
+  useEffect(() => {
+    const customGoals = customGoalsInput
+      ? customGoalsInput.split(',').map(g => g.trim()).filter(g => g.length > 0)
+      : [];
+    
+    const totalGoals = Array.from(new Set([...selectedChipGoals, ...customGoals]));
+    setTotalGoalsCount(totalGoals.length);
+  }, [selectedChipGoals, customGoalsInput]);
 
   const handleGoalChange = (value: string[]) => {
     if (value.length <= 3) {
-      form.setValue("selectedGoals", value);
-      form.clearErrors("selectedGoals");
+      form.setValue("selectedChipGoals", value);
+      form.clearErrors("goals");
     }
   };
 
   const handleSubmit = (data: Stage3Data) => {
-    onNext(data);
+    // Parse custom goals
+    const customGoals = data.customGoalsInput
+      ? data.customGoalsInput.split(',').map(g => g.trim()).filter(g => g.length > 0)
+      : [];
+    
+    // Combine selected chips and custom goals, remove duplicates
+    const allGoals = Array.from(new Set([...data.selectedChipGoals, ...customGoals]));
+    
+    // Submit with the combined goals array
+    onNext({
+      goalStatement: data.goalStatement,
+      goals: allGoals, // Use 'goals' field name for backend compatibility
+      timelineUrgency: data.timelineUrgency,
+    });
+  };
+
+  // Get list of all goals for display
+  const getAllGoals = () => {
+    const customGoals = customGoalsInput
+      ? customGoalsInput.split(',').map(g => g.trim()).filter(g => g.length > 0)
+      : [];
+    
+    return Array.from(new Set([...selectedChipGoals, ...customGoals]));
   };
 
   return (
@@ -118,46 +180,87 @@ export default function Stage3Goals({
           )}
         />
 
-        {/* Goal Selection - Chip-based multi-select */}
-        <FormField
-          control={form.control}
-          name="selectedGoals"
-          render={({ field }) => (
-            <FormItem className="space-y-3">
-              <div className="flex items-center justify-between">
-                <FormLabel>Select Your Goals (1-3 required) *</FormLabel>
-                <span className="text-sm text-gray-600">
-                  {selectedGoals.length}/3 selected
-                </span>
-              </div>
-              <FormDescription>
-                Choose 1-3 goals that best describe what you're looking for
-              </FormDescription>
-              <FormControl>
-                <ToggleGroup
-                  type="multiple"
-                  value={field.value}
-                  onValueChange={handleGoalChange}
-                  className="flex flex-wrap gap-2 justify-start"
-                >
-                  {GOALS.map((goal) => (
-                    <ToggleGroupItem
-                      key={goal.value}
-                      value={goal.value}
-                      disabled={!field.value.includes(goal.value) && field.value.length >= 3}
-                      className="data-[state=on]:bg-stak-copper data-[state=on]:text-white border-stak-copper/30 hover:bg-stak-copper/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                      data-testid={`chip-goal-${goal.value}`}
-                    >
-                      <span className="mr-1">{goal.icon}</span>
-                      {goal.label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Goal Selection - Now optional with custom input */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <FormLabel>Your Goals *</FormLabel>
+            <span className="text-sm font-medium text-stak-copper">
+              {totalGoalsCount} {totalGoalsCount === 1 ? 'goal' : 'goals'} selected
+            </span>
+          </div>
+          
+          <Alert className="border-stak-copper/30 bg-stak-copper/5">
+            <Info className="h-4 w-4 text-stak-copper" />
+            <AlertDescription>
+              Select from suggestions below or enter your own custom goals. You need at least 1 goal total.
+            </AlertDescription>
+          </Alert>
+
+          {/* Chip Selection - Now optional */}
+          <FormField
+            control={form.control}
+            name="selectedChipGoals"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm text-gray-600">Suggested Goals (select up to 3)</FormLabel>
+                <FormControl>
+                  <ToggleGroup
+                    type="multiple"
+                    value={field.value}
+                    onValueChange={handleGoalChange}
+                    className="flex flex-wrap gap-2 justify-start"
+                  >
+                    {GOALS.map((goal) => (
+                      <ToggleGroupItem
+                        key={goal.value}
+                        value={goal.value}
+                        disabled={!field.value.includes(goal.value) && field.value.length >= 3}
+                        className="data-[state=on]:bg-stak-copper data-[state=on]:text-white border-stak-copper/30 hover:bg-stak-copper/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-testid={`chip-goal-${goal.value}`}
+                      >
+                        <span className="mr-1">{goal.icon}</span>
+                        {goal.label}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          {/* Custom Goals Input - New field */}
+          <FormField
+            control={form.control}
+            name="customGoalsInput"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm text-gray-600">Custom Goals (optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    placeholder="Enter your own goals, separated by commas (e.g., Find strategic partners, Build community, Launch in new markets)"
+                    className="w-full"
+                    data-testid="input-custom-goals"
+                  />
+                </FormControl>
+                <FormDescription>
+                  Add any specific goals not listed above, separated by commas
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+
+          {/* Combined goals validation error */}
+          <FormField
+            control={form.control}
+            name="goals"
+            render={() => (
+              <FormItem>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         {/* Timeline Urgency - Chip-based single select */}
         <FormField
@@ -199,25 +302,32 @@ export default function Stage3Goals({
           )}
         />
 
-        {/* Selected Summary */}
-        {(selectedGoals.length > 0 || timelineUrgency) && (
+        {/* Selected Summary - Shows all goals including custom ones */}
+        {(getAllGoals().length > 0 || timelineUrgency) && (
           <Card className="border-stak-copper/30 bg-stak-copper/5">
             <CardContent className="pt-6">
               <h3 className="text-sm font-semibold text-stak-black mb-3">Your Selection Summary</h3>
               
-              {selectedGoals.length > 0 && (
+              {getAllGoals().length > 0 && (
                 <div className="mb-3">
-                  <span className="text-xs font-medium text-gray-600">Goals:</span>
+                  <span className="text-xs font-medium text-gray-600">Goals ({getAllGoals().length}):</span>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {selectedGoals.map((goalValue) => {
-                      const goal = GOALS.find(g => g.value === goalValue);
+                    {getAllGoals().map((goalValue, index) => {
+                      const predefinedGoal = GOALS.find(g => g.value === goalValue);
+                      const isCustom = !predefinedGoal;
+                      
                       return (
                         <span
-                          key={goalValue}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-stak-copper text-white"
+                          key={`${goalValue}-${index}`}
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm ${
+                            isCustom 
+                              ? 'bg-purple-500 text-white' 
+                              : 'bg-stak-copper text-white'
+                          }`}
                         >
-                          <span>{goal?.icon}</span>
-                          {goal?.label}
+                          {!isCustom && <span>{predefinedGoal.icon}</span>}
+                          {isCustom ? goalValue : predefinedGoal.label}
+                          {isCustom && <span className="text-xs ml-1">(custom)</span>}
                         </span>
                       );
                     })}
