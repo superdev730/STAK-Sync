@@ -47,19 +47,61 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface User {
   id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  company?: string;
-  title?: string;
+  email?: string;
   profileImageUrl?: string;
   billingPlan?: string;
   billingStatus?: string;
   createdAt: string;
   updatedAt: string;
   adminRole?: string | null;
-  accountStatus?: string;
   isStakTeamMember?: boolean;
+  profileStatus?: string;
+  
+  // JSON columns from new schema
+  identity?: {
+    first_name?: string;
+    last_name?: string;
+    display_name?: string;
+    headline?: string;
+    city_region?: string;
+    timezone?: string;
+    email?: string;
+    phone?: string;
+  };
+  
+  persona?: {
+    primary?: string;
+    secondary?: string[];
+    bio?: string;
+    industries?: string[];
+    skills?: string[];
+  };
+  
+  // Persona-specific blocks
+  vc_block?: {
+    firm?: string;
+    role?: string;
+    aum?: string;
+    fund_stage?: string;
+  };
+  
+  founder_block?: {
+    company?: string;
+    role?: string;
+    stage?: string;
+    funding_raised?: string;
+    team_size?: number;
+    industry?: string;
+  };
+  
+  talent_block?: {
+    current_role?: string;
+    current_company?: string;
+    years_experience?: number;
+    expertise?: string[];
+  };
+  
+  accountStatus?: string;
 }
 
 interface Event {
@@ -83,15 +125,22 @@ interface BillingStats {
 
 interface BillingUser {
   id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
+  email?: string;
   billingPlan: string;
   billingStatus: string;
   stakMembershipVerified: boolean;
   tokensUsedThisMonth: number;
   monthlyTokenAllowance: number;
   monthlyCost: number;
+  
+  // JSON columns from new schema
+  identity?: {
+    first_name?: string;
+    last_name?: string;
+    display_name?: string;
+    headline?: string;
+    email?: string;
+  };
 }
 
 interface Invoice {
@@ -148,6 +197,67 @@ interface Analytics {
     revenue: number;
   };
 }
+
+// Helper functions to extract user data from JSON structure
+const getUserFirstName = (user: User): string => {
+  return user?.identity?.first_name || '';
+};
+
+const getUserLastName = (user: User): string => {
+  return user?.identity?.last_name || '';
+};
+
+const getUserFullName = (user: User): string => {
+  const firstName = getUserFirstName(user);
+  const lastName = getUserLastName(user);
+  return `${firstName} ${lastName}`.trim() || 'Unknown User';
+};
+
+const getUserEmail = (user: User): string => {
+  // Check email from root or from identity JSON
+  return user?.email || user?.identity?.email || '';
+};
+
+const getUserCompany = (user: User): string => {
+  // Check different persona blocks for company
+  if (user?.founder_block?.company) return user.founder_block.company;
+  if (user?.vc_block?.firm) return user.vc_block.firm;
+  if (user?.talent_block?.current_company) return user.talent_block.current_company;
+  return '';
+};
+
+const getUserTitle = (user: User): string => {
+  // Check headline first, then role from different blocks
+  if (user?.identity?.headline) return user.identity.headline;
+  if (user?.founder_block?.role) return user.founder_block.role;
+  if (user?.vc_block?.role) return user.vc_block.role;
+  if (user?.talent_block?.current_role) return user.talent_block.current_role;
+  return '';
+};
+
+const getUserInitial = (user: User): string => {
+  const firstName = getUserFirstName(user);
+  return firstName?.[0]?.toUpperCase() || '?';
+};
+
+// Similar helpers for BillingUser
+const getBillingUserFirstName = (user: BillingUser): string => {
+  return user?.identity?.first_name || '';
+};
+
+const getBillingUserLastName = (user: BillingUser): string => {
+  return user?.identity?.last_name || '';
+};
+
+const getBillingUserFullName = (user: BillingUser): string => {
+  const firstName = getBillingUserFirstName(user);
+  const lastName = getBillingUserLastName(user);
+  return `${firstName} ${lastName}`.trim() || 'Unknown User';
+};
+
+const getBillingUserEmail = (user: BillingUser): string => {
+  return user?.email || user?.identity?.email || '';
+};
 
 export default function AdminDashboard() {
   const { toast } = useToast();
@@ -451,10 +561,10 @@ export default function AdminDashboard() {
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
     email: z.string().email("Invalid email address"),
-    title: z.string().optional(),
+    headline: z.string().optional(),
     company: z.string().optional(),
+    role: z.string().optional(),
     adminRole: z.enum(["none", "admin", "super_admin", "owner"]).optional(),
-    accountStatus: z.enum(["active", "suspended", "banned"]).optional(),
   });
 
   type EditUserFormData = z.infer<typeof editUserSchema>;
@@ -468,12 +578,38 @@ export default function AdminDashboard() {
   const onEditUserSubmit = (data: EditUserFormData) => {
     if (editingUser) {
       const updates: any = {
-        firstName: data.firstName,
-        lastName: data.lastName,
         email: data.email,
-        title: data.title || null,
-        company: data.company || null,
+        identity: {
+          ...(editingUser.identity || {}),
+          first_name: data.firstName,
+          last_name: data.lastName,
+          headline: data.headline || null,
+        },
       };
+
+      // Update persona-specific blocks based on user persona
+      const persona = editingUser.persona?.primary;
+      if (data.company || data.role) {
+        if (persona === 'founder' || !persona) {
+          updates.founder_block = {
+            ...(editingUser.founder_block || {}),
+            company: data.company || editingUser.founder_block?.company,
+            role: data.role || editingUser.founder_block?.role,
+          };
+        } else if (persona === 'vc') {
+          updates.vc_block = {
+            ...(editingUser.vc_block || {}),
+            firm: data.company || editingUser.vc_block?.firm,
+            role: data.role || editingUser.vc_block?.role,
+          };
+        } else if (persona === 'talent' || persona === 'operator') {
+          updates.talent_block = {
+            ...(editingUser.talent_block || {}),
+            current_company: data.company || editingUser.talent_block?.current_company,
+            current_role: data.role || editingUser.talent_block?.current_role,
+          };
+        }
+      }
 
       // Only allow changing admin role if current user is owner
       if (data.adminRole && data.adminRole !== "none") {
@@ -498,13 +634,13 @@ export default function AdminDashboard() {
   const resetEditForm = () => {
     if (editingUser) {
       editUserForm.reset({
-        firstName: editingUser.firstName || "",
-        lastName: editingUser.lastName || "",
-        email: editingUser.email || "",
-        title: editingUser.title || "",
-        company: editingUser.company || "",
+        firstName: getUserFirstName(editingUser) || "",
+        lastName: getUserLastName(editingUser) || "",
+        email: getUserEmail(editingUser) || "",
+        headline: editingUser?.identity?.headline || "",
+        company: getUserCompany(editingUser) || "",
+        role: getUserTitle(editingUser) || "",
         adminRole: (editingUser.adminRole || "none") as any,
-        accountStatus: (editingUser.accountStatus || "active") as any,
       });
     }
   };
@@ -629,13 +765,13 @@ export default function AdminDashboard() {
                     {users.slice(0, 5).map((user: User) => (
                       <div key={user.id} className="flex items-center space-x-4">
                         <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                          {user.firstName?.[0] || '?'}
+                          {getUserInitial(user)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {user.firstName} {user.lastName}
+                            {getUserFullName(user)}
                           </p>
-                          <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                          <p className="text-sm text-gray-500 truncate">{getUserEmail(user)}</p>
                         </div>
                         <div className="text-sm text-gray-500">
                           {new Date(user.createdAt).toLocaleDateString()}
@@ -718,26 +854,26 @@ export default function AdminDashboard() {
                     {users
                       .filter((user: User) => 
                         !searchQuery || 
-                        user.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        user.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        user.company?.toLowerCase().includes(searchQuery.toLowerCase())
+                        getUserFirstName(user).toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        getUserLastName(user).toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        getUserEmail(user).toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        getUserCompany(user).toLowerCase().includes(searchQuery.toLowerCase())
                       )
                       .map((user: User) => (
                         <div key={user.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 hover:bg-gray-50">
                           <div className="col-span-3 flex items-center space-x-3">
                             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                              {user.firstName?.[0] || '?'}
+                              {getUserInitial(user)}
                             </div>
                             <div>
                               <div className="font-medium text-gray-900">
-                                {user.firstName} {user.lastName}
+                                {getUserFullName(user)}
                               </div>
-                              <div className="text-sm text-gray-500">{user.title}</div>
+                              <div className="text-sm text-gray-500">{getUserTitle(user)}</div>
                             </div>
                           </div>
-                          <div className="col-span-3 text-sm text-gray-900">{user.email}</div>
-                          <div className="col-span-2 text-sm text-gray-500">{user.company || '-'}</div>
+                          <div className="col-span-3 text-sm text-gray-900">{getUserEmail(user)}</div>
+                          <div className="col-span-2 text-sm text-gray-500">{getUserCompany(user) || '-'}</div>
                           <div className="col-span-2 text-sm text-gray-500">
                             {new Date(user.createdAt).toLocaleDateString()}
                           </div>
@@ -920,8 +1056,8 @@ export default function AdminDashboard() {
                     {billingUsers?.map((user: BillingUser) => (
                       <div key={user.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100">
                         <div className="col-span-2">
-                          <div className="font-medium">{user.firstName} {user.lastName}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
+                          <div className="font-medium">{getBillingUserFullName(user)}</div>
+                          <div className="text-sm text-gray-500">{getBillingUserEmail(user)}</div>
                         </div>
                         <div className="col-span-2">
                           <Badge className={getBillingPlanColor(user.billingPlan)}>
@@ -951,7 +1087,7 @@ export default function AdminDashboard() {
                               <DialogHeader>
                                 <DialogTitle>Update Billing Plan</DialogTitle>
                                 <DialogDescription>
-                                  Change the billing plan for {user.firstName} {user.lastName}
+                                  Change the billing plan for {getBillingUserFullName(user)}
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="space-y-4">
@@ -1324,12 +1460,12 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={editUserForm.control}
-                    name="title"
+                    name="headline"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Title</FormLabel>
+                        <FormLabel>Headline</FormLabel>
                         <FormControl>
-                          <Input {...field} data-testid="input-edit-title" />
+                          <Input {...field} data-testid="input-edit-headline" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1375,22 +1511,13 @@ export default function AdminDashboard() {
                   />
                   <FormField
                     control={editUserForm.control}
-                    name="accountStatus"
+                    name="role"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Account Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-account-status">
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="suspended">Suspended</SelectItem>
-                            <SelectItem value="banned">Banned</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Role</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-edit-role" />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1424,7 +1551,7 @@ export default function AdminDashboard() {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete the user account for {deletingUser?.firstName} {deletingUser?.lastName} ({deletingUser?.email}). 
+                This will permanently delete the user account for {deletingUser ? getUserFullName(deletingUser) : ''} ({deletingUser ? getUserEmail(deletingUser) : ''}). 
                 This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -1463,20 +1590,20 @@ export default function AdminDashboard() {
                   <div>
                     <Label className="text-sm text-muted-foreground">Name</Label>
                     <p className="font-medium">
-                      {viewingUser.firstName} {viewingUser.lastName}
+                      {getUserFullName(viewingUser)}
                     </p>
                   </div>
                   <div>
                     <Label className="text-sm text-muted-foreground">Email</Label>
-                    <p className="font-medium">{viewingUser.email}</p>
+                    <p className="font-medium">{getUserEmail(viewingUser)}</p>
                   </div>
                   <div>
                     <Label className="text-sm text-muted-foreground">Title</Label>
-                    <p className="font-medium">{viewingUser.title || "Not specified"}</p>
+                    <p className="font-medium">{getUserTitle(viewingUser) || "Not specified"}</p>
                   </div>
                   <div>
                     <Label className="text-sm text-muted-foreground">Company</Label>
-                    <p className="font-medium">{viewingUser.company || "Not specified"}</p>
+                    <p className="font-medium">{getUserCompany(viewingUser) || "Not specified"}</p>
                   </div>
                   <div>
                     <Label className="text-sm text-muted-foreground">Admin Role</Label>

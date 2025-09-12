@@ -915,14 +915,23 @@ export class DatabaseStorage implements IStorage {
     let baseQuery = db.select().from(users);
     let countQuery = db.select({ count: count() }).from(users);
     
-    // Add search filtering
+    // Add search filtering using JSON fields
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
       const searchCondition = or(
-        ilike(users.firstName, searchTerm),
-        ilike(users.lastName, searchTerm),
+        // Search in identity JSON fields
+        sql`${users.identity}->>'first_name' ILIKE ${searchTerm}`,
+        sql`${users.identity}->>'last_name' ILIKE ${searchTerm}`,
+        sql`${users.identity}->>'display_name' ILIKE ${searchTerm}`,
+        // Search in email field (still a regular column)
         ilike(users.email, searchTerm),
-        ilike(users.company, searchTerm)
+        // Search in various JSON blocks for company/organization
+        sql`${users.founder_block}->>'company' ILIKE ${searchTerm}`,
+        sql`${users.vc_block}->>'firm' ILIKE ${searchTerm}`,
+        sql`${users.talent_block}->>'current_company' ILIKE ${searchTerm}`,
+        sql`${users.provider_block}->>'agency' ILIKE ${searchTerm}`,
+        // Search in persona bio
+        sql`${users.persona}->>'bio' ILIKE ${searchTerm}`
       );
       
       baseQuery = baseQuery.where(searchCondition);
@@ -944,15 +953,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchUsers(query: string): Promise<User[]> {
+    const searchTerm = `%${query}%`;
     const result = await db
       .select()
       .from(users)
       .where(
         or(
-          ilike(users.email, `%${query}%`),
-          ilike(users.firstName, `%${query}%`),
-          ilike(users.lastName, `%${query}%`),
-          ilike(users.company, `%${query}%`)
+          // Search in email field (still a regular column)
+          ilike(users.email, searchTerm),
+          // Search in identity JSON fields
+          sql`${users.identity}->>'first_name' ILIKE ${searchTerm}`,
+          sql`${users.identity}->>'last_name' ILIKE ${searchTerm}`,
+          sql`${users.identity}->>'display_name' ILIKE ${searchTerm}`,
+          // Search in various JSON blocks for company/organization
+          sql`${users.founder_block}->>'company' ILIKE ${searchTerm}`,
+          sql`${users.vc_block}->>'firm' ILIKE ${searchTerm}`,
+          sql`${users.talent_block}->>'current_company' ILIKE ${searchTerm}`,
+          sql`${users.provider_block}->>'agency' ILIKE ${searchTerm}`
         )
       )
       .limit(10);
@@ -1007,10 +1024,31 @@ export class DatabaseStorage implements IStorage {
 
   // User creation by admin
   async createUserByAdmin(userData: Partial<User>): Promise<User> {
+    // Extract first name and last name if provided as flat fields
+    const { firstName, lastName, company, ...restData } = userData as any;
+    
+    // Build proper JSON structure if old flat fields are provided
+    let identity = restData.identity || {};
+    if (firstName || lastName) {
+      identity = {
+        ...identity,
+        first_name: firstName || identity.first_name,
+        last_name: lastName || identity.last_name,
+      };
+    }
+    
+    // Handle company field - could go in various blocks depending on role
+    let founder_block = restData.founder_block;
+    if (company && !founder_block?.company) {
+      founder_block = { ...founder_block, company };
+    }
+    
     const [user] = await db
       .insert(users)
       .values({
-        ...userData,
+        ...restData,
+        identity: Object.keys(identity).length > 0 ? identity : null,
+        founder_block,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
