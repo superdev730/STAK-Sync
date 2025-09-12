@@ -19,7 +19,7 @@ const SECTORS = [
   "Security", "Social", "Space Tech", "Supply Chain", "Travel"
 ];
 
-const GEOGRAPHIES = [
+const GEOGRAPHY = [
   "San Francisco Bay Area", "New York", "Los Angeles", "Boston",
   "Austin", "Seattle", "Denver", "Miami", "Chicago", "Atlanta",
   "Remote/Global", "Europe", "Asia", "Latin America", "Africa",
@@ -39,10 +39,16 @@ const stage4Schema = z.object({
   investmentThesis: z.string()
     .min(50, "Please provide a meaningful investment thesis (min 50 characters)")
     .max(1000, "Investment thesis is too long (max 1000 characters)"),
-  sectors: z.array(z.string()).min(1, "Please select at least one sector"),
-  geographies: z.array(z.string()).min(1, "Please select at least one geography"),
-  stages: z.array(z.string()).min(1, "Please select at least one stage"),
-  portfolioCount: z.string().optional(),
+  sectors: z.array(z.string())
+    .min(1, "Please select at least one sector")
+    .max(10, "Maximum 10 sectors allowed"),
+  geography: z.array(z.string())
+    .min(1, "Please select at least one geography")
+    .max(20, "Maximum 20 geographies allowed"),
+  stages: z.array(z.string())
+    .min(1, "Please select at least one stage")
+    .max(10, "Maximum 10 stages allowed"),
+  portfolioCount: z.coerce.number().optional().or(z.literal("")),
   notableWins: z.string().optional(),
   diligenceStyle: z.string().optional(),
 });
@@ -73,7 +79,7 @@ export default function Stage4VCProfile({
       checkSizeMax: initialData?.checkSizeMax || "",
       investmentThesis: initialData?.investmentThesis || "",
       sectors: initialData?.sectors || [],
-      geographies: initialData?.geographies || [],
+      geography: initialData?.geography || [],
       stages: initialData?.stages || [],
       portfolioCount: initialData?.portfolioCount || "",
       notableWins: initialData?.notableWins || "",
@@ -82,7 +88,15 @@ export default function Stage4VCProfile({
   });
 
   const handleSubmit = (data: Stage4Data) => {
-    onNext(data);
+    // The schema now handles the conversion with z.coerce.number()
+    // Empty string will be converted to undefined by our schema
+    const processedData = {
+      ...data,
+      portfolioCount: data.portfolioCount === "" ? undefined : data.portfolioCount
+    };
+    
+    console.log('Submitting Stage 4 VC data:', processedData);
+    onNext(processedData);
   };
 
   return (
@@ -194,7 +208,7 @@ export default function Stage4VCProfile({
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-stak-copper" />
-              Sectors of Interest *
+              Sectors of Interest * (max 10)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -215,6 +229,7 @@ export default function Stage4VCProfile({
                               <FormControl>
                                 <Checkbox
                                   checked={field.value?.includes(sector)}
+                                  disabled={!field.value?.includes(sector) && field.value?.length >= 10}
                                   onCheckedChange={(checked) => {
                                     const newValue = checked
                                       ? [...(field.value || []), sector]
@@ -245,27 +260,28 @@ export default function Stage4VCProfile({
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Globe className="w-5 h-5 text-stak-copper" />
-              Geographic Focus *
+              Geographic Focus * (max 20)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <FormField
               control={form.control}
-              name="geographies"
+              name="geography"
               render={() => (
                 <FormItem>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {GEOGRAPHIES.map((geo) => (
+                    {GEOGRAPHY.map((geo) => (
                       <FormField
                         key={geo}
                         control={form.control}
-                        name="geographies"
+                        name="geography"
                         render={({ field }) => (
                           <FormItem>
                             <div className="flex items-center space-x-2">
                               <FormControl>
                                 <Checkbox
                                   checked={field.value?.includes(geo)}
+                                  disabled={!field.value?.includes(geo) && field.value?.length >= 20}
                                   onCheckedChange={(checked) => {
                                     const newValue = checked
                                       ? [...(field.value || []), geo]
@@ -296,7 +312,7 @@ export default function Stage4VCProfile({
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Briefcase className="w-5 h-5 text-stak-copper" />
-              Investment Stages *
+              Investment Stages * (max 10)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -317,6 +333,7 @@ export default function Stage4VCProfile({
                               <FormControl>
                                 <Checkbox
                                   checked={field.value?.includes(stage)}
+                                  disabled={!field.value?.includes(stage) && field.value?.length >= 10}
                                   onCheckedChange={(checked) => {
                                     const newValue = checked
                                       ? [...(field.value || []), stage]
@@ -355,8 +372,16 @@ export default function Stage4VCProfile({
                 <FormItem>
                   <FormLabel>Portfolio Companies</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., 25 active investments" data-testid="input-portfolio-count" />
+                    <Input 
+                      {...field} 
+                      type="number"
+                      placeholder="e.g., 25" 
+                      data-testid="input-portfolio-count" 
+                    />
                   </FormControl>
+                  <FormDescription>
+                    Enter the number of active portfolio companies
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
