@@ -12434,6 +12434,64 @@ Compose a concise, fact-first profile card.`
     }
   });
 
+  // 7. Admin Funnel Endpoint - Track consent state funnel
+  app.get('/api/admin/events/:eventId/funnel', isAdmin, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      
+      // Get all seeded profiles for this event
+      const profiles = await db
+        .select()
+        .from(seededProfiles)
+        .where(eq(seededProfiles.eventId, eventId));
+
+      // Count by status (we'll track status based on tokens and consent logs)
+      const counts: Record<string, number> = { 
+        PROSPECT: 0, 
+        INVITED: 0, 
+        PREVIEWING: 0, 
+        ACTIVATED: 0, 
+        DECLINED: 0 
+      };
+      
+      // Count prospects (all seeded profiles start as prospects)
+      counts.PROSPECT = profiles.length;
+      
+      // Count invited (those with tokens created)
+      const invited = await db
+        .select({ emailHash: eventInviteTokens.emailHash })
+        .from(eventInviteTokens)
+        .where(eq(eventInviteTokens.eventId, eventId))
+        .groupBy(eventInviteTokens.emailHash);
+      counts.INVITED = invited.length;
+      
+      // Count activated (those with activation consent logs)
+      const activated = await db
+        .select({ subjectRef: consentLogs.subjectRef })
+        .from(consentLogs)
+        .where(eq(consentLogs.eventType, 'activation'))
+        .groupBy(consentLogs.subjectRef);
+      counts.ACTIVATED = activated.length;
+      
+      // Count declined (those who opted out)
+      const declined = await db
+        .select({ subjectRef: consentLogs.subjectRef })
+        .from(consentLogs)
+        .where(eq(consentLogs.eventType, 'opt_out'))
+        .groupBy(consentLogs.subjectRef);
+      counts.DECLINED = declined.length;
+      
+      // Previewing would be INVITED - ACTIVATED - DECLINED
+      counts.PREVIEWING = counts.INVITED - counts.ACTIVATED - counts.DECLINED;
+      if (counts.PREVIEWING < 0) counts.PREVIEWING = 0;
+      
+      res.json({ eventId, funnel: counts });
+    } catch (error) {
+      console.error('Admin funnel error:', error);
+      res.status(500).json({ error: 'Failed to get funnel data' });
+    }
+  });
+
   // ============ END SEEDED PROFILES API ENDPOINTS ============
 
   return httpServer;

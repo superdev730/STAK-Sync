@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+
 type ProspectLike = { 
   id: string; 
   email: string; 
@@ -48,7 +50,6 @@ export async function isEmailSuppressed(emailHash: string, db: any): Promise<boo
 
 // Hash email with salt for privacy
 export function hashEmail(email: string, salt: string = process.env.EMAIL_SALT || "default-salt"): string {
-  const crypto = require("crypto");
   return crypto
     .createHash("sha256")
     .update(email.toLowerCase() + salt)
