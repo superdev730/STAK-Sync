@@ -245,6 +245,341 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ Interview Flow Endpoints ============
+  
+  // 1. GET /api/interview/status - Get user's interview status and progress
+  app.get('/api/interview/status', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Return interview status fields
+      res.json({
+        profileStatus: user.profileStatus || 'new',
+        lastInterviewStage: user.lastInterviewStage || null,
+        completedSections: {
+          stage1: Boolean(user.firstName && user.lastName),
+          stage2: Boolean(user.personas && user.personas.length > 0),
+          stage3: Boolean(user.goalStatement && user.goals && user.goals.length > 0),
+          stage4: user.profileStatus === 'complete'
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching interview status:', error);
+      res.status(500).json({ error: 'Failed to fetch interview status' });
+    }
+  });
+
+  // 2. POST /api/interview/stage1 - Save identity & contact info
+  app.post('/api/interview/stage1', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const {
+        firstName,
+        lastName,
+        preferredDisplayName,
+        headline,
+        city,
+        region,
+        timezone,
+        phone,
+        linkedinUrl,
+        linkedinVisible,
+        twitterUrl,
+        twitterVisible,
+        githubUrl,
+        githubVisible,
+        personalWebsite,
+        personalWebsiteVisible,
+        portfolioUrl,
+        portfolioVisible
+      } = req.body;
+
+      // Validate required fields
+      if (!firstName || !lastName) {
+        return res.status(400).json({ error: "First name and last name are required" });
+      }
+
+      // Update user record
+      const updatedUser = await storage.updateUser(userId, {
+        firstName,
+        lastName,
+        preferredDisplayName,
+        headline,
+        city,
+        region,
+        timezone,
+        phone,
+        linkedinUrl,
+        linkedinVisible: linkedinVisible !== undefined ? linkedinVisible : true,
+        twitterUrl,
+        twitterVisible: twitterVisible !== undefined ? twitterVisible : true,
+        githubUrl,
+        githubVisible: githubVisible !== undefined ? githubVisible : true,
+        personalWebsite,
+        personalWebsiteVisible: personalWebsiteVisible !== undefined ? personalWebsiteVisible : true,
+        portfolioUrl,
+        portfolioVisible: portfolioVisible !== undefined ? portfolioVisible : true,
+        profileStatus: 'incomplete',
+        lastInterviewStage: 'stage1'
+      });
+
+      res.json({
+        success: true,
+        message: "Stage 1 data saved successfully",
+        profileStatus: updatedUser.profileStatus,
+        lastInterviewStage: updatedUser.lastInterviewStage
+      });
+    } catch (error) {
+      console.error('Error saving stage 1 data:', error);
+      res.status(500).json({ error: 'Failed to save stage 1 data' });
+    }
+  });
+
+  // 3. POST /api/interview/stage2 - Save persona & role
+  app.post('/api/interview/stage2', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const { personas, primaryPersona } = req.body;
+
+      // Validate required fields
+      if (!personas || !Array.isArray(personas) || personas.length === 0) {
+        return res.status(400).json({ error: "At least one persona is required" });
+      }
+
+      if (!primaryPersona) {
+        return res.status(400).json({ error: "Primary persona is required" });
+      }
+
+      // Update user record
+      const updatedUser = await storage.updateUser(userId, {
+        personas,
+        primaryPersona,
+        lastInterviewStage: 'stage2'
+      });
+
+      res.json({
+        success: true,
+        message: "Stage 2 data saved successfully",
+        lastInterviewStage: updatedUser.lastInterviewStage
+      });
+    } catch (error) {
+      console.error('Error saving stage 2 data:', error);
+      res.status(500).json({ error: 'Failed to save stage 2 data' });
+    }
+  });
+
+  // 4. POST /api/interview/stage3 - Save goals
+  app.post('/api/interview/stage3', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const { goalStatement, goals, timelineUrgency } = req.body;
+
+      // Validate required fields
+      if (!goalStatement) {
+        return res.status(400).json({ error: "Goal statement is required" });
+      }
+
+      if (!goals || !Array.isArray(goals) || goals.length === 0) {
+        return res.status(400).json({ error: "At least one goal is required" });
+      }
+
+      if (goals.length > 3) {
+        return res.status(400).json({ error: "Maximum 3 goals allowed" });
+      }
+
+      // Update user record
+      const updatedUser = await storage.updateUser(userId, {
+        goalStatement,
+        goals,
+        timelineUrgency,
+        lastInterviewStage: 'stage3'
+      });
+
+      res.json({
+        success: true,
+        message: "Stage 3 data saved successfully",
+        lastInterviewStage: updatedUser.lastInterviewStage
+      });
+    } catch (error) {
+      console.error('Error saving stage 3 data:', error);
+      res.status(500).json({ error: 'Failed to save stage 3 data' });
+    }
+  });
+
+  // 5. POST /api/interview/stage4/vc - Save VC-specific data
+  app.post('/api/interview/stage4/vc', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const {
+        aum,
+        fundStage,
+        checkSizeMin,
+        checkSizeMax,
+        investmentThesis,
+        sectors,
+        geography,
+        stages,
+        portfolioCount,
+        notableWins,
+        diligenceStyle
+      } = req.body;
+
+      // Validate required fields
+      if (!investmentThesis) {
+        return res.status(400).json({ error: "Investment thesis is required" });
+      }
+
+      if (!sectors || !Array.isArray(sectors) || sectors.length === 0) {
+        return res.status(400).json({ error: "At least one sector is required" });
+      }
+
+      // Update user record - store VC data in JSON fields
+      const updatedUser = await storage.updateUser(userId, {
+        // Store VC data in related fields and metadata
+        industries: sectors, // Map sectors to industries
+        investmentInterests: sectors,
+        bio: investmentThesis,
+        // Store additional VC data in profile metadata
+        profileMetadata: {
+          aum,
+          fundStage,
+          checkSizeMin,
+          checkSizeMax,
+          geography,
+          stages,
+          portfolioCount,
+          notableWins,
+          diligenceStyle
+        },
+        profileStatus: 'complete',
+        lastInterviewStage: 'complete'
+      });
+
+      res.json({
+        success: true,
+        message: "VC profile data saved successfully",
+        profileStatus: updatedUser.profileStatus,
+        lastInterviewStage: updatedUser.lastInterviewStage
+      });
+    } catch (error) {
+      console.error('Error saving VC data:', error);
+      res.status(500).json({ error: 'Failed to save VC data' });
+    }
+  });
+
+  // 6. GET /api/interview/data - Get all interview data for the user
+  app.get('/api/interview/data', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Extract interview-related fields
+      const interviewData = {
+        // Status
+        profileStatus: user.profileStatus,
+        lastInterviewStage: user.lastInterviewStage,
+        
+        // Stage 1: Identity & Contact
+        firstName: user.firstName,
+        lastName: user.lastName,
+        preferredDisplayName: user.preferredDisplayName,
+        headline: user.headline,
+        city: user.city,
+        region: user.region,
+        timezone: user.timezone,
+        phone: user.phone,
+        
+        // Social links
+        linkedinUrl: user.linkedinUrl,
+        linkedinVisible: user.linkedinVisible,
+        twitterUrl: user.twitterUrl,
+        twitterVisible: user.twitterVisible,
+        githubUrl: user.githubUrl,
+        githubVisible: user.githubVisible,
+        personalWebsite: user.personalWebsite,
+        personalWebsiteVisible: user.personalWebsiteVisible,
+        portfolioUrl: user.portfolioUrl,
+        portfolioVisible: user.portfolioVisible,
+        
+        // Stage 2: Persona & Role
+        personas: user.personas,
+        primaryPersona: user.primaryPersona,
+        
+        // Stage 3: Goals
+        goalStatement: user.goalStatement,
+        goals: user.goals,
+        timelineUrgency: user.timelineUrgency,
+        
+        // Stage 4: VC-specific (if applicable)
+        vcData: user.profileMetadata || null
+      };
+
+      res.json(interviewData);
+    } catch (error) {
+      console.error('Error fetching interview data:', error);
+      res.status(500).json({ error: 'Failed to fetch interview data' });
+    }
+  });
+
+  // 7. POST /api/interview/complete - Mark interview as complete
+  app.post('/api/interview/complete', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Update user record to mark interview as complete
+      const updatedUser = await storage.updateUser(userId, {
+        profileStatus: 'complete',
+        lastInterviewStage: 'complete'
+      });
+
+      res.json({
+        success: true,
+        message: "Interview marked as complete",
+        profileStatus: updatedUser.profileStatus,
+        lastInterviewStage: updatedUser.lastInterviewStage
+      });
+    } catch (error) {
+      console.error('Error marking interview as complete:', error);
+      res.status(500).json({ error: 'Failed to mark interview as complete' });
+    }
+  });
+
+  // ============ End Interview Flow Endpoints ============
+
   // Simple logo route
   app.get('/api/logo', (req, res) => {
     // Return a simple SVG of the STAK logo
