@@ -34,6 +34,8 @@ import SignupLogin from "@/pages/SignupLogin";
 import SignupPage from "@/pages/SignupPage";
 import VerificationSuccess from "@/pages/VerificationSuccess";
 import Interview from "@/pages/interview";
+import TeaserPage from "@/pages/teaser";
+import ActivationPage from "@/pages/activate";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -49,6 +51,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/landing" component={Landing} />
+      <Route path="/teaser/:token" component={TeaserPage} />
+      <Route path="/activate/:token" component={ActivationPage} />
       {!isAuthenticated ? (
         <Switch>
           <Route path="/" component={Landing} />
