@@ -5,8 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { 
   Users, 
   Calendar as CalendarIcon, 
@@ -51,6 +57,9 @@ interface User {
   billingStatus?: string;
   createdAt: string;
   updatedAt: string;
+  adminRole?: string | null;
+  accountStatus?: string;
+  isStakTeamMember?: boolean;
 }
 
 interface Event {
@@ -148,6 +157,12 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showCreateSponsorDialog, setShowCreateSponsorDialog] = useState(false);
   const [showCreateBadgeDialog, setShowCreateBadgeDialog] = useState(false);
+  const [showEditUserDialog, setShowEditUserDialog] = useState(false);
+  const [showDeleteUserDialog, setShowDeleteUserDialog] = useState(false);
+  const [showViewUserDialog, setShowViewUserDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [viewingUser, setViewingUser] = useState<User | null>(null);
 
   // Fetch analytics data
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
@@ -360,6 +375,137 @@ export default function AdminDashboard() {
       case 'overdue': return 'bg-red-100 text-red-800';
       case 'draft': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // User management mutations
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, updates }: { userId: string; updates: Partial<User> }) => {
+      const response = await apiRequest(`/api/admin/users/${userId}`, 'PUT', updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: "User Updated",
+        description: "User information has been updated successfully.",
+      });
+      setShowEditUserDialog(false);
+      setEditingUser(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update user.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiRequest(`/api/admin/users/${userId}`, 'DELETE');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: "User Deleted",
+        description: "User has been deleted successfully.",
+      });
+      setShowDeleteUserDialog(false);
+      setDeletingUser(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete user.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateUserStatusMutation = useMutation({
+    mutationFn: async ({ userId, status }: { userId: string; status: string }) => {
+      const response = await apiRequest(`/api/admin/users/${userId}/status`, 'POST', { status });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: "Status Updated",
+        description: "User status has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Status Update Failed",
+        description: error.message || "Failed to update user status.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Form schema for editing user
+  const editUserSchema = z.object({
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    email: z.string().email("Invalid email address"),
+    title: z.string().optional(),
+    company: z.string().optional(),
+    adminRole: z.enum(["none", "admin", "super_admin", "owner"]).optional(),
+    accountStatus: z.enum(["active", "suspended", "banned"]).optional(),
+  });
+
+  type EditUserFormData = z.infer<typeof editUserSchema>;
+
+  // Handle edit user
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setShowEditUserDialog(true);
+  };
+
+  const onEditUserSubmit = (data: EditUserFormData) => {
+    if (editingUser) {
+      const updates: any = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        title: data.title || null,
+        company: data.company || null,
+      };
+
+      // Only allow changing admin role if current user is owner
+      if (data.adminRole && data.adminRole !== "none") {
+        updates.adminRole = data.adminRole;
+      } else if (data.adminRole === "none") {
+        updates.adminRole = null;
+      }
+
+      updateUserMutation.mutate({
+        userId: editingUser.id,
+        updates,
+      });
+    }
+  };
+
+  // Create form inside component but after state declarations
+  const editUserForm = useForm<EditUserFormData>({
+    resolver: zodResolver(editUserSchema),
+  });
+
+  // Reset form when dialog opens
+  const resetEditForm = () => {
+    if (editingUser) {
+      editUserForm.reset({
+        firstName: editingUser.firstName || "",
+        lastName: editingUser.lastName || "",
+        email: editingUser.email || "",
+        title: editingUser.title || "",
+        company: editingUser.company || "",
+        adminRole: (editingUser.adminRole || "none") as any,
+        accountStatus: (editingUser.accountStatus || "active") as any,
+      });
     }
   };
 
@@ -596,11 +742,35 @@ export default function AdminDashboard() {
                             {new Date(user.createdAt).toLocaleDateString()}
                           </div>
                           <div className="col-span-2 flex items-center space-x-2">
-                            <Button variant="outline" size="sm" data-testid={`button-view-user-${user.id}`}>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              data-testid={`button-view-user-${user.id}`}
+                              onClick={() => {
+                                setViewingUser(user);
+                                setShowViewUserDialog(true);
+                              }}
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm" data-testid={`button-edit-user-${user.id}`}>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              data-testid={`button-edit-user-${user.id}`}
+                              onClick={() => handleEditUser(user)}
+                            >
                               <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              data-testid={`button-delete-user-${user.id}`}
+                              onClick={() => {
+                                setDeletingUser(user);
+                                setShowDeleteUserDialog(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
@@ -1090,6 +1260,319 @@ export default function AdminDashboard() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Edit User Dialog */}
+        <Dialog 
+          open={showEditUserDialog} 
+          onOpenChange={(open) => {
+            setShowEditUserDialog(open);
+            if (open && editingUser) {
+              resetEditForm();
+            }
+          }}
+        >
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>
+                Update user information and permissions
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...editUserForm}>
+              <form onSubmit={editUserForm.handleSubmit(onEditUserSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editUserForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-edit-first-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editUserForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-edit-last-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={editUserForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="email" data-testid="input-edit-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editUserForm.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-edit-title" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editUserForm.control}
+                    name="company"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-edit-company" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editUserForm.control}
+                    name="adminRole"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Admin Role</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-admin-role">
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="super_admin">Super Admin</SelectItem>
+                            <SelectItem value="owner">Owner</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editUserForm.control}
+                    name="accountStatus"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-account-status">
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="suspended">Suspended</SelectItem>
+                            <SelectItem value="banned">Banned</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowEditUserDialog(false)}
+                    data-testid="button-cancel-edit"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={updateUserMutation.isPending}
+                    data-testid="button-save-user"
+                  >
+                    {updateUserMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete User Dialog */}
+        <AlertDialog open={showDeleteUserDialog} onOpenChange={setShowDeleteUserDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the user account for {deletingUser?.firstName} {deletingUser?.lastName} ({deletingUser?.email}). 
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-delete">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (deletingUser) {
+                    deleteUserMutation.mutate(deletingUser.id);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={deleteUserMutation.isPending}
+                data-testid="button-confirm-delete"
+              >
+                {deleteUserMutation.isPending ? "Deleting..." : "Delete User"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* View User Dialog */}
+        <Dialog open={showViewUserDialog} onOpenChange={setShowViewUserDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>User Details</DialogTitle>
+              <DialogDescription>
+                Complete user information and activity
+              </DialogDescription>
+            </DialogHeader>
+            {viewingUser && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Name</Label>
+                    <p className="font-medium">
+                      {viewingUser.firstName} {viewingUser.lastName}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Email</Label>
+                    <p className="font-medium">{viewingUser.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Title</Label>
+                    <p className="font-medium">{viewingUser.title || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Company</Label>
+                    <p className="font-medium">{viewingUser.company || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Admin Role</Label>
+                    <p className="font-medium">
+                      {viewingUser.adminRole ? (
+                        <Badge variant="outline">{viewingUser.adminRole}</Badge>
+                      ) : (
+                        "None"
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Account Status</Label>
+                    <p className="font-medium">
+                      <Badge className={viewingUser.accountStatus === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                        {viewingUser.accountStatus || "active"}
+                      </Badge>
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Billing Plan</Label>
+                    <p className="font-medium">
+                      <Badge className={getBillingPlanColor(viewingUser.billingPlan || "free_stak_basic")}>
+                        {viewingUser.billingPlan || "free_stak_basic"}
+                      </Badge>
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">STAK Team Member</Label>
+                    <p className="font-medium">
+                      {viewingUser.isStakTeamMember ? (
+                        <Badge className="bg-copper-100 text-copper-800">Yes</Badge>
+                      ) : (
+                        "No"
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Created At</Label>
+                    <p className="font-medium">
+                      {new Date(viewingUser.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Updated At</Label>
+                    <p className="font-medium">
+                      {new Date(viewingUser.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-between pt-4 border-t">
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowViewUserDialog(false);
+                        handleEditUser(viewingUser);
+                      }}
+                      data-testid="button-edit-from-view"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit User
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (viewingUser.accountStatus === "active") {
+                          updateUserStatusMutation.mutate({
+                            userId: viewingUser.id,
+                            status: "suspended",
+                          });
+                        } else {
+                          updateUserStatusMutation.mutate({
+                            userId: viewingUser.id,
+                            status: "active",
+                          });
+                        }
+                        setShowViewUserDialog(false);
+                      }}
+                      data-testid="button-toggle-status"
+                    >
+                      {viewingUser.accountStatus === "active" ? "Suspend User" : "Activate User"}
+                    </Button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowViewUserDialog(false)}
+                    data-testid="button-close-view"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
