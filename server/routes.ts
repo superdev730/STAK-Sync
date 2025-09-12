@@ -9077,15 +9077,13 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
         return res.status(404).json({ message: 'User not found' });
       }
 
-      // Delete user (implementation depends on storage layer)
-      // For now, we'll mark as deleted or suspended
-      await storage.updateUserAccountStatus(userId, {
-        userId,
-        status: 'banned',
-        reason: 'Account deleted by admin',
-        suspendedAt: new Date(),
-        suspendedBy: adminUser!.id,
-      });
+      // Prevent deleting yourself
+      if (userId === currentUserId) {
+        return res.status(400).json({ message: 'Cannot delete your own account' });
+      }
+
+      // Actually delete the user and all related data
+      await storage.deleteUser(userId);
 
       // Log admin action
       await storage.logAdminAction({
