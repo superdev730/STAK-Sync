@@ -4707,16 +4707,6 @@ END:VCALENDAR`;
     }
   });
 
-  app.get('/api/admin/events', isAuthenticatedGeneral, isAdmin, async (req, res) => {
-    try {
-      const events = await storage.getAllEventsForAdmin();
-      res.json(events);
-    } catch (error) {
-      console.error('Error fetching admin events:', error);
-      res.status(500).json({ message: 'Failed to fetch events' });
-    }
-  });
-
   app.get('/api/events/:eventId', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const event = await storage.getEvent(req.params.eventId);

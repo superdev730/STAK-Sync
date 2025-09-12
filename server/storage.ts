@@ -641,7 +641,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllEventsForAdmin(): Promise<(Event & { organizer: User; registrationCount: number })[]> {
-    const result = await db
+    // First get all events with organizers
+    const eventsData = await db
       .select({
         event: events,
         organizer: users,
@@ -650,22 +651,34 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(events.organizerId, users.id))
       .orderBy(desc(events.createdAt));
 
-    const eventsWithCounts = await Promise.all(
-      result.map(async (row) => {
-        const registrations = await db
-          .select({ count: count() })
-          .from(eventRegistrations)
-          .where(eq(eventRegistrations.eventId, row.event.id));
-
-        return {
-          ...row.event,
-          organizer: row.organizer || { firstName: 'Unknown', lastName: 'User', email: '', id: '' } as User,
-          registrationCount: registrations[0]?.count || 0,
-        };
+    // Get registration counts for all events in one query
+    const registrationCounts = await db
+      .select({
+        eventId: eventRegistrations.eventId,
+        count: count(),
       })
+      .from(eventRegistrations)
+      .groupBy(eventRegistrations.eventId);
+
+    // Create a map of event ID to registration count
+    const countMap = new Map(
+      registrationCounts.map(r => [r.eventId, Number(r.count)])
     );
 
-    return eventsWithCounts;
+    // Combine the data
+    return eventsData.map(row => ({
+      ...row.event,
+      organizer: row.organizer || { 
+        firstName: 'Unknown', 
+        lastName: 'User', 
+        email: '', 
+        id: '',
+        password: '',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } as User,
+      registrationCount: countMap.get(row.event.id) || 0,
+    }));
   }
 
   async registerForEvent(registration: InsertEventRegistration): Promise<EventRegistration> {
