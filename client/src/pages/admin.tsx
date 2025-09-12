@@ -610,6 +610,16 @@ export default function AdminDashboard() {
   // Handle edit user
   const handleEditUser = (user: User) => {
     setEditingUser(user);
+    // Reset form with user data immediately
+    editUserForm.reset({
+      firstName: getUserFirstName(user) || "",
+      lastName: getUserLastName(user) || "",
+      email: getUserEmail(user) || "",
+      headline: user?.identity?.headline || "",
+      company: getUserCompany(user) || "",
+      role: getUserTitle(user) || "",
+      adminRole: (user.adminRole || "none") as any,
+    });
     setShowEditUserDialog(true);
   };
 
@@ -666,22 +676,16 @@ export default function AdminDashboard() {
   // Create form inside component but after state declarations
   const editUserForm = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      headline: "",
+      company: "",
+      role: "",
+      adminRole: "none",
+    },
   });
-
-  // Reset form when dialog opens
-  const resetEditForm = () => {
-    if (editingUser) {
-      editUserForm.reset({
-        firstName: getUserFirstName(editingUser) || "",
-        lastName: getUserLastName(editingUser) || "",
-        email: getUserEmail(editingUser) || "",
-        headline: editingUser?.identity?.headline || "",
-        company: getUserCompany(editingUser) || "",
-        role: getUserTitle(editingUser) || "",
-        adminRole: (editingUser.adminRole || "none") as any,
-      });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -1454,12 +1458,7 @@ export default function AdminDashboard() {
         {/* Edit User Dialog */}
         <Dialog 
           open={showEditUserDialog} 
-          onOpenChange={(open) => {
-            setShowEditUserDialog(open);
-            if (open && editingUser) {
-              resetEditForm();
-            }
-          }}
+          onOpenChange={setShowEditUserDialog}
         >
           <DialogContent className="max-w-2xl">
             <DialogHeader>
