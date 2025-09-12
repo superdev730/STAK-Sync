@@ -491,6 +491,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 5a. POST /api/interview/stage4/founder - Save Founder-specific data
+  app.post('/api/interview/stage4/founder', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const {
+        companyName,
+        companyStage,
+        companyWebsite,
+        industry,
+        targetMarket,
+        teamSize,
+        foundingTeam,
+        revenueStatus,
+        monthlyRevenue,
+        previousFunding,
+        currentRunway,
+        burnRate,
+        pitchDeck,
+        companyDescription,
+        fundingNeeds,
+        supportNeeds,
+        biggestChallenge
+      } = req.body;
+
+      // Validate required fields
+      if (!companyName || !companyStage || !industry) {
+        return res.status(400).json({ error: "Company name, stage, and industry are required" });
+      }
+
+      if (!companyDescription || companyDescription.length < 50) {
+        return res.status(400).json({ error: "Company description is required (min 50 characters)" });
+      }
+
+      // Update user record - store founder data
+      const updatedUser = await storage.updateUser(userId, {
+        company: companyName,
+        jobTitle: `Founder at ${companyName}`,
+        industries: [industry],
+        bio: companyDescription,
+        // Store additional founder data in profile metadata
+        profileMetadata: {
+          companyStage,
+          companyWebsite,
+          targetMarket,
+          teamSize,
+          foundingTeam,
+          revenueStatus,
+          monthlyRevenue,
+          previousFunding,
+          currentRunway,
+          burnRate,
+          pitchDeck,
+          fundingNeeds,
+          supportNeeds,
+          biggestChallenge
+        },
+        profileStatus: 'complete',
+        lastInterviewStage: 'complete'
+      });
+
+      res.json({
+        success: true,
+        message: "Founder profile data saved successfully",
+        profileStatus: updatedUser.profileStatus,
+        lastInterviewStage: updatedUser.lastInterviewStage
+      });
+    } catch (error) {
+      console.error('Error saving founder data:', error);
+      res.status(500).json({ error: 'Failed to save founder data' });
+    }
+  });
+
+  // 5b. POST /api/interview/stage4/operator - Save Operator-specific data
+  app.post('/api/interview/stage4/operator', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const {
+        currentCompany,
+        currentRole,
+        careerStage,
+        yearsExperience,
+        industries,
+        expertiseAreas,
+        notableAchievements,
+        skillset,
+        lookingFor,
+        idealNextRole,
+        portfolioUrl,
+        githubUrl,
+        personalWebsite,
+        availableForMentoring,
+        openToRelocation,
+        preferredWorkStyle
+      } = req.body;
+
+      // Validate required fields
+      if (!currentCompany || !currentRole || !careerStage) {
+        return res.status(400).json({ error: "Company, role, and career stage are required" });
+      }
+
+      if (!expertiseAreas || !Array.isArray(expertiseAreas) || expertiseAreas.length === 0) {
+        return res.status(400).json({ error: "At least one area of expertise is required" });
+      }
+
+      // Update user record - store operator data
+      const updatedUser = await storage.updateUser(userId, {
+        company: currentCompany,
+        jobTitle: currentRole,
+        industries: industries || [],
+        skills: expertiseAreas,
+        bio: notableAchievements,
+        linkedinUrl: githubUrl, // Store GitHub in LinkedIn field as social link
+        // Store additional operator data in profile metadata
+        profileMetadata: {
+          careerStage,
+          yearsExperience,
+          skillset,
+          lookingFor,
+          idealNextRole,
+          portfolioUrl,
+          personalWebsite,
+          availableForMentoring,
+          openToRelocation,
+          preferredWorkStyle
+        },
+        profileStatus: 'complete',
+        lastInterviewStage: 'complete'
+      });
+
+      res.json({
+        success: true,
+        message: "Operator profile data saved successfully",
+        profileStatus: updatedUser.profileStatus,
+        lastInterviewStage: updatedUser.lastInterviewStage
+      });
+    } catch (error) {
+      console.error('Error saving operator data:', error);
+      res.status(500).json({ error: 'Failed to save operator data' });
+    }
+  });
+
+  // 5c. POST /api/interview/stage4/general - Save General persona data
+  app.post('/api/interview/stage4/general', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const {
+        organizationName,
+        organizationType,
+        currentRole,
+        yearsInField,
+        expertiseAreas,
+        professionalSummary,
+        keyAchievements,
+        offeringToNetwork,
+        seekingFromNetwork,
+        networkingGoals,
+        availableForSpeaking,
+        availableForAdvisory,
+        availableForCollaboration,
+        personalWebsite,
+        publicationUrl
+      } = req.body;
+
+      // Validate required fields
+      if (!organizationName || !organizationType || !currentRole) {
+        return res.status(400).json({ error: "Organization, type, and role are required" });
+      }
+
+      if (!professionalSummary || professionalSummary.length < 50) {
+        return res.status(400).json({ error: "Professional summary is required (min 50 characters)" });
+      }
+
+      // Update user record - store general persona data
+      const updatedUser = await storage.updateUser(userId, {
+        company: organizationName,
+        jobTitle: currentRole,
+        skills: expertiseAreas || [],
+        bio: professionalSummary,
+        // Store additional data in profile metadata
+        profileMetadata: {
+          organizationType,
+          yearsInField,
+          keyAchievements,
+          offeringToNetwork,
+          seekingFromNetwork,
+          networkingGoals,
+          availableForSpeaking,
+          availableForAdvisory,
+          availableForCollaboration,
+          personalWebsite,
+          publicationUrl
+        },
+        profileStatus: 'complete',
+        lastInterviewStage: 'complete'
+      });
+
+      res.json({
+        success: true,
+        message: "Professional profile data saved successfully",
+        profileStatus: updatedUser.profileStatus,
+        lastInterviewStage: updatedUser.lastInterviewStage
+      });
+    } catch (error) {
+      console.error('Error saving general profile data:', error);
+      res.status(500).json({ error: 'Failed to save profile data' });
+    }
+  });
+
   // 6. GET /api/interview/data - Get all interview data for the user
   app.get('/api/interview/data', isAuthenticatedGeneral, async (req: any, res) => {
     try {

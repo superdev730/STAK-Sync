@@ -14,6 +14,9 @@ import Stage1Identity from "@/components/interview/Stage1Identity";
 import Stage2Persona from "@/components/interview/Stage2Persona";
 import Stage3Goals from "@/components/interview/Stage3Goals";
 import Stage4VCProfile from "@/components/interview/Stage4VCProfile";
+import Stage4FounderProfile from "@/components/interview/Stage4FounderProfile";
+import Stage4OperatorProfile from "@/components/interview/Stage4OperatorProfile";
+import Stage4GeneralProfile from "@/components/interview/Stage4GeneralProfile";
 
 interface InterviewStatus {
   profileStatus: "new" | "incomplete" | "complete";
@@ -23,18 +26,24 @@ interface InterviewStatus {
   primaryPersona?: string;
 }
 
+// Define Stage 4 personas mapping
+const VC_PERSONAS = ["VC", "Angel", "Family Office"];
+const FOUNDER_PERSONAS = ["Founder", "Co-Founder", "CEO"];
+const OPERATOR_PERSONAS = ["Operator", "Engineer", "Designer", "Product Manager", "Sales", "Marketing"];
+
 const STAGES = [
   { id: 0, name: "Welcome", icon: User, component: Stage0SessionState },
   { id: 1, name: "Identity", icon: User, component: Stage1Identity },
   { id: 2, name: "Persona", icon: Briefcase, component: Stage2Persona },
   { id: 3, name: "Goals", icon: Target, component: Stage3Goals },
-  { id: 4, name: "VC Profile", icon: Building, component: Stage4VCProfile, conditional: true },
+  { id: 4, name: "Deep Dive", icon: Building, component: null, conditional: true }, // Component determined dynamically
 ];
 
 export default function Interview() {
   const [currentStage, setCurrentStage] = useState(0);
   const [formData, setFormData] = useState<Record<string, any>>({});
-  const [showVCProfile, setShowVCProfile] = useState(false);
+  const [showStage4, setShowStage4] = useState(false);
+  const [stage4Type, setStage4Type] = useState<"vc" | "founder" | "operator" | "general" | null>(null);
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -58,17 +67,39 @@ export default function Interview() {
         setCurrentStage(0);
       }
       
-      // Check if VC profile stage should be shown
-      const vcPersonas = ["VC", "Angel", "Family Office"];
-      const hasVCPersona = interviewStatus.selectedPersonas?.some(p => vcPersonas.includes(p));
-      setShowVCProfile(hasVCPersona || false);
+      // Determine which Stage 4 profile to show based on personas
+      const personas = interviewStatus.selectedPersonas || [];
+      const primaryPersona = interviewStatus.primaryPersona || personas[0];
+      
+      if (primaryPersona) {
+        setShowStage4(true);
+        
+        if (VC_PERSONAS.includes(primaryPersona)) {
+          setStage4Type("vc");
+        } else if (FOUNDER_PERSONAS.includes(primaryPersona)) {
+          setStage4Type("founder");
+        } else if (OPERATOR_PERSONAS.includes(primaryPersona)) {
+          setStage4Type("operator");
+        } else {
+          setStage4Type("general");
+        }
+      } else {
+        setShowStage4(false);
+        setStage4Type(null);
+      }
     }
   }, [interviewStatus]);
 
   // Save stage data mutation
   const saveStageData = useMutation({
     mutationFn: async ({ stage, data }: { stage: number; data: any }) => {
-      const endpoint = stage === 4 ? `/api/interview/stage${stage}/vc` : `/api/interview/stage${stage}`;
+      let endpoint = `/api/interview/stage${stage}`;
+      
+      // Use persona-specific endpoint for Stage 4
+      if (stage === 4 && stage4Type) {
+        endpoint = `/api/interview/stage4/${stage4Type}`;
+      }
+      
       const response = await apiRequest(endpoint, "POST", data);
       return response.json();
     },
@@ -79,11 +110,27 @@ export default function Interview() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/interview/status"] });
       
-      // Check if we need to show VC profile stage after persona selection
+      // Check if we need to show Stage 4 after persona selection
       if (variables.stage === 2) {
-        const vcPersonas = ["VC", "Angel", "Family Office"];
-        const hasVCPersona = variables.data.selectedPersonas?.some((p: string) => vcPersonas.includes(p));
-        setShowVCProfile(hasVCPersona);
+        const personas = variables.data.selectedPersonas || [];
+        const primaryPersona = variables.data.primaryPersona || personas[0];
+        
+        if (primaryPersona) {
+          setShowStage4(true);
+          
+          if (VC_PERSONAS.includes(primaryPersona)) {
+            setStage4Type("vc");
+          } else if (FOUNDER_PERSONAS.includes(primaryPersona)) {
+            setStage4Type("founder");
+          } else if (OPERATOR_PERSONAS.includes(primaryPersona)) {
+            setStage4Type("operator");
+          } else {
+            setStage4Type("general");
+          }
+        } else {
+          setShowStage4(false);
+          setStage4Type(null);
+        }
       }
     },
     onError: () => {
@@ -103,15 +150,15 @@ export default function Interview() {
     await saveStageData.mutateAsync({ stage: currentStage, data });
     
     // Move to next stage
-    if (currentStage === 3 && !showVCProfile) {
-      // If no VC profile needed, complete the interview
+    if (currentStage === 3 && !showStage4) {
+      // If no Stage 4 needed, complete the interview
       handleComplete();
     } else if (currentStage === 4) {
-      // VC profile is the last stage
+      // Stage 4 is the last stage
       handleComplete();
     } else if (currentStage < 3) {
       setCurrentStage(currentStage + 1);
-    } else if (currentStage === 3 && showVCProfile) {
+    } else if (currentStage === 3 && showStage4) {
       setCurrentStage(4);
     }
   };
@@ -170,11 +217,29 @@ export default function Interview() {
   }
 
   const activeStages = STAGES.filter(stage => 
-    !stage.conditional || (stage.id === 4 && showVCProfile) || stage.id !== 4
+    !stage.conditional || (stage.id === 4 && showStage4) || stage.id !== 4
   );
   
-  const CurrentStageComponent = STAGES[currentStage]?.component;
-  const progress = currentStage === 0 ? 0 : ((currentStage) / (showVCProfile ? 4 : 3)) * 100;
+  // Determine which Stage 4 component to use
+  let CurrentStageComponent = STAGES[currentStage]?.component;
+  if (currentStage === 4 && stage4Type) {
+    switch (stage4Type) {
+      case "vc":
+        CurrentStageComponent = Stage4VCProfile;
+        break;
+      case "founder":
+        CurrentStageComponent = Stage4FounderProfile;
+        break;
+      case "operator":
+        CurrentStageComponent = Stage4OperatorProfile;
+        break;
+      case "general":
+        CurrentStageComponent = Stage4GeneralProfile;
+        break;
+    }
+  }
+  
+  const progress = currentStage === 0 ? 0 : ((currentStage) / (showStage4 ? 4 : 3)) * 100;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -194,7 +259,7 @@ export default function Interview() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600">
-                Step {currentStage} of {showVCProfile ? 4 : 3}
+                Step {currentStage} of {showStage4 ? 4 : 3}
               </span>
               <span className="text-sm font-medium text-stak-copper">
                 {Math.round(progress)}% Complete
@@ -252,7 +317,7 @@ export default function Interview() {
                 onUpdate={handleUpdateProfile}
                 showBackButton={currentStage > 1}
                 isLastStage={
-                  (currentStage === 3 && !showVCProfile) || 
+                  (currentStage === 3 && !showStage4) || 
                   (currentStage === 4)
                 }
               />
