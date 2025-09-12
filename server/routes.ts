@@ -1158,7 +1158,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 7. POST /api/interview/complete - Mark interview as complete
+  // 7. POST /api/interview/enrich - Trigger profile enrichment with consent
+  app.post('/api/interview/enrich', isAuthenticatedGeneral, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      console.log(`🔍 Interview enrichment requested for user ${userId}`);
+
+      // Get user's current profile
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Check consent
+      const consent = user.consent as any;
+      if (!consent || consent.enrich_public_sources !== 'yes') {
+        return res.status(403).json({ 
+          message: "Profile enrichment requires consent",
+          requiresConsent: true 
+        });
+      }
+
+      // Trigger enrichment
+      const enrichmentService = new EnrichmentService();
+      const result = await enrichmentService.enrichProfile(userId, 'consent_based');
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: "Profile enriched successfully",
+          enrichedFields: Object.keys(result.enrichedData || {}),
+          sources: result.sources
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: result.error || "Enrichment failed"
+        });
+      }
+
+    } catch (error) {
+      console.error("Interview enrichment error:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to enrich profile" 
+      });
+    }
+  });
+
+  // 8. POST /api/interview/complete - Mark interview as complete
   app.post('/api/interview/complete', isAuthenticatedGeneral, async (req: any, res) => {
     try {
       const userId = getUserId(req);

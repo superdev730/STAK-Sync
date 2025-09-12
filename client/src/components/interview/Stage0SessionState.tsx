@@ -1,6 +1,11 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, ArrowRight, RefreshCw } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CheckCircle, ArrowRight, RefreshCw, Sparkles } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface Stage0SessionStateProps {
   onNext: () => void;
@@ -32,6 +37,52 @@ export default function Stage0SessionState({
   onUpdate,
   onSkipUpdate,
 }: Stage0SessionStateProps) {
+  const [consentToEnrich, setConsentToEnrich] = useState(false);
+  const [showEnrichOption, setShowEnrichOption] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Mutation for triggering enrichment
+  const enrichmentMutation = useMutation({
+    mutationFn: async () => {
+      if (!consentToEnrich) {
+        throw new Error("Consent required for enrichment");
+      }
+      
+      // First update consent in the profile
+      await apiRequest('/api/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          consent: { enrich_public_sources: 'yes' }
+        })
+      });
+      
+      // Then trigger enrichment
+      return await apiRequest('/api/interview/enrich', {
+        method: 'POST'
+      });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Profile Enriched!",
+        description: `Successfully enriched ${data.enrichedFields?.length || 0} fields from public sources.`,
+      });
+      
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/interview/status'] });
+      
+      // Hide enrichment option after successful enrichment
+      setShowEnrichOption(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Enrichment Failed",
+        description: error.message || "Failed to enrich profile. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
   if (!interviewStatus) {
     return (
       <div className="text-center py-8">
@@ -181,6 +232,102 @@ export default function Stage0SessionState({
             Update anything?
           </p>
         </div>
+
+        {/* Enrichment Option Card */}
+        {!showEnrichOption && (
+          <Card className="max-w-md mx-auto border-stak-copper/20 bg-gradient-to-br from-stak-copper/5 to-stak-copper/10">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-stak-copper mt-0.5" />
+                <div className="flex-1 text-left">
+                  <p className="font-medium text-stak-black mb-1">AI Profile Enhancement</p>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Let AI enrich your profile with public data from your LinkedIn, GitHub, and other profiles.
+                  </p>
+                  <Button
+                    onClick={() => setShowEnrichOption(true)}
+                    size="sm"
+                    variant="outline"
+                    className="border-stak-copper text-stak-copper hover:bg-stak-copper/10"
+                    data-testid="button-enhance-profile"
+                  >
+                    Enhance My Profile
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Enrichment Consent Modal */}
+        {showEnrichOption && (
+          <Card className="max-w-md mx-auto border-stak-copper/20">
+            <CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-stak-black flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-stak-copper" />
+                  AI Profile Enhancement
+                </h3>
+                <p className="text-sm text-gray-600">
+                  We'll use your public profiles to enhance your STAK Sync profile with:
+                </p>
+                <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                  <li>Professional achievements and projects</li>
+                  <li>Skills and expertise</li>
+                  <li>Company and role information</li>
+                  <li>Portfolio items and contributions</li>
+                </ul>
+              </div>
+              
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="consent"
+                  checked={consentToEnrich}
+                  onCheckedChange={(checked) => setConsentToEnrich(checked as boolean)}
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="consent"
+                  className="text-sm text-gray-600 cursor-pointer"
+                >
+                  I consent to STAK Sync extracting public data from my linked profiles to enhance my profile
+                </label>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => enrichmentMutation.mutate()}
+                  disabled={!consentToEnrich || enrichmentMutation.isPending}
+                  className="flex-1 bg-stak-copper hover:bg-stak-dark-copper text-stak-black font-medium"
+                  data-testid="button-start-enrichment"
+                >
+                  {enrichmentMutation.isPending ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Enriching...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Start Enhancement
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowEnrichOption(false);
+                    setConsentToEnrich(false);
+                  }}
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                  data-testid="button-cancel-enrichment"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex gap-4 justify-center">
           <Button

@@ -221,6 +221,7 @@ export const users = pgTable("users", {
     show_online_status?: boolean;
     email_notifications?: boolean;
     proximity_enabled?: boolean;
+    enrich_public_sources?: 'yes' | 'no';
   }>(),
   
   // Audit information
@@ -264,6 +265,12 @@ export const matchSignals = pgTable("match_signals", {
     recommendations_count?: number;
     event_attendance?: number;
     response_rate?: number;
+    verified_links?: {
+      linkedin?: { url: string; verified_at: string; };
+      github?: { url: string; verified_at: string; };
+      website?: { url: string; verified_at: string; };
+      portfolio?: { url: string; verified_at: string; };
+    };
   }>(),
   numericFeatures: jsonb("numeric_features").$type<{
     experience_years?: number;
@@ -332,6 +339,24 @@ export const profileVersions = pgTable("profile_versions", {
   changedBy: varchar("changed_by"), // 'user', 'system', 'enrichment'
   changedAt: timestamp("changed_at").defaultNow(),
 });
+
+// Enrichment logs to track enrichment activities
+export const enrichmentLogs = pgTable("enrichment_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  timestamp: timestamp("timestamp").defaultNow(),
+  source: varchar("source").notNull(), // URL or API name that was used
+  extractedFields: jsonb("extracted_fields").notNull(), // JSON of what data was found
+  matchConfidence: decimal("match_confidence", { precision: 5, scale: 2 }), // 0-100 score
+  status: varchar("status").notNull(), // 'success', 'partial', 'failed'
+  enrichmentType: varchar("enrichment_type"), // 'initial', 'refresh', 'manual', 'consent_based'
+  errorMessage: text("error_message"), // If failed, why
+  processingTimeMs: integer("processing_time_ms"), // How long it took
+}, (table) => ({
+  userIdIndex: index("enrichment_logs_user_id_idx").on(table.userId),
+  timestampIndex: index("enrichment_logs_timestamp_idx").on(table.timestamp),
+  statusIndex: index("enrichment_logs_status_idx").on(table.status),
+}));
 
 // Profile recommendations from connections
 export const profileRecommendations = pgTable("profile_recommendations", {

@@ -5,6 +5,8 @@ import {
   profileMetadata, 
   profileEnrichment, 
   profileVersions,
+  enrichmentLogs,
+  matchSignals,
   type InsertProfileMetadata,
   type InsertProfileEnrichment
 } from "@shared/schema";
@@ -60,7 +62,8 @@ export class EnrichmentService {
     });
   }
 
-  async enrichProfile(userId: string, triggerType: 'initial' | 'refresh' | 'manual' = 'initial'): Promise<EnrichmentResult> {
+  async enrichProfile(userId: string, triggerType: 'initial' | 'refresh' | 'manual' | 'consent_based' = 'initial'): Promise<EnrichmentResult> {
+    const startTime = Date.now();
     try {
       console.log(`🔍 Starting profile enrichment for user ${userId} (${triggerType})`);
 
@@ -71,6 +74,23 @@ export class EnrichmentService {
       }
 
       const user = userResult[0];
+      
+      // Check consent for public source enrichment
+      if (triggerType === 'consent_based' || triggerType === 'manual') {
+        const consent = user.consent as any;
+        if (!consent || consent.enrich_public_sources !== 'yes') {
+          console.log('❌ User has not consented to public source enrichment');
+          
+          // Log the failed attempt
+          await this.logEnrichment(userId, 'consent_check', {}, 0, 'failed', 
+            triggerType, 'User has not consented to public source enrichment', Date.now() - startTime);
+          
+          return {
+            success: false,
+            error: 'User has not consented to public source enrichment'
+          };
+        }
+      }
       
       // Step 1: Gather deterministic signals
       const sources = await this.gatherDeterministicSources(user);
@@ -90,6 +110,13 @@ export class EnrichmentService {
       // Step 5: Update profile metadata for new fields
       await this.updateProfileMetadata(userId, enrichedData, sources);
 
+      // Step 6: Update trust signals in matchSignals with verified links
+      await this.updateTrustSignals(userId, sources);
+
+      // Step 7: Log successful enrichment
+      await this.logEnrichment(userId, 'multiple_sources', enrichedData, 85, 'success', 
+        triggerType, null, Date.now() - startTime);
+
       return {
         success: true,
         enrichedData,
@@ -108,10 +135,106 @@ export class EnrichmentService {
         status: 'failed'
       });
 
+      // Log failed enrichment
+      await this.logEnrichment(userId, 'error', {}, 0, 'failed', 
+        triggerType, (error as Error).message, Date.now() - startTime);
+
       return {
         success: false,
         error: (error as Error).message
       };
+    }
+  }
+
+  private async logEnrichment(
+    userId: string,
+    source: string,
+    extractedFields: any,
+    matchConfidence: number,
+    status: 'success' | 'partial' | 'failed',
+    enrichmentType: string,
+    errorMessage?: string | null,
+    processingTimeMs?: number
+  ): Promise<void> {
+    try {
+      await db.insert(enrichmentLogs).values({
+        userId,
+        source,
+        extractedFields,
+        matchConfidence: matchConfidence.toString(),
+        status,
+        enrichmentType,
+        errorMessage,
+        processingTimeMs
+      });
+    } catch (error) {
+      console.error('Failed to log enrichment:', error);
+    }
+  }
+
+  private async updateTrustSignals(userId: string, sources: EnrichmentSources): Promise<void> {
+    try {
+      // Get existing match signals for the user
+      const existingSignals = await db.select()
+        .from(matchSignals)
+        .where(eq(matchSignals.userId, userId))
+        .limit(1);
+
+      const verifiedLinks: any = {};
+      const verifiedAt = new Date().toISOString();
+
+      // Build verified links object
+      if (sources.linkedinUrl) {
+        verifiedLinks.linkedin = {
+          url: sources.linkedinUrl,
+          verified_at: verifiedAt
+        };
+      }
+      if (sources.githubUrl) {
+        verifiedLinks.github = {
+          url: sources.githubUrl,
+          verified_at: verifiedAt
+        };
+      }
+      if (sources.websiteUrls?.length) {
+        verifiedLinks.website = {
+          url: sources.websiteUrls[0],
+          verified_at: verifiedAt
+        };
+      }
+
+      if (Object.keys(verifiedLinks).length === 0) {
+        console.log('No verified links to update');
+        return;
+      }
+
+      if (existingSignals.length > 0) {
+        // Update existing match signals
+        const currentTrustSignals = existingSignals[0].trustSignals || {};
+        const updatedTrustSignals = {
+          ...currentTrustSignals,
+          verified_links: verifiedLinks
+        };
+
+        await db.update(matchSignals)
+          .set({
+            trustSignals: updatedTrustSignals,
+            updatedAt: new Date()
+          })
+          .where(eq(matchSignals.userId, userId));
+      } else {
+        // Create new match signals entry
+        await db.insert(matchSignals).values({
+          userId,
+          trustSignals: {
+            verified_links: verifiedLinks
+          }
+        });
+      }
+
+      console.log('✅ Updated trust signals with verified links');
+    } catch (error) {
+      console.error('Failed to update trust signals:', error);
     }
   }
 
