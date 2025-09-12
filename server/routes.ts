@@ -8904,32 +8904,38 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
         return res.status(400).json({ message: 'User with this email already exists' });
       }
 
-      // Create new user
+      // Create new user with JSON structure
       const newUserId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const newUser = await storage.createUser({
         id: newUserId,
         email,
-        firstName,
-        lastName,
-        company,
-        title,
         adminRole: adminRole || null,
         isStakTeamMember: isStakTeamMember || false,
-        profileImageUrl: null,
-        bio: '',
-        networkingGoal: '',
-        skills: [],
-        industries: [],
-        websiteUrls: [],
-        linkedinUrl: '',
-        twitterUrl: '',
-        githubUrl: '',
-        location: '',
-        personalityProfile: null,
-        goalAnalysis: null,
-
-
-
+        // Use JSON structure for identity
+        identity: {
+          first_name: firstName || '',
+          last_name: lastName || '',
+          headline: title || '',
+          email: email
+        },
+        // Initialize persona if company is provided
+        persona: company ? {
+          company: company
+        } : null,
+        // Initialize empty blocks
+        vc_block: null,
+        founder_block: company ? {
+          company: company
+        } : null,
+        talent_block: null,
+        goals: null,
+        links: null,
+        visibility: null,
+        audit: {
+          created_iso: new Date().toISOString(),
+          updated_iso: new Date().toISOString(),
+          completion_pct: 0
+        }
       });
 
       // Log admin action
@@ -8955,7 +8961,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
       const currentUserId = getUserId(req);
       const adminUser = await storage.getUser(currentUserId);
       const { userId } = req.params;
-      const { firstName, lastName, company, title, adminRole, isStakTeamMember } = req.body;
+      const { firstName, lastName, company, title, adminRole, isStakTeamMember, identity, persona, vc_block, founder_block, talent_block } = req.body;
 
       // Get existing user
       const existingUser = await storage.getUser(userId);
@@ -8963,29 +8969,91 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
         return res.status(404).json({ message: 'User not found' });
       }
 
-      // Handle admin role update - convert 'none' to null
+      // Build update data with proper JSON structure
       const updateData: any = {
-        firstName,
-        lastName,
-        company,
-        title,
-        isStakTeamMember: isStakTeamMember || false,
+        isStakTeamMember: isStakTeamMember !== undefined ? isStakTeamMember : existingUser.isStakTeamMember,
       };
       
+      // Handle admin role update - convert 'none' to null
       if (adminRole !== undefined) {
         updateData.adminRole = adminRole === 'none' ? null : adminRole;
       }
+
+      // Update identity JSON with backward compatibility
+      if (firstName !== undefined || lastName !== undefined || title !== undefined || identity) {
+        updateData.identity = {
+          ...existingUser.identity,
+          // Direct field updates for backward compatibility
+          ...(firstName !== undefined && { first_name: firstName }),
+          ...(lastName !== undefined && { last_name: lastName }),
+          ...(title !== undefined && { headline: title }),
+          // Merge any additional identity updates
+          ...identity
+        };
+      }
+
+      // Update persona JSON if provided or if company is provided
+      if (company !== undefined || persona) {
+        updateData.persona = {
+          ...existingUser.persona,
+          ...(company !== undefined && { company }),
+          ...persona
+        };
+      }
+
+      // Update founder_block if company is provided (for backward compatibility)
+      if (company !== undefined || founder_block) {
+        updateData.founder_block = {
+          ...existingUser.founder_block,
+          ...(company !== undefined && { company }),
+          ...founder_block
+        };
+      }
+
+      // Update vc_block if provided
+      if (vc_block) {
+        updateData.vc_block = {
+          ...existingUser.vc_block,
+          ...vc_block
+        };
+        // If firm is provided in vc_block, also update company in persona
+        if (vc_block.firm) {
+          updateData.persona = {
+            ...updateData.persona || existingUser.persona,
+            company: vc_block.firm
+          };
+        }
+      }
+
+      // Update talent_block if provided
+      if (talent_block) {
+        updateData.talent_block = {
+          ...existingUser.talent_block,
+          ...talent_block
+        };
+      }
+
+      // Update audit timestamp
+      updateData.audit = {
+        ...existingUser.audit,
+        updated_iso: new Date().toISOString()
+      };
       
       // Update user
       const updatedUser = await storage.updateUser(userId, updateData);
 
-      // Log admin action
+      // Log admin action with backward-compatible details
       await storage.logAdminAction({
         adminUserId: adminUser!.id,
         action: 'user_updated',
         targetType: 'user',
         targetId: userId,
-        details: { firstName, lastName, company, title },
+        details: { 
+          firstName: firstName || updateData.identity?.first_name,
+          lastName: lastName || updateData.identity?.last_name,
+          company: company || updateData.persona?.company || updateData.founder_block?.company || updateData.vc_block?.firm,
+          title: title || updateData.identity?.headline
+        },
         ipAddress: req.ip,
         userAgent: req.get('User-Agent') || 'unknown',
       });
