@@ -301,14 +301,6 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
           )}
         </Button>
 
-        {linkedinData && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-800 text-sm">
-              {linkedinData.message || "LinkedIn profile imported successfully!"}
-            </p>
-          </div>
-        )}
-
         <div className="text-center">
           <p className="text-xs text-gray-500 mb-2">or</p>
           <Button variant="ghost" onClick={skipStep} className="text-gray-600">
