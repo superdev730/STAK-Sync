@@ -97,10 +97,10 @@ export default function Stage0SessionState({
       <div className="text-center space-y-6">
         <div className="space-y-3">
           <h2 className="text-2xl font-bold text-stak-black">
-            Welcome to STAK Sync!
+            Welcome to STAK Sync 👋
           </h2>
           <p className="text-gray-600 max-w-lg mx-auto">
-            Welcome! I'll ask a few quick questions to personalize matches.
+            I'll personalize your experience with a short interview (≈3–5 min). You can skip anything and edit later.
           </p>
         </div>
 
@@ -160,10 +160,10 @@ export default function Stage0SessionState({
       <div className="text-center space-y-6">
         <div className="space-y-3">
           <h2 className="text-2xl font-bold text-stak-black">
-            Welcome back!
+            Welcome back 👋
           </h2>
           <p className="text-gray-600 max-w-lg mx-auto">
-            Welcome back—let's pick up where you left off.
+            You're almost done—let's finish setting you up for stronger matches.
           </p>
         </div>
 
@@ -205,7 +205,7 @@ export default function Stage0SessionState({
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
           <h2 className="text-2xl font-bold text-stak-black">
-            Welcome back, {interviewStatus.profileSummary?.name || 'there'}!
+            Great to see you 👋
           </h2>
           
           {/* Profile Summary - 3 lines */}
@@ -229,7 +229,7 @@ export default function Stage0SessionState({
           )}
           
           <p className="text-gray-600 max-w-lg mx-auto">
-            Update anything?
+            Your profile is complete. Want to update anything or tune your match preferences?
           </p>
         </div>
 
