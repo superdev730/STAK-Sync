@@ -37,6 +37,22 @@ import {
 } from "lucide-react";
 import type { User } from "@shared/schema";
 
+// Extended profile type for the AI builder that includes flattened fields
+interface ExtendedProfile extends Partial<User> {
+  bio?: string;
+  skills?: string[];
+  industries?: string[];
+  networkingGoal?: string;
+  title?: string;
+  company?: string;
+  firstName?: string;
+  lastName?: string;
+  linkedinUrl?: string;
+  twitterUrl?: string;
+  githubUrl?: string;
+  websiteUrls?: string[];
+}
+
 interface SocialSource {
   platform: string;
   url: string;
@@ -217,8 +233,8 @@ export default function ConsolidatedAIProfileBuilder({
   const [socialSources, setSocialSources] = useState<SocialSource[]>([]);
   const [newSocialUrl, setNewSocialUrl] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
-  const [generatedProfile, setGeneratedProfile] = useState<Partial<User>>({});
-  const [editingProfile, setEditingProfile] = useState<Partial<User>>({});
+  const [generatedProfile, setGeneratedProfile] = useState<ExtendedProfile>({});
+  const [editingProfile, setEditingProfile] = useState<ExtendedProfile>({});
   const [networkingGoalSuggestions, setNetworkingGoalSuggestions] = useState<string[]>([]);
   const [manualSources, setManualSources] = useState<{
     linkedin?: string;
@@ -261,34 +277,41 @@ export default function ConsolidatedAIProfileBuilder({
   useEffect(() => {
     if (profile && isOpen) {
       const sources: SocialSource[] = [];
-      if (getProfileValue(profile.linkedinUrl)) {
+      // Check both old structure and new nested structure for backward compatibility
+      const linkedinUrl = getProfileValue((profile as any).linkedinUrl) || profile.links?.linkedin;
+      if (linkedinUrl) {
         sources.push({
           platform: 'LinkedIn',
-          url: getProfileValue(profile.linkedinUrl),
+          url: linkedinUrl,
           isValid: true,
           isAnalyzing: false,
           hasData: true
         });
       }
-      if (getProfileValue(profile.twitterUrl)) {
+      
+      const twitterUrl = getProfileValue((profile as any).twitterUrl) || profile.links?.twitter;
+      if (twitterUrl) {
         sources.push({
           platform: 'Twitter', 
-          url: getProfileValue(profile.twitterUrl),
+          url: twitterUrl,
           isValid: true,
           isAnalyzing: false,
           hasData: true
         });
       }
-      if (getProfileValue(profile.githubUrl)) {
+      
+      const githubUrl = getProfileValue((profile as any).githubUrl) || profile.links?.github;
+      if (githubUrl) {
         sources.push({
           platform: 'GitHub',
-          url: getProfileValue(profile.githubUrl),
+          url: githubUrl,
           isValid: true,
           isAnalyzing: false,
           hasData: true
         });
       }
-      const websiteUrls = getProfileValue(profile.websiteUrls);
+      
+      const websiteUrls = getProfileValue((profile as any).websiteUrls) || profile.links?.website;
       if (Array.isArray(websiteUrls) && websiteUrls.length) {
         websiteUrls.forEach((url: string) => {
           sources.push({
@@ -313,11 +336,11 @@ export default function ConsolidatedAIProfileBuilder({
         socialSources: cleanSources,
         additionalContext: prompt,
         currentProfile: {
-          firstName: getProfileValue(profile?.firstName) || null,
-          lastName: getProfileValue(profile?.lastName) || null,
+          firstName: profile?.identity?.first_name || getProfileValue((profile as any)?.firstName) || null,
+          lastName: profile?.identity?.last_name || getProfileValue((profile as any)?.lastName) || null,
           email: profile?.email || null,
-          company: getProfileValue(profile?.company) || null,
-          title: getProfileValue(profile?.title) || null
+          company: profile?.persona?.company || getProfileValue((profile as any)?.company) || null,
+          title: profile?.identity?.headline || getProfileValue((profile as any)?.title) || null
         }
       });
       return response.json();
@@ -436,7 +459,7 @@ Ready to get started?`,
 
   // Apply conversational data to profile
   const applyConversationalDataToProfile = (data: ConversationalData) => {
-    const updates: Partial<User> = {};
+    const updates: ExtendedProfile = {};
     
     if (data.role) updates.title = data.role;
     if (data.currentProjects) updates.bio = `${updates.bio || ''} Currently working on: ${data.currentProjects}.`.trim();
