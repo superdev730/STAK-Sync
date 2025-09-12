@@ -47,7 +47,7 @@ export default function AdminSponsors() {
   // Create sponsor mutation
   const createMutation = useMutation({
     mutationFn: async (data: InsertSponsor) => {
-      const response = await apiRequest("POST", "/api/sponsors", data);
+      const response = await apiRequest("/api/sponsors", "POST", data);
       return response.json();
     },
     onSuccess: () => {
@@ -70,7 +70,7 @@ export default function AdminSponsors() {
   // Update sponsor mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: InsertSponsor }) => {
-      const response = await apiRequest("PUT", `/api/sponsors/${id}`, data);
+      const response = await apiRequest(`/api/sponsors/${id}`, "PUT", data);
       return response.json();
     },
     onSuccess: () => {
@@ -94,7 +94,7 @@ export default function AdminSponsors() {
   // Delete sponsor mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/sponsors/${id}`);
+      const response = await apiRequest(`/api/sponsors/${id}`, "DELETE");
       return response.json();
     },
     onSuccess: () => {
