@@ -143,12 +143,12 @@ export default function Profile() {
   };
 
   // Extract user details from new JSON structure
-  const firstName = getProfileField('identity.first_name') || getProfileField('firstName');
-  const lastName = getProfileField('identity.last_name') || getProfileField('lastName');
-  const fullName = `${firstName} ${lastName}`.trim() || 'User Name';
-  const jobTitle = getProfileField('persona.role_title') || getProfileField('title') || '';
+  const firstName = getProfileField('identity.first_name') || getProfileField('identity.display_name') || getProfileField('firstName') || '';
+  const lastName = getProfileField('identity.last_name') || getProfileField('lastName') || '';
+  const fullName = `${firstName} ${lastName}`.trim() || getProfileField('identity.display_name') || 'Your Name';
+  const jobTitle = getProfileField('identity.headline') || getProfileField('persona.role_title') || getProfileField('title') || '';
   const userCompany = getProfileField('persona.company') || getProfileField('company') || '';
-  const userLocation = getProfileField('identity.location') || getProfileField('location') || '';
+  const userLocation = getProfileField('identity.city_region') || getProfileField('identity.location') || getProfileField('location') || '';
 
   
   // State for consolidated AI profile builder and photo cropper
@@ -306,7 +306,7 @@ export default function Profile() {
                     {isOwnProfile ? (
                       <div className="group relative inline-flex items-center">
                         <Input
-                          value={fullName}
+                          value={fullName === 'Your Name' ? '' : fullName}
                           onChange={(e) => {
                             try {
                               const [firstNameInput, ...lastNameParts] = e.target.value.split(' ');
@@ -314,8 +314,9 @@ export default function Profile() {
                               updateProfile({ 
                                 identity: {
                                   ...(profile?.identity || {}),
-                                  first_name: firstNameInput || null,
-                                  last_name: lastNameInput || null
+                                  first_name: firstNameInput || '',
+                                  last_name: lastNameInput || '',
+                                  display_name: firstNameInput || ''
                                 }
                               });
                             } catch (error) {
@@ -337,11 +338,11 @@ export default function Profile() {
                     {isOwnProfile ? (
                       <div className="flex items-center gap-2 group">
                         <Input
-                          value={jobTitle}
+                          value={jobTitle || ''}
                           onChange={(e) => updateProfile({ 
-                            persona: {
-                              ...(profile?.persona || {}),
-                              role_title: e.target.value
+                            identity: {
+                              ...(profile?.identity || {}),
+                              headline: e.target.value
                             }
                           })}
                           className="text-xl border-b-2 border-dashed border-gray-300 hover:border-gray-500 focus:border-blue-500 transition-colors px-2 py-1 bg-transparent"
@@ -396,11 +397,11 @@ export default function Profile() {
                       {isOwnProfile ? (
                         <div className="flex items-center gap-1 group">
                           <Input
-                            value={userLocation}
+                            value={userLocation || ''}
                             onChange={(e) => updateProfile({ 
                               identity: {
                                 ...(profile?.identity || {}),
-                                location: e.target.value
+                                city_region: e.target.value
                               }
                             })}
                             className="border-b border-dashed border-gray-300 hover:border-gray-500 focus:border-blue-500 transition-colors px-1 py-0.5 bg-transparent"
