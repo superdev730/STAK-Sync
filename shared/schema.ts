@@ -2099,6 +2099,117 @@ export type AIConversation = typeof aiConversations.$inferSelect;
 export type InsertAIMessage = z.infer<typeof insertAIMessageSchema>;
 export type AIMessage = typeof aiMessages.$inferSelect;
 
+// Seeded Profiles & Teaser Flow Tables
+export const seededProfiles = pgTable("seeded_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  emailHash: varchar("email_hash").notNull(), // Salted hash of email
+  source: varchar("source").notNull(), // 'csv_import', 'api', 'manual'
+  attributes: jsonb("attributes").$type<{
+    role?: string;
+    company?: string;
+    industry?: string;
+    tags?: string[];
+  }>(), // Minimal non-PII attributes
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  eventEmailIndex: unique("seeded_profiles_event_email_idx").on(table.eventId, table.emailHash),
+  eventIndex: index("seeded_profiles_event_idx").on(table.eventId),
+}));
+
+export const eventInviteTokens = pgTable("event_invite_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  emailHash: varchar("email_hash").notNull(),
+  token: varchar("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  status: varchar("status").notNull().default("pending"), // 'pending', 'sent', 'used', 'expired'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tokenIndex: unique("event_invite_tokens_token_idx").on(table.token),
+  eventEmailIndex: index("event_invite_tokens_event_email_idx").on(table.eventId, table.emailHash),
+  statusIndex: index("event_invite_tokens_status_idx").on(table.status),
+}));
+
+export const consentLogs = pgTable("consent_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subjectRef: varchar("subject_ref").notNull(), // userId or emailHash
+  eventType: varchar("event_type").notNull(), // 'invite', 'activation', 'opt_out', 'delete'
+  granted: boolean("granted").notNull(),
+  ip: varchar("ip"),
+  userAgent: text("user_agent"),
+  metadata: jsonb("metadata"), // Additional context
+  occurredAt: timestamp("occurred_at").defaultNow(),
+}, (table) => ({
+  subjectIndex: index("consent_logs_subject_idx").on(table.subjectRef),
+  eventTypeIndex: index("consent_logs_event_type_idx").on(table.eventType),
+}));
+
+export const emailSuppression = pgTable("email_suppression", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  emailHash: varchar("email_hash").notNull().unique(),
+  reason: varchar("reason").notNull(), // 'opt_out', 'bounce', 'complaint', 'delete'
+  suppressedAt: timestamp("suppressed_at").defaultNow(),
+}, (table) => ({
+  emailHashIndex: unique("email_suppression_email_hash_idx").on(table.emailHash),
+  reasonIndex: index("email_suppression_reason_idx").on(table.reason),
+}));
+
+export const teaserProfiles = pgTable("teaser_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  prospectId: varchar("prospect_id").notNull().references(() => seededProfiles.id, { onDelete: "cascade" }),
+  safeFields: jsonb("safe_fields").$type<{
+    persona?: string;
+    industry?: string;
+    experience_level?: string;
+    interests?: string[];
+    seeking?: string[];
+  }>(), // Anonymized data for teaser
+  matchScore: integer("match_score"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  eventProspectIndex: unique("teaser_profiles_event_prospect_idx").on(table.eventId, table.prospectId),
+}));
+
+// Seeded Profiles schemas
+export const insertSeededProfileSchema = createInsertSchema(seededProfiles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEventInviteTokenSchema = createInsertSchema(eventInviteTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertConsentLogSchema = createInsertSchema(consentLogs).omit({
+  id: true,
+  occurredAt: true,
+});
+
+export const insertEmailSuppressionSchema = createInsertSchema(emailSuppression).omit({
+  id: true,
+  suppressedAt: true,
+});
+
+export const insertTeaserProfileSchema = createInsertSchema(teaserProfiles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type SeededProfile = typeof seededProfiles.$inferSelect;
+export type InsertSeededProfile = z.infer<typeof insertSeededProfileSchema>;
+export type EventInviteToken = typeof eventInviteTokens.$inferSelect;
+export type InsertEventInviteToken = z.infer<typeof insertEventInviteTokenSchema>;
+export type ConsentLog = typeof consentLogs.$inferSelect;
+export type InsertConsentLog = z.infer<typeof insertConsentLogSchema>;
+export type EmailSuppression = typeof emailSuppression.$inferSelect;
+export type InsertEmailSuppression = z.infer<typeof insertEmailSuppressionSchema>;
+export type TeaserProfile = typeof teaserProfiles.$inferSelect;
+export type InsertTeaserProfile = z.infer<typeof insertTeaserProfileSchema>;
+
 // Profile metadata schemas for zero-friction onboarding
 export const insertProfileMetadataSchema = createInsertSchema(profileMetadata);
 export const insertProfileEnrichmentSchema = createInsertSchema(profileEnrichment);
