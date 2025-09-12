@@ -36,6 +36,7 @@ import VerificationSuccess from "@/pages/VerificationSuccess";
 import Interview from "@/pages/interview";
 import TeaserPage from "@/pages/teaser";
 import ActivationPage from "@/pages/activate";
+import EventRecap from "@/pages/event-recap";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -71,6 +72,7 @@ function Router() {
             <Route path="/events" component={EventsNew} />
             <Route path="/events/:eventId" component={EventSignup} />
             <Route path="/events/:eventId/prep" component={EventPreparation} />
+            <Route path="/events/:eventId/recap" component={EventRecap} />
             <Route path="/events/:eventId/attendees" component={EventAttendeesPage} />
             <Route path="/events/live/:eventId" component={LiveEvent} />
             <Route path="/events/live/:eventId/preparation" component={EventPreparation} />

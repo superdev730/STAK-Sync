@@ -12295,10 +12295,41 @@ Compose a concise, fact-first profile card.`
         metadata: { eventId: tokenData[0].eventId }
       });
 
-      // Create redirect URL for event deep-linking
-      const redirectUrl = `/events/${tokenData[0].eventId}/preparation`;
+      // Smart drop-off: Get event details for timing
+      const event = await db
+        .select()
+        .from(events)
+        .where(eq(events.id, tokenData[0].eventId))
+        .limit(1);
 
-      res.json({ userId, redirectUrl });
+      let nextPath = '/events';
+      let nextUrl = process.env.APP_BASE_URL || '';
+      
+      if (event.length > 0) {
+        const now = new Date();
+        const eventStart = new Date(event[0].startDate + ' ' + (event[0].startTime || '00:00'));
+        const eventEnd = new Date(eventStart.getTime() + 6 * 60 * 60 * 1000); // 6 hours after start
+        
+        if (now < eventStart) {
+          // Event hasn't started - go to prep
+          nextPath = `/events/${tokenData[0].eventId}/prep`;
+        } else if (now >= eventStart && now <= eventEnd) {
+          // Event is live - go to live page
+          nextPath = `/events/live/${tokenData[0].eventId}`;
+        } else {
+          // Event is over - go to recap
+          nextPath = `/events/${tokenData[0].eventId}/recap`;
+        }
+        
+        nextUrl = (process.env.APP_BASE_URL || '') + nextPath;
+      }
+
+      res.json({ 
+        userId, 
+        nextPath,
+        nextUrl,
+        redirectUrl: nextPath // Keep for backward compatibility
+      });
     } catch (error) {
       console.error('Activation error:', error);
       res.status(500).json({ error: 'Failed to activate' });

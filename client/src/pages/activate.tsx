@@ -112,12 +112,17 @@ export default function ActivationPage() {
         description: "Your account has been successfully created. Redirecting to the event...",
       });
       
-      // Redirect to the event deep-link URL
+      // Smart drop-off: Redirect based on event timing
       setTimeout(() => {
-        if (response.redirectUrl) {
-          window.location.href = response.redirectUrl;
+        if (response.nextPath) {
+          // Use nextPath for smart redirect (prep/live/recap)
+          setLocation(response.nextPath);
+        } else if (response.redirectUrl) {
+          // Fallback to redirectUrl for backward compatibility
+          setLocation(response.redirectUrl);
         } else {
-          window.location.href = "/";
+          // Default to home
+          setLocation("/");
         }
       }, 1500);
     },
