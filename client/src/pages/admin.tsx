@@ -662,29 +662,17 @@ export default function AdminDashboard() {
   };
 
   const onCreateUserSubmit = (data: CreateUserFormData) => {
-    const userData = {
+    // Send flat data structure that the backend expects
+    createUserMutation.mutate({
+      firstName: data.firstName,
+      lastName: data.lastName,
       email: data.email,
-      identity: {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        headline: data.headline || null,
-        email: data.email,
-      },
-      persona: {
-        primary: "general",
-      },
-      adminRole: data.adminRole !== "none" ? data.adminRole : null,
-    };
-
-    // Add company and role if provided
-    if (data.company || data.role) {
-      userData.founder_block = {
-        company: data.company || null,
-        role: data.role || null,
-      };
-    }
-
-    createUserMutation.mutate(userData);
+      title: data.headline, // Map headline to title for backend
+      company: data.company,
+      role: data.role, // This will help determine the persona type
+      adminRole: data.adminRole,
+      isStakTeamMember: false
+    });
   };
 
   const onEditUserSubmit = (data: EditUserFormData) => {

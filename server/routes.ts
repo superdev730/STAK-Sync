@@ -8892,7 +8892,7 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
     try {
       const currentUserId = getUserId(req);
       const adminUser = await storage.getUser(currentUserId);
-      const { firstName, lastName, email, company, title, adminRole, isStakTeamMember } = req.body;
+      const { firstName, lastName, email, company, title, role, adminRole, isStakTeamMember } = req.body;
 
       if (!email) {
         return res.status(400).json({ message: 'Email is required' });
@@ -8904,39 +8904,67 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
         return res.status(400).json({ message: 'User with this email already exists' });
       }
 
-      // Create new user with JSON structure
+      // Create new user with proper JSON structure
       const newUserId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const newUser = await storage.createUser({
+      
+      // Build the user data with proper JSON structure
+      const userData: any = {
         id: newUserId,
         email,
-        adminRole: adminRole || null,
+        adminRole: adminRole === 'none' ? null : adminRole,
         isStakTeamMember: isStakTeamMember || false,
-        // Use JSON structure for identity
+        // IMPORTANT: Use snake_case for identity fields
         identity: {
           first_name: firstName || '',
           last_name: lastName || '',
-          headline: title || '',
+          headline: title || null,
           email: email
         },
-        // Initialize persona if company is provided
-        persona: company ? {
-          company: company
-        } : null,
-        // Initialize empty blocks
-        vc_block: null,
-        founder_block: company ? {
-          company: company
-        } : null,
-        talent_block: null,
-        goals: null,
-        links: null,
-        visibility: null,
+        // Add audit tracking
         audit: {
           created_iso: new Date().toISOString(),
           updated_iso: new Date().toISOString(),
-          completion_pct: 0
+          completion_pct: firstName && lastName ? 30 : 0
+        },
+        accountStatus: 'active'
+      };
+
+      // Add persona-specific blocks based on role/company
+      if (company) {
+        if (role === 'VC' || role === 'Investor') {
+          userData.vc_block = {
+            firm: company,
+            role: title || null
+          };
+          userData.persona = {
+            primary: 'VC'
+          };
+        } else if (role === 'Founder' || role === 'Co-Founder' || role === 'CEO') {
+          userData.founder_block = {
+            company: company,
+            role: title || null
+          };
+          userData.persona = {
+            primary: 'Founder'
+          };
+        } else if (role === 'Operator' || role === 'Engineer' || role === 'Designer' || role === 'Product Manager') {
+          userData.talent_block = {
+            current_company: company,
+            current_role: title || null
+          };
+          userData.persona = {
+            primary: 'Operator'
+          };
+        } else {
+          // Default to founder block for generic company entries
+          userData.founder_block = {
+            company: company,
+            role: title || null
+          };
         }
-      });
+      }
+
+      const newUser = await storage.createUser(userData);
 
       // Log admin action
       await storage.logAdminAction({
@@ -8944,7 +8972,13 @@ Format as JSON with: { "summary", "keyThemes", "commonQuestions", "suggestions",
         action: 'user_created',
         targetType: 'user',
         targetId: newUser.id,
-        details: { email, firstName, lastName, company, title },
+        details: { 
+          email: email,
+          firstName: firstName,
+          lastName: lastName,
+          company: company,
+          title: title
+        },
         ipAddress: req.ip,
         userAgent: req.get('User-Agent') || 'unknown',
       });
@@ -10435,39 +10469,6 @@ Respond as the STAK Sync Networking Concierge, providing personalized, actionabl
     }
   });
 
-  app.post('/api/admin/users', isAuthenticatedGeneral, isAdmin, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      const adminUser = await storage.getUser(userId);
-      const userData = req.body;
-
-      // Create the user
-      const newUser = await storage.createUserByAdmin({
-        ...userData,
-        id: undefined, // Let database generate ID
-      });
-
-      // Log admin action
-      await storage.logAdminAction({
-        adminUserId: req.user.claims.sub,
-        action: 'user_created',
-        targetType: 'user',
-        targetId: newUser.id,
-        details: { 
-          email: userData.email,
-          adminRole: userData.adminRole,
-          isStakTeamMember: userData.isStakTeamMember
-        },
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      });
-
-      res.status(201).json(newUser);
-    } catch (error) {
-      console.error('Error creating user:', error);
-      res.status(500).json({ error: 'Failed to create user' });
-    }
-  });
 
 
   // Invite system API endpoints
