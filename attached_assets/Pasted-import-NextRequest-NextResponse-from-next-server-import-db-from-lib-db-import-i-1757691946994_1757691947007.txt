@@ -1,0 +1,40 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { inviteTokens, eventAttendees } from "@/lib/schema";
+import { eq, and, ne } from "drizzle-orm";
+import { scorePair, anonymize } from "@/lib/matching";
+
+export async function GET(_: NextRequest, { params }: { params: { token: string }}) {
+  const tokenRow = await db.query.inviteTokens.findFirst({ where: (it, { eq }) => eq(it.token, params.token) });
+  if (!tokenRow || tokenRow.expiresAt! < new Date()) return NextResponse.json({ error: "Expired" }, { status: 410 });
+
+  const me = await db.query.eventAttendees.findFirst({ where: (ea, { eq }) => eq(ea.id, tokenRow.attendeeId) });
+  if (!me) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Mark previewing
+  await db.update(eventAttendees).set({ consentState: "PREVIEWING" }).where(eq(eventAttendees.id, me.id));
+
+  const pool = await db.select().from(eventAttendees)
+    .where(and(eq(eventAttendees.eventId, me.eventId), ne(eventAttendees.id, me.id), ne(eventAttendees.consentState, "DECLINED")))
+    .limit(200);
+
+  const myP = { id: me.id, email: me.email, title: me.title, company: me.company, tags: me.tags ?? [] as string[] };
+  const scored = pool.map(p => {
+    const s = scorePair(myP, { id: p.id, email: p.email, title: p.title, company: p.company, tags: p.tags ?? [] });
+    return { p, ...s };
+  }).sort((a,b)=>b.score-a.score);
+
+  const top = scored.slice(0,5).map(({p, score, reasons}) => {
+    const anon = anonymize(p.title, p.company);
+    return { counterpartRef: p.id, display: { handle: anon.handle, location: anon.location }, score, reasons };
+  });
+
+  const totalUsers = (await db.select({ c: eventAttendees.id }).from(eventAttendees).where(eq(eventAttendees.eventId, me.eventId))).length;
+  const strongMatches = scored.filter(s => s.score >= 80).length;
+
+  return NextResponse.json({
+    invitee: { email: me.email },
+    networkStats: { totalUsers, strongMatches },
+    matches: top
+  });
+}
