@@ -2,11 +2,12 @@
 STAK Sync is a professional networking platform for the STAK ecosystem, designed to connect venture capitalists, startup founders, and industry leaders using AI-powered matching algorithms. It aims to facilitate meaningful professional relationships through intelligent matchmaking, real-time messaging, meeting coordination, and comprehensive analytics within STAK's curated network. The platform offers features like AI social media integration for profile enhancement, consumer-friendly error messages, real-time user management updates, and a streamlined connection request UI. It also integrates a sales tax system and features for live event management and user import from the STAK Reception App. The project's vision is to leverage AI to "Get in Sync, Cut the Noise" and emphasize that "Ecosystems are more valuable than products" within a luxury real estate aesthetic.
 
 ## Recent Major Updates (January 2025)
-- **LATEST**: Enhanced admin panel avatar display to show actual profile images
-- Avatars now display user's profile_image_url from database when available
-- Falls back to two-letter initials (e.g., "JD" for John Doe) when no profile image exists
-- Maintains dynamic color coding for initial-based avatars for better visual distinction
-- Fixed text truncation for long titles/headlines to prevent layout breaking
+- **LATEST**: Fixed admin panel user edit functionality to properly save changes
+- Backend routes now correctly handle new JSON-based user schema updates
+- Edit functionality properly updates identity (first_name, last_name), persona, and role-specific blocks
+- Maintains backward compatibility with legacy field names while mapping to new JSON structure
+- Enhanced admin panel avatar display to show actual profile images when available
+- Avatars display user's profile_image_url from database, falling back to two-letter initials
 - Updated admin panel to work with new JSON-based user schema (identity, persona, vc_block, founder_block, etc.)
 - **Previous**: Successfully updated all "Signal" references to "Sync" across the application
 - Changed "signalScore" to "syncScore" throughout backend and admin systems for consistency
