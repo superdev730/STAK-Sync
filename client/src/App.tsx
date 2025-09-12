@@ -33,6 +33,7 @@ import Layout from "@/components/Layout";
 import SignupLogin from "@/pages/SignupLogin";
 import SignupPage from "@/pages/SignupPage";
 import VerificationSuccess from "@/pages/VerificationSuccess";
+import Interview from "@/pages/interview";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -83,6 +84,7 @@ function Router() {
             <Route path="/notifications" component={() => <div className="p-8"><h1 className="text-2xl font-bold">Notifications</h1><p className="mt-4 text-gray-600">Notification center coming soon! For now, check the Messages and Matches tabs for updates.</p></div>} />
             <Route path="/proximity" component={ProximityPage} />
             <Route path="/questionnaire" component={Questionnaire} />
+            <Route path="/interview" component={Interview} />
             <Route path="/logout" component={Logout} />
             <Route component={NotFound} />
           </Switch>
