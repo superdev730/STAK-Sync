@@ -55,6 +55,12 @@ export const enrichmentStatusEnum = pgEnum("enrichment_status", [
   "pending", "running", "completed", "failed"
 ]);
 
+// Profile status enumeration for interview flow
+export const profileStatusEnum = pgEnum("profile_status", ["new", "incomplete", "complete"]);
+
+// Timeline urgency enumeration for goals
+export const timelineUrgencyEnum = pgEnum("timeline_urgency", ["now", "30-60d", "60-180d", "exploratory"]);
+
 // Session storage table.
 export const sessions = pgTable(
   "sessions",
@@ -77,18 +83,48 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  
+  // Profile completion fields
+  preferredDisplayName: varchar("preferred_display_name"),
+  headline: varchar("headline"), // Short "who I am"
+  city: varchar("city"),
+  region: varchar("region"),
+  timezone: varchar("timezone"),
+  phone: varchar("phone"),
+  profileStatus: profileStatusEnum("profile_status").default("new"),
+  lastInterviewStage: varchar("last_interview_stage"), // Tracks where user left off
+  
+  // Professional info
   title: text("title"),
   company: text("company"),
   bio: text("bio"),
   location: text("location"),
+  
+  // Social links with visibility
   linkedinUrl: text("linkedin_url"),
+  linkedinVisible: boolean("linkedin_visible").default(true),
   twitterUrl: text("twitter_url"),
+  twitterVisible: boolean("twitter_visible").default(true),
   websiteUrls: text("website_urls").array(), // Support multiple website URLs for AI data gathering
   githubUrl: text("github_url"),
+  githubVisible: boolean("github_visible").default(true),
+  personalWebsite: text("personal_website"),
+  personalWebsiteVisible: boolean("personal_website_visible").default(true),
+  portfolioUrl: text("portfolio_url"),
+  portfolioVisible: boolean("portfolio_visible").default(true),
   networkingGoal: text("networking_goal"),
   industries: text("industries").array(),
   skills: text("skills").array(),
   meetingPreference: text("meeting_preference"),
+  
+  // Persona and role fields
+  personas: text("personas").array(), // Multi-select roles
+  primaryPersona: varchar("primary_persona"), // Main role
+  
+  // Goals fields
+  goalStatement: text("goal_statement"), // One sentence goal
+  goals: text("goals").array(), // 1-3 top goals
+  timelineUrgency: timelineUrgencyEnum("timeline_urgency"),
   // AI/ML Profile Enhancement
   personalityProfile: jsonb("personality_profile"), // Big Five, communication style, work style
   goalAnalysis: jsonb("goal_analysis"), // Career goals, business objectives, networking motivations
@@ -100,6 +136,20 @@ export const users = pgTable("users", {
   fundingStage: text("funding_stage"), // pre-seed, seed, series-a, etc.
   dealSizeRange: text("deal_size_range"),
   geographicFocus: text("geographic_focus").array(),
+  
+  // VC/Investor specific fields
+  aum: varchar("aum"), // Assets under management
+  fundStage: varchar("fund_stage"),
+  checkSizeMin: integer("check_size_min"),
+  checkSizeMax: integer("check_size_max"),
+  investmentThesis: text("investment_thesis"),
+  investmentSectors: text("investment_sectors").array(),
+  investmentGeography: text("investment_geography").array(),
+  investmentStages: text("investment_stages").array(),
+  portfolioCount: integer("portfolio_count"),
+  notableWins: text("notable_wins"),
+  diligenceStyle: varchar("diligence_style"),
+  
   aiMatchingConsent: boolean("ai_matching_consent").default(true),
   profileVisible: boolean("profile_visible").default(true),
   showOnlineStatus: boolean("show_online_status").default(true),
