@@ -44,7 +44,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import AdminEvents from "./admin-events";
+import AdminEvents from "@/pages/admin-events";
+import AdminSponsors from "@/pages/admin-sponsors";
 
 interface User {
   id: string;
@@ -57,7 +58,7 @@ interface User {
   adminRole?: string | null;
   isStakTeamMember?: boolean;
   profileStatus?: string;
-  
+
   // JSON columns from new schema
   identity?: {
     first_name?: string;
@@ -69,7 +70,7 @@ interface User {
     email?: string;
     phone?: string;
   };
-  
+
   persona?: {
     primary?: string;
     secondary?: string[];
@@ -77,7 +78,7 @@ interface User {
     industries?: string[];
     skills?: string[];
   };
-  
+
   // Persona-specific blocks
   vc_block?: {
     firm?: string;
@@ -85,7 +86,7 @@ interface User {
     aum?: string;
     fund_stage?: string;
   };
-  
+
   founder_block?: {
     company?: string;
     role?: string;
@@ -94,17 +95,28 @@ interface User {
     team_size?: number;
     industry?: string;
   };
-  
+
   talent_block?: {
     current_role?: string;
     current_company?: string;
     years_experience?: number;
     expertise?: string[];
   };
-  
+
   accountStatus?: string;
 }
 
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  location: string;
+  capacity: number;
+  eventType: string;
+  status: string;
+  registrations?: number;
+}
 
 interface BillingStats {
   userStats: Array<{ billingPlan: string; count: number }>;
@@ -122,7 +134,7 @@ interface BillingUser {
   tokensUsedThisMonth: number;
   monthlyTokenAllowance: number;
   monthlyCost: number;
-  
+
   // JSON columns from new schema
   identity?: {
     first_name?: string;
@@ -229,23 +241,23 @@ const getUserInitials = (user: User): string => {
   const firstName = getUserFirstName(user);
   const lastName = getUserLastName(user);
   const email = getUserEmail(user);
-  
+
   // If we have both first and last name, return first letter of each
   if (firstName && lastName) {
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
   }
-  
+
   // If only first name, return first two letters
   if (firstName) {
     return firstName.slice(0, 2).toUpperCase();
   }
-  
+
   // If no names but have email, use first two letters of email
   if (email) {
     const emailPrefix = email.split('@')[0];
     return emailPrefix.slice(0, 2).toUpperCase();
   }
-  
+
   // Last resort, return "UK" for unknown
   return 'UK';
 };
@@ -262,7 +274,7 @@ const getAvatarColor = (initials: string): string => {
     'bg-amber-500',
     'bg-teal-500'
   ];
-  
+
   // Use initials to consistently pick a color
   const charCode = initials.charCodeAt(0) + (initials.charCodeAt(1) || 0);
   return colors[charCode % colors.length];
@@ -321,6 +333,14 @@ export default function AdminDashboard() {
     },
   });
 
+  // Fetch events data  
+  const { data: eventsData, isLoading: eventsLoading } = useQuery({
+    queryKey: ['/api/admin/events'],
+    queryFn: async () => {
+      const response = await apiRequest('/api/admin/events', 'GET');
+      return response.json();
+    },
+  });
 
   // Fetch billing data
   const { data: billingStats, isLoading: billingLoading } = useQuery({
@@ -379,14 +399,16 @@ export default function AdminDashboard() {
   const badges = Array.isArray(badgesResponse) ? badgesResponse : (badgesResponse?.badges || []);
 
   const users = usersData || [];
+  const events = eventsData?.events || [];
 
   // Format analytics data
   const formatAnalytics = (data: any): Analytics => {
     const userCount = users.length;
-    
+    const eventCount = events.length;
+
     if (!data) return {
       totalUsers: userCount,
-      totalEvents: 0,
+      totalEvents: eventCount,
       activeUsers: 0,
       totalConnections: 0,
       revenue: 0,
@@ -395,7 +417,7 @@ export default function AdminDashboard() {
 
     return {
       totalUsers: data.userStats?.totalUsers || userCount,
-      totalEvents: data.eventStats?.totalEvents || data.eventStats?.upcomingEvents || 0,
+      totalEvents: data.eventStats?.totalEvents || data.eventStats?.upcomingEvents || eventCount,
       activeUsers: data.userStats?.activeUsers || data.userStats?.newUsersThisWeek || Math.floor(userCount * 0.3),
       totalConnections: data.matchingStats?.totalMatches || data.engagementStats?.totalMatches || 0,
       revenue: billingStats?.totalRevenue || 0,
@@ -883,8 +905,23 @@ export default function AdminDashboard() {
                   <CardDescription>Latest event activities</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-center py-8 text-gray-500">
-                    <p>View events in the Events tab</p>
+                  <div className="space-y-4">
+                    {events.slice(0, 5).map((event: Event) => (
+                      <div key={event.id} className="flex items-center space-x-4">
+                        <div className="w-8 h-8 bg-copper-100 rounded-full flex items-center justify-center">
+                          <CalendarIcon className="h-4 w-4 text-copper-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {event.title}
+                          </p>
+                          <p className="text-sm text-gray-500 truncate">{event.location}</p>
+                        </div>
+                        <Badge className={event.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                          {event.status}
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -1009,7 +1046,7 @@ export default function AdminDashboard() {
           </TabsContent>
 
           {/* Events Tab */}
-          <TabsContent value="events">
+          <TabsContent value="events" className="space-y-6">
             <AdminEvents />
           </TabsContent>
 
@@ -1209,61 +1246,7 @@ export default function AdminDashboard() {
 
           {/* Sponsors Tab */}
           <TabsContent value="sponsors" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">Sponsorship Management</h3>
-              <Button onClick={() => setShowCreateSponsorDialog(true)} data-testid="button-create-sponsor">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Sponsor
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sponsorsLoading ? (
-                <div className="col-span-full flex items-center justify-center py-8">
-                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-                </div>
-              ) : (
-                sponsors?.map((sponsor: Sponsor) => (
-                  <Card key={sponsor.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{sponsor.name}</CardTitle>
-                        <Badge className={sponsor.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                          {sponsor.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline">{sponsor.tier}</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600 mb-4">{sponsor.description}</p>
-                      <div className="space-y-2 text-sm">
-                        {sponsor.websiteUrl && (
-                          <a href={sponsor.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                            {sponsor.websiteUrl}
-                          </a>
-                        )}
-                        {sponsor.contactEmail && (
-                          <div className="text-gray-600">{sponsor.contactEmail}</div>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-2 mt-4">
-                        <Button variant="outline" size="sm" data-testid={`button-view-sponsor-${sponsor.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" data-testid={`button-edit-sponsor-${sponsor.id}`}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" data-testid={`button-delete-sponsor-${sponsor.id}`}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+            <AdminSponsors />
           </TabsContent>
 
           {/* Badges Tab */}
