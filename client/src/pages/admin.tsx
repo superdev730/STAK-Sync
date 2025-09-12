@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import AdminEvents from "./admin-events";
 
 interface User {
   id: string;
@@ -104,17 +105,6 @@ interface User {
   accountStatus?: string;
 }
 
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  startDate: string;
-  location: string;
-  capacity: number;
-  eventType: string;
-  status: string;
-  registrations?: number;
-}
 
 interface BillingStats {
   userStats: Array<{ billingPlan: string; count: number }>;
@@ -331,14 +321,6 @@ export default function AdminDashboard() {
     },
   });
 
-  // Fetch events data  
-  const { data: eventsData, isLoading: eventsLoading } = useQuery({
-    queryKey: ['/api/admin/events'],
-    queryFn: async () => {
-      const response = await apiRequest('/api/admin/events', 'GET');
-      return response.json();
-    },
-  });
 
   // Fetch billing data
   const { data: billingStats, isLoading: billingLoading } = useQuery({
@@ -397,16 +379,14 @@ export default function AdminDashboard() {
   const badges = Array.isArray(badgesResponse) ? badgesResponse : (badgesResponse?.badges || []);
 
   const users = usersData || [];
-  const events = eventsData?.events || [];
 
   // Format analytics data
   const formatAnalytics = (data: any): Analytics => {
     const userCount = users.length;
-    const eventCount = events.length;
     
     if (!data) return {
       totalUsers: userCount,
-      totalEvents: eventCount,
+      totalEvents: 0,
       activeUsers: 0,
       totalConnections: 0,
       revenue: 0,
@@ -415,7 +395,7 @@ export default function AdminDashboard() {
 
     return {
       totalUsers: data.userStats?.totalUsers || userCount,
-      totalEvents: data.eventStats?.totalEvents || data.eventStats?.upcomingEvents || eventCount,
+      totalEvents: data.eventStats?.totalEvents || data.eventStats?.upcomingEvents || 0,
       activeUsers: data.userStats?.activeUsers || data.userStats?.newUsersThisWeek || Math.floor(userCount * 0.3),
       totalConnections: data.matchingStats?.totalMatches || data.engagementStats?.totalMatches || 0,
       revenue: billingStats?.totalRevenue || 0,
@@ -903,23 +883,8 @@ export default function AdminDashboard() {
                   <CardDescription>Latest event activities</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {events.slice(0, 5).map((event: Event) => (
-                      <div key={event.id} className="flex items-center space-x-4">
-                        <div className="w-8 h-8 bg-copper-100 rounded-full flex items-center justify-center">
-                          <CalendarIcon className="h-4 w-4 text-copper-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {event.title}
-                          </p>
-                          <p className="text-sm text-gray-500 truncate">{event.location}</p>
-                        </div>
-                        <Badge className={event.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
-                          {event.status}
-                        </Badge>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-center py-8 text-gray-500">
+                    <p>View events in the Events tab</p>
                   </div>
                 </CardContent>
               </Card>
@@ -1044,64 +1009,8 @@ export default function AdminDashboard() {
           </TabsContent>
 
           {/* Events Tab */}
-          <TabsContent value="events" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">Event Management</h3>
-              <Button data-testid="button-create-event">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Event
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {eventsLoading ? (
-                <div className="col-span-full flex items-center justify-center py-8">
-                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-                </div>
-              ) : (
-                events.map((event: Event) => (
-                  <Card key={event.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{event.title}</CardTitle>
-                        <Badge className={event.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
-                          {event.status}
-                        </Badge>
-                      </div>
-                      <CardDescription className="line-clamp-2">
-                        {event.description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <div className="flex items-center">
-                          <CalendarIcon className="h-4 w-4 mr-2" />
-                          {new Date(event.startDate).toLocaleDateString()}
-                        </div>
-                        <div className="flex items-center">
-                          <Users className="h-4 w-4 mr-2" />
-                          {event.registrations || 0} / {event.capacity} attendees
-                        </div>
-                        <div className="flex items-center">
-                          <Badge variant="outline">{event.eventType}</Badge>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 mt-4">
-                        <Button variant="outline" size="sm" data-testid={`button-view-event-${event.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" data-testid={`button-edit-event-${event.id}`}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" data-testid={`button-delete-event-${event.id}`}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+          <TabsContent value="events">
+            <AdminEvents />
           </TabsContent>
 
           {/* Billing Tab */}
