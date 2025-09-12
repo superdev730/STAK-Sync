@@ -72,110 +72,214 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table.
+// User storage table - restructured with JSON columns
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
+  email: varchar("email").unique(), // Keep for auth
   password: varchar("password"), // For general login (hashed)
   emailVerified: boolean("email_verified").default(false),
   verificationToken: varchar("verification_token"),
   verificationExpires: timestamp("verification_expires"),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   
-  // Profile completion fields
-  preferredDisplayName: varchar("preferred_display_name"),
-  headline: varchar("headline"), // Short "who I am"
-  city: varchar("city"),
-  region: varchar("region"),
-  timezone: varchar("timezone"),
-  phone: varchar("phone"),
+  // Profile status tracking
   profileStatus: profileStatusEnum("profile_status").default("new"),
-  lastInterviewStage: varchar("last_interview_stage"), // Tracks where user left off
+  lastInterviewStage: varchar("last_interview_stage"),
   
-  // Professional info
-  title: text("title"),
-  company: text("company"),
-  bio: text("bio"),
-  location: text("location"),
+  // Core identity JSON
+  identity: jsonb("identity").$type<{
+    first_name?: string;
+    last_name?: string;
+    display_name?: string;
+    headline?: string;
+    city_region?: string;
+    timezone?: string;
+    email?: string;
+    phone?: string;
+  }>(),
   
-  // Social links with visibility
-  linkedinUrl: text("linkedin_url"),
-  linkedinVisible: boolean("linkedin_visible").default(true),
-  twitterUrl: text("twitter_url"),
-  twitterVisible: boolean("twitter_visible").default(true),
-  websiteUrls: text("website_urls").array(), // Support multiple website URLs for AI data gathering
-  githubUrl: text("github_url"),
-  githubVisible: boolean("github_visible").default(true),
-  personalWebsite: text("personal_website"),
-  personalWebsiteVisible: boolean("personal_website_visible").default(true),
-  portfolioUrl: text("portfolio_url"),
-  portfolioVisible: boolean("portfolio_visible").default(true),
-  networkingGoal: text("networking_goal"),
-  industries: text("industries").array(),
-  skills: text("skills").array(),
-  meetingPreference: text("meeting_preference"),
+  // Links JSON
+  links: jsonb("links").$type<{
+    linkedin?: string;
+    twitter?: string;
+    github?: string;
+    website?: string;
+    portfolio?: string;
+  }>(),
   
-  // Persona and role fields
-  personas: text("personas").array(), // Multi-select roles
-  primaryPersona: varchar("primary_persona"), // Main role
+  // Visibility JSON
+  visibility: jsonb("visibility").$type<{
+    email?: 'public' | 'members' | 'private';
+    phone?: 'public' | 'members' | 'private';
+    links?: 'public' | 'members' | 'private';
+  }>(),
   
-  // Goals fields
-  goalStatement: text("goal_statement"), // One sentence goal
-  goals: text("goals").array(), // 1-3 top goals
-  timelineUrgency: timelineUrgencyEnum("timeline_urgency"),
-  // AI/ML Profile Enhancement
-  personalityProfile: jsonb("personality_profile"), // Big Five, communication style, work style
-  goalAnalysis: jsonb("goal_analysis"), // Career goals, business objectives, networking motivations
-  communicationStyle: text("communication_style"), // direct, collaborative, analytical, etc.
-  meetingStyle: text("meeting_style"), // virtual, in-person, hybrid
-  availabilityTimezone: text("availability_timezone"),
-  preferredMeetingTimes: text("preferred_meeting_times").array(),
-  investmentInterests: text("investment_interests").array(),
-  fundingStage: text("funding_stage"), // pre-seed, seed, series-a, etc.
-  dealSizeRange: text("deal_size_range"),
-  geographicFocus: text("geographic_focus").array(),
+  // Persona JSON
+  persona: jsonb("persona").$type<{
+    primary?: string;
+    secondary?: string[];
+    bio?: string;
+    industries?: string[];
+    skills?: string[];
+  }>(),
   
-  // VC/Investor specific fields
-  aum: varchar("aum"), // Assets under management
-  fundStage: varchar("fund_stage"),
-  checkSizeMin: integer("check_size_min"),
-  checkSizeMax: integer("check_size_max"),
-  investmentThesis: text("investment_thesis"),
-  investmentSectors: text("investment_sectors").array(),
-  investmentGeography: text("investment_geography").array(),
-  investmentStages: text("investment_stages").array(),
-  portfolioCount: integer("portfolio_count"),
-  notableWins: text("notable_wins"),
-  diligenceStyle: varchar("diligence_style"),
+  // Goals JSON
+  goals: jsonb("goals").$type<{
+    statement?: string;
+    objectives?: string[];
+    timeline?: string;
+    networking?: string;
+  }>(),
   
-  aiMatchingConsent: boolean("ai_matching_consent").default(true),
-  profileVisible: boolean("profile_visible").default(true),
-  showOnlineStatus: boolean("show_online_status").default(true),
-  emailNotifications: boolean("email_notifications").default(true),
+  // Persona-specific blocks (nullable JSON)
+  vc_block: jsonb("vc_block").$type<{
+    firm?: string;
+    role?: string;
+    aum?: string;
+    fund_stage?: string;
+    check_size_min?: number;
+    check_size_max?: number;
+    investment_thesis?: string;
+    investment_sectors?: string[];
+    investment_geography?: string[];
+    investment_stages?: string[];
+    portfolio_count?: number;
+    notable_wins?: string;
+    diligence_style?: string;
+  }>(),
   
-  // Admin role - only for STAK Ventures/Behring team members
+  founder_block: jsonb("founder_block").$type<{
+    company?: string;
+    role?: string;
+    stage?: string;
+    funding_raised?: string;
+    team_size?: number;
+    industry?: string;
+    problem_solving?: string;
+    looking_for?: string[];
+    pitch_deck_url?: string;
+  }>(),
+  
+  talent_block: jsonb("talent_block").$type<{
+    current_role?: string;
+    current_company?: string;
+    years_experience?: number;
+    expertise?: string[];
+    career_goals?: string;
+    ideal_next_role?: string;
+    open_to_opportunities?: boolean;
+    resume_url?: string;
+  }>(),
+  
+  provider_block: jsonb("provider_block").$type<{
+    company?: string;
+    services?: string[];
+    client_types?: string[];
+    case_studies?: string[];
+    pricing_model?: string;
+    minimum_engagement?: string;
+  }>(),
+  
+  student_block: jsonb("student_block").$type<{
+    school?: string;
+    major?: string;
+    graduation_year?: number;
+    looking_for?: string[];
+    relevant_coursework?: string[];
+    projects?: string[];
+  }>(),
+  
+  creator_block: jsonb("creator_block").$type<{
+    content_type?: string[];
+    platforms?: string[];
+    audience_size?: number;
+    niche?: string;
+    collaboration_types?: string[];
+    media_kit_url?: string;
+  }>(),
+  
+  // Resources and offers
+  resources_offers: jsonb("resources_offers").$type<{
+    can_offer?: string[];
+    looking_for?: string[];
+    expertise_areas?: string[];
+  }>(),
+  
+  // Preferences and safety
+  preferences_safety: jsonb("preferences_safety").$type<{
+    meeting_preference?: string;
+    communication_style?: string;
+    availability?: string[];
+    no_contact_list?: string[];
+    blocked_users?: string[];
+  }>(),
+  
+  // Consent settings
+  consent: jsonb("consent").$type<{
+    ai_matching?: boolean;
+    profile_visible?: boolean;
+    show_online_status?: boolean;
+    email_notifications?: boolean;
+    proximity_enabled?: boolean;
+  }>(),
+  
+  // Audit information
+  audit: jsonb("audit").$type<{
+    created_iso?: string;
+    updated_iso?: string;
+    completion_pct?: number;
+    last_login_iso?: string;
+    profile_views?: number;
+  }>(),
+  
+  // Admin and billing (keep flat for queries)
   adminRole: adminRoleEnum("admin_role"),
   isStakTeamMember: boolean("is_stak_team_member").default(false),
-  
-  // Billing and subscription
   billingPlan: billingPlanEnum("billing_plan").default("free_stak_basic"),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   billingStatus: billingStatusEnum("billing_status").default("active"),
   
-  // Proximity networking settings
-  bluetoothDeviceId: varchar("bluetooth_device_id"),
-  proximityEnabled: boolean("proximity_enabled").default(false),
-  proximityMinMatchScore: integer("proximity_min_match_score").default(85),
-  proximityAlertRadius: integer("proximity_alert_radius").default(50),
-  proximityNotifications: boolean("proximity_notifications").default(true),
-  proximityMutualOnly: boolean("proximity_mutual_only").default(false),
-  
+  // Timestamps (keep for compatibility)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Match signals table for AI matching
+export const matchSignals = pgTable("match_signals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  embeddingReadyText: text("embedding_ready_text"),
+  primaryIntent: text("primary_intent"),
+  supplyTags: text("supply_tags").array(),
+  demandTags: text("demand_tags").array(),
+  icpTags: text("icp_tags").array(),
+  geoTags: text("geo_tags").array(),
+  stageTags: text("stage_tags").array(),
+  trustSignals: jsonb("trust_signals").$type<{
+    verified_email?: boolean;
+    verified_phone?: boolean;
+    profile_completion?: number;
+    connections_count?: number;
+    recommendations_count?: number;
+    event_attendance?: number;
+    response_rate?: number;
+  }>(),
+  numericFeatures: jsonb("numeric_features").$type<{
+    experience_years?: number;
+    company_size?: number;
+    funding_amount?: number;
+    investment_capacity?: number;
+    match_score_threshold?: number;
+  }>(),
+  recencyWeightIso: timestamp("recency_weight_iso"),
+  optOutIds: text("opt_out_ids").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("match_signals_user_id_idx").on(table.userId),
+  primaryIntentIndex: index("match_signals_primary_intent_idx").on(table.primaryIntent),
+}));
 
 // Authentication identities - links different auth providers to the same user
 export const authIdentities = pgTable("auth_identities", {
@@ -1028,8 +1132,21 @@ export const invitesRelations = relations(invites, ({ one }) => ({
   }),
 }));
 
+export const matchSignalsRelations = relations(matchSignals, ({ one }) => ({
+  user: one(users, {
+    fields: [matchSignals.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMatchSignalsSchema = createInsertSchema(matchSignals).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1460,6 +1577,9 @@ export const insertEventAttendeeImportSchema = createInsertSchema(eventAttendeeI
 export type User = typeof users.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type MatchSignals = typeof matchSignals.$inferSelect;
+export type InsertMatchSignals = z.infer<typeof insertMatchSignalsSchema>;
 
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
