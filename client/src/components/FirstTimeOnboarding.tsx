@@ -84,30 +84,29 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
     }
   ]);
 
-  // LinkedIn analysis mutation
+  // LinkedIn OAuth mutation
   const linkedinMutation = useMutation({
-    mutationFn: async (url: string) => {
-      const response = await apiRequest("/api/ai/analyze-profile", "POST", {
-        type: "linkedin",
-        url: url,
-        userId: user?.id
-      });
-      return response;
+    mutationFn: async () => {
+      // First, get the LinkedIn OAuth URL from the backend
+      const response = await apiRequest("/api/linkedin/auth", "GET") as any;
+      if (response?.authUrl) {
+        // Open LinkedIn OAuth in a new window
+        window.open(response.authUrl, "_blank", "width=600,height=700");
+        return response;
+      }
+      throw new Error("Failed to get LinkedIn authorization URL");
     },
     onSuccess: (data) => {
       toast({
-        title: "LinkedIn Profile Analyzed!",
-        description: "We've enhanced your profile with LinkedIn data.",
+        title: "LinkedIn Authorization Started",
+        description: "Please complete the authorization in the new window.",
       });
-      setSteps(prev => prev.map(step => 
-        step.id === "linkedin" ? { ...step, completed: true } : step
-      ));
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Note: The actual completion will be handled by the callback
     },
     onError: (error: any) => {
       toast({
-        title: "LinkedIn Analysis Failed",
-        description: error.message || "Please check the URL and try again.",
+        title: "LinkedIn Authorization Failed",
+        description: error.message || "Please try again later.",
         variant: "destructive",
       });
     }
@@ -161,14 +160,14 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
       return response;
     },
     onSuccess: (data) => {
-      setSuggestions(data.suggestions || []);
+      setSuggestions((data as any).suggestions || []);
       setShowSuggestions(true);
       setSteps(prev => prev.map(step => 
         step.id === "ai_analysis" ? { ...step, completed: true } : step
       ));
       toast({
         title: "AI Analysis Complete!",
-        description: `Found ${data.suggestions?.length || 0} ways to improve your profile.`,
+        description: `Found ${(data as any).suggestions?.length || 0} ways to improve your profile.`,
       });
     },
     onError: (error: any) => {
@@ -181,15 +180,8 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
   });
 
   const handleLinkedinSubmit = () => {
-    if (!linkedinUrl.trim()) {
-      toast({
-        title: "LinkedIn URL Required",
-        description: "Please enter your LinkedIn profile URL.",
-        variant: "destructive",
-      });
-      return;
-    }
-    linkedinMutation.mutate(linkedinUrl);
+    // Now using OAuth flow instead of URL submission
+    linkedinMutation.mutate();
   };
 
   const handleWebsiteSubmit = () => {
@@ -283,7 +275,7 @@ export default function FirstTimeOnboarding({ user, onComplete, onSkip }: FirstT
 
       <div className="space-y-4">
         <Button
-          onClick={() => linkedinMutation.mutate('')}
+          onClick={() => linkedinMutation.mutate()}
           disabled={linkedinMutation.isPending}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           size="lg"
