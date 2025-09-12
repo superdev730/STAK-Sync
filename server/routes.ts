@@ -2627,9 +2627,33 @@ Make this message stand out by being genuinely thoughtful and specific.`;
 
       const updates = req.body;
       
+      // Get current user to preserve existing JSON data
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       // Map frontend field names to database field names
       const mappedUpdates: any = {};
       
+      // Handle nested JSON structure (new format)
+      if (updates.identity) {
+        // Merge with existing identity data
+        mappedUpdates.identity = {
+          ...(currentUser.identity || {}),
+          ...updates.identity
+        };
+      }
+      
+      if (updates.persona) {
+        // Merge with existing persona data
+        mappedUpdates.persona = {
+          ...(currentUser.persona || {}),
+          ...updates.persona
+        };
+      }
+      
+      // Also handle flat structure for backward compatibility
       if (updates.firstName !== undefined) mappedUpdates.first_name = updates.firstName;
       if (updates.lastName !== undefined) mappedUpdates.last_name = updates.lastName;
       if (updates.title !== undefined) mappedUpdates.title = updates.title;
