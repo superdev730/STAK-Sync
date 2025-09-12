@@ -1,0 +1,78 @@
+Implement an interview flow with these stages:
+
+Stage 0: Session State
+- Detect member.status ∈ {new, returning_incomplete, returning_complete}
+- If new → Stage 1. If returning_incomplete → say “Welcome back—let’s finish your profile” and jump to the first incomplete section.
+- If returning_complete → offer quick review + “Update anything?” If yes, branch to edits; if no, end.
+
+Stage 1: Identity & Contact
+- Legal name, preferred display name, pronouns (optional), headline (short “who I am”), city/region/timezone.
+- Primary email, optional phone, social links (LinkedIn, Twitter/X, GitHub, personal site, portfolio).
+- Visibility toggles for each handle.
+
+Stage 2: Persona & Role
+- Ask: “Which best describes you right now?” (multi-select allowed, but pick a primary)
+  [VC / Angel / Family Office / Founder / Operator / Engineer / Designer / Product / Data/AI / Creator / Researcher / Student / Recruiter / Community/Events / Service Provider (legal/finance/marketing) / Other]
+- If multiple, pick Primary Persona for routing.
+
+Stage 3: Goals (pull intent clearly)
+- “In one sentence: What are you looking for right now?” (free text; example: “I’m a VC looking for AI startups with proven founders.”)
+- Choose 1–3 top goals from chips:
+  - Raise capital / Invest capital / Hire / Find a cofounder / Find customers / Get a mentor / Find advisors / Find service providers / Join a startup / Partnership BD / Speaking & PR / Find a space (office/housing/event) / Community & events / Other
+- Timeline urgency: [Now / 30–60d / 60–180d / Exploratory]
+
+Stage 4: Persona-Specific Deep Dive (branch by Primary Persona)
+• VC / Angel / Family Office
+  - AUM (exact or range), check “Prefer not to say” if needed.
+  - Fund stage (Fund I/II/III+), Fund size, Check sizes (typical min/max), Ownership targets, Board seat preference (Y/N).
+  - Thesis keywords (3–10), Sector/verticals (chips), Tech focus (esp. AI modalities), Geography, Stage (Pre-Seed…Pre-IPO), Business models (B2B, B2C, infra, devtools, healthcare, fintech, climate, govtech, defense, proptech, etc.).
+  - # of portfolio companies (count), notable wins (3 max), links (Crunchbase/website/press).
+  - Warm-intro policy, speed to term sheet, diligence style (product/market/team/traction weighting).
+  - Current “Must-see” search (e.g., “agentic AI infra for robotics”, “RAG in healthcare with HIPAA data”).
+• Founder / CEO / Co-founder
+  - Company name, URL, one-line, product category, GTM motion, ICP.
+  - Stage (idea/MVP/alpha/beta/GA), team size, full-time founders (#), capital raised (exact or range), runway.
+  - Metrics (MRR/ARR, growth %, DAU/MAU, retention, unit econ if known).
+  - Traction proof (pilot logos, case studies, testimonials, PR).
+  - Moat (IP, data, distribution), tech stack, AI usage (model family, infra, safety).
+  - Near-term needs: [capital/hiring/customers/advisors/space/PR/partners].
+  - “Proven founder” proof points (prior exits, YC/TS, awards, patents, press).
+• Operator / Talent (Eng/PM/Design/Data/Go-to-Market)
+  - Title/specialty, years experience, stack/tools, industries, preferred company stage, work location preference.
+  - Open to: full-time / contracting / advising / fractional.
+  - Availability & comp expectations (ranges OK).
+  - Portfolio/GitHub/Dribbble/case links.
+• Recruiter / Advisor / Service Provider
+  - Domain (legal/finance/immigration/marketing/PR/brand/product/AI advisory).
+  - Ideal client profile, pricing model, capacity, case studies.
+• Student / Researcher
+  - School/program, graduation year, research area, internships, portfolio, availability.
+• Creator / Media
+  - Channels, audience size, niches, collaboration types, brand safety constraints.
+
+Stage 5: Resources & Offers
+- What can you offer the community? (choose chips + free text)
+  [Warm intros / Office hours / Hiring / Capital / Content / Space & venues / Equipment / Data sets / Compute credits / Legal/finance help / Immigration & EB-5 expertise / Other]
+- What do you need from the community? (chips + free text)
+
+Stage 6: Preferences & Safety
+- Meeting preferences (in-person radius, virtual yes/no, time windows, intro style).
+- Privacy defaults (public, members-only, private) per field category.
+- Red lines / avoid topics (free text, optional).
+
+Stage 7: Consent to Enrich
+- Ask: “May I enrich your profile by searching public sources you provide (e.g., LinkedIn URL) and other public sites to improve matches?” [Yes/No]
+- If Yes: collect seed URLs; if No: skip enrichment.
+
+Stage 8: Review & Confirm
+- Display a concise profile summary.
+- Let user edit any section.
+- Confirm to finalize → return JSON outputs.
+
+Validation:
+- Normalize tags (lowercase, kebab or snake).
+- Validate URLs, ranges, numbers. Use nulls when unknown.
+- Respect all privacy flags in output.
+
+Return:
+- Output EXACTLY two JSON objects per schemas given (no extra text).
