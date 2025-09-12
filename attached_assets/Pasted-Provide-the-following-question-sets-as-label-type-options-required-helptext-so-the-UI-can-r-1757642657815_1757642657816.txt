@@ -1,0 +1,75 @@
+Provide the following question sets as (label, type, options?, required?, helptext?) so the UI can render:
+
+IDENTITY
+- Full legal name (text, req)
+- Preferred display name (text, req)
+- Pronouns (chips: she/her, he/him, they/them, self-describe, optional)
+- Headline (text, req) e.g., “VC at Apex Capital | Devtools & AI infra”
+- City/Region (text, req), Timezone (select, req)
+- Email (email, req), Phone (text, optional)
+- Links (repeatable url fields): LinkedIn, Twitter/X, GitHub, Website, Portfolio (optional + per-field visibility)
+
+PERSONA
+- Primary persona (chips, req): VC, Angel, Family Office, Founder, Operator, Engineer, Designer, Product, Data/AI, Creator, Researcher, Student, Recruiter, Community/Events, Service Provider, Other
+- Secondary personas (chips, optional)
+
+GOALS
+- One-sentence intent (textarea, req)
+- Top goals (multi-chips 1–3, req)
+- Urgency (chips: Now, 30–60d, 60–180d, Exploratory, req)
+
+VC / ANGEL / FAMILY OFFICE
+- AUM (number or range; allow “Prefer not to say”)
+- Fund stage (select)
+- Typical check size (range)
+- Ownership target (chips)
+- Board seat preference (Y/N)
+- Thesis keywords (token chips, 3–10)
+- Sectors/verticals (multi-chips)
+- Stage focus (multi-chips: Pre-Seed…Pre-IPO)
+- Geography (multi-chips)
+- Business models (multi-chips)
+- # Portfolio companies (number)
+- Notable wins (up to 3 text + link)
+- Warm intro policy (chips)
+- Diligence style emphasis (sliders: Team/Market/Product/Traction)
+- Current must-see search (text)
+
+FOUNDER
+- Company name (text), URL (url)
+- One-liner (text), Category (chips)
+- Stage (chips), Team size (number), Full-time founders (number)
+- Capital raised (number or range), Runway (months)
+- Metrics (MRR/ARR, growth %, DAU/MAU, retention, CAC/LTV) allow “N/A”
+- Traction proof (repeatable: logo/name + link)
+- Moat (chips + text), Tech stack (text), AI usage (text)
+- Near-term needs (chips)
+- Proven-founder evidence (prior exits, YC/TS, awards, patents, press)
+
+OPERATOR / TALENT
+- Title (text), YOE (number), Skills/stack (chips+text)
+- Industry focus (chips), Stage prefs (chips)
+- Roles open to (chips), Availability (chips), Comp range (text)
+- Work location (chips), Portfolio/GitHub/Case links (urls)
+
+RECRUITER / ADVISOR / SERVICE PROVIDER
+- Domain (chips), Ideal client (text), Pricing model (chips), Capacity (chips), Case studies (urls)
+
+STUDENT / RESEARCHER
+- School/program (text), Grad year (number), Research area (text), Internships (text), Portfolio (url), Availability (chips)
+
+CREATOR / MEDIA
+- Channels (chips), Audience size (range), Niches (chips), Collab types (chips), Brand safety notes (text)
+
+RESOURCES & OFFERS
+- Can offer (multi-chips + free text)
+- Needs from community (multi-chips + free text)
+
+PREFERENCES & SAFETY
+- Meet style (chips), In-person radius (number miles/km), Time windows (chips), Intro style (chips)
+- Privacy defaults (per category: Public / Members / Private)
+- Red lines (textarea)
+
+CONSENT
+- “May we enrich your profile via public sources?” (Yes/No)
+- Optional seed URLs (repeatable url field)
