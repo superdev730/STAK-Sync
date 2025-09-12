@@ -1,0 +1,70 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { users, userProfiles, eventAttendees, inviteTokens, consentLogs, events } from "@/lib/schema";
+import { eq, and, ne } from "drizzle-orm";
+import { sendEmail, welcomeEmail } from "@/lib/email";
+
+function computeNextPath(eventId: string, startAt?: Date | null): string {
+  const base = `/events/${eventId}`;
+  if (!startAt) return `${base}/prep`;
+  const now = Date.now();
+  const start = new Date(startAt).getTime();
+  const sixHours = 6 * 60 * 60 * 1000;
+  if (now < start) return `${base}/prep`;
+  if (now <= start + sixHours) return `${base}/live`;
+  return `${base}/recap`;
+}
+
+export async function POST(req: NextRequest) {
+  const { token, scopes = ["profile_import","matching"], tosVersion = "1.0", privacyVersion = "1.0" } = await req.json();
+
+  const inv = await db.query.inviteTokens.findFirst({ where: (it, { eq }) => eq(it.token, token), with: { } });
+  if (!inv || inv.expiresAt! < new Date()) return NextResponse.json({ error: "Expired" }, { status: 410 });
+
+  const att = await db.query.eventAttendees.findFirst({ where: (ea, { eq }) => eq(ea.id, inv.attendeeId) });
+  if (!att) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Upsert user
+  const existingUser = await db.query.users.findFirst({ where: (u, { eq }) => eq(u.email, att.email.toLowerCase()) });
+  const userId = existingUser?.id ?? (await db.insert(users).values({ email: att.email.toLowerCase() }).returning({ id: users.id }))[0].id;
+
+  const profile = await db.query.userProfiles.findFirst({ where: (p, { eq }) => eq(p.userId, userId) });
+  if (profile) {
+    await db.update(userProfiles).set({
+      firstName: att.firstName ?? null, lastName: att.lastName ?? null, company: att.company ?? null, title: att.title ?? null
+    }).where(eq(userProfiles.userId, userId));
+  } else {
+    await db.insert(userProfiles).values({
+      userId, firstName: att.firstName ?? null, lastName: att.lastName ?? null, company: att.company ?? null, title: att.title ?? null
+    });
+  }
+
+  await db.update(eventAttendees).set({ consentState: "ACTIVATED" }).where(eq(eventAttendees.id, att.id));
+  await db.insert(consentLogs).values({ subjectEmail: att.email.toLowerCase(), action: "CONSENTED", scopes, policyVer: privacyVersion });
+
+  // Reveal simple top 5 identities (naive rules)
+  const pool = await db.select().from(eventAttendees).where(and(eq(eventAttendees.eventId, att.eventId), ne(eventAttendees.id, att.id))).limit(200);
+  const top = pool.map(p => {
+    let score = 30;
+    if (p.title && att.title && p.title.split(" ")[0] === att.title.split(" ")[0]) score += 20;
+    if (p.company && att.company && p.company === att.company) score += 20;
+    score += Math.min(40, (p.tags?.length ?? 0) * 5);
+    return { p, score };
+  }).sort((a,b)=>b.score-a.score).slice(0,5).map(({p, score}) => ({
+    id: p.id,
+    name: `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim(),
+    email: p.email,
+    company: p.company,
+    title: p.title,
+    score
+  }));
+
+  const ev = await db.query.events.findFirst({ where: (e, { eq }) => eq(e.id, att.eventId) });
+  const nextPath = computeNextPath(att.eventId, ev?.startAt ?? null);
+  const nextUrl = `${process.env.APP_BASE_URL}${nextPath}`;
+
+  const mail = welcomeEmail(att.firstName ?? undefined, nextUrl);
+  await sendEmail(att.email, mail.subject, mail.html);
+
+  return NextResponse.json({ userId, revealedMatches: top, nextPath, nextUrl });
+}

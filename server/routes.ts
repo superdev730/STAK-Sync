@@ -72,7 +72,28 @@ import {
   type EventMissionProgress,
   type InsertEventMissionProgress,
   type ProfileMetadata,
-  type ProfileEnrichment
+  type ProfileEnrichment,
+  // Seeded Profiles tables
+  seededProfiles,
+  eventInviteTokens,
+  consentLogs,
+  emailSuppression,
+  teaserProfiles,
+  insertSeededProfileSchema,
+  insertEventInviteTokenSchema,
+  insertConsentLogSchema,
+  insertEmailSuppressionSchema,
+  insertTeaserProfileSchema,
+  type SeededProfile,
+  type InsertSeededProfile,
+  type EventInviteToken,
+  type InsertEventInviteToken,
+  type ConsentLog,
+  type InsertConsentLog,
+  type EmailSuppression,
+  type InsertEmailSuppression,
+  type TeaserProfile,
+  type InsertTeaserProfile
 } from "@shared/schema";
 import { csvImportService } from "./csvImportService";
 import { db } from "./db";
@@ -88,6 +109,9 @@ import express from 'express';
 import { EnrichmentService } from './enrichmentService';
 import { z } from 'zod';
 import { generateMatchSignals } from './services/matchSignalsGenerator';
+import { hashEmail, scorePair, anonymize, isEmailSuppressed } from './lib/matching';
+import { generateInviteToken, getTokenExpiryDate, isTokenExpired } from './lib/tokens';
+import { sendEmail, inviteEmail, optOutConfirmEmail } from './lib/email';
 
 // Admin middleware
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -11911,6 +11935,445 @@ Compose a concise, fact-first profile card.`
       res.status(500).json({ error: 'Failed to compose profile' });
     }
   });
+
+  // ============ SEEDED PROFILES API ENDPOINTS ============
+
+  // 1. Import Attendees Endpoint
+  app.post('/api/events/:eventId/attendees/import', isAdmin, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { attendees } = req.body;
+
+      if (!Array.isArray(attendees)) {
+        return res.status(400).json({ error: 'attendees must be an array' });
+      }
+
+      // Verify event exists
+      const event = await db
+        .select()
+        .from(events)
+        .where(eq(events.id, eventId))
+        .limit(1);
+      
+      if (event.length === 0) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      let imported = 0;
+      let duplicates = 0;
+
+      for (const attendee of attendees) {
+        const { email, firstName, lastName, company, title, tags = [] } = attendee;
+
+        if (!email) continue;
+
+        const emailHash = hashEmail(email);
+
+        // Check if already exists
+        const existing = await db
+          .select()
+          .from(seededProfiles)
+          .where(and(
+            eq(seededProfiles.eventId, eventId),
+            eq(seededProfiles.emailHash, emailHash)
+          ))
+          .limit(1);
+
+        if (existing.length > 0) {
+          duplicates++;
+          continue;
+        }
+
+        // Insert new seeded profile
+        await db.insert(seededProfiles).values({
+          eventId,
+          emailHash,
+          source: 'csv_import',
+          attributes: {
+            role: title,
+            company,
+            tags,
+            firstName,
+            lastName,
+            email // Store email for activation
+          }
+        });
+
+        imported++;
+      }
+
+      res.json({ imported, duplicates });
+    } catch (error) {
+      console.error('Import attendees error:', error);
+      res.status(500).json({ error: 'Failed to import attendees' });
+    }
+  });
+
+  // 2. Create Invite Endpoint
+  app.post('/api/invites/create', isAdmin, async (req: any, res) => {
+    try {
+      const { profileId, eventId, channel = 'email' } = req.body;
+
+      if (!profileId || !eventId) {
+        return res.status(400).json({ error: 'profileId and eventId are required' });
+      }
+
+      // Get seeded profile
+      const profile = await db
+        .select()
+        .from(seededProfiles)
+        .where(eq(seededProfiles.id, profileId))
+        .limit(1);
+
+      if (profile.length === 0) {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+
+      // Check if already suppressed
+      const suppressed = await isEmailSuppressed(profile[0].emailHash, db);
+      if (suppressed) {
+        return res.status(400).json({ error: 'Email is suppressed' });
+      }
+
+      // Generate token
+      const token = generateInviteToken();
+      const expiresAt = getTokenExpiryDate();
+
+      // Create invite token
+      await db.insert(eventInviteTokens).values({
+        eventId,
+        emailHash: profile[0].emailHash,
+        token,
+        expiresAt,
+        status: 'pending'
+      });
+
+      const inviteUrl = `${process.env.APP_BASE_URL || 'http://localhost:5000'}/teaser/${token}`;
+
+      // Send email if channel is email and we have the email
+      if (channel === 'email' && profile[0].attributes?.email) {
+        const eventData = await db
+          .select()
+          .from(events)
+          .where(eq(events.id, eventId))
+          .limit(1);
+
+        const emailContent = inviteEmail(
+          eventData[0]?.title || 'Event',
+          inviteUrl
+        );
+
+        await sendEmail(
+          profile[0].attributes.email,
+          emailContent.subject,
+          emailContent.html
+        );
+
+        // Update status to sent
+        await db
+          .update(eventInviteTokens)
+          .set({ status: 'sent' })
+          .where(eq(eventInviteTokens.token, token));
+      }
+
+      res.json({ token, url: inviteUrl, expiresAt });
+    } catch (error) {
+      console.error('Create invite error:', error);
+      res.status(500).json({ error: 'Failed to create invite' });
+    }
+  });
+
+  // 3. Teaser Fetch Endpoint
+  app.get('/api/teaser/:token', async (req: any, res) => {
+    try {
+      const { token } = req.params;
+
+      // Get token data
+      const tokenData = await db
+        .select()
+        .from(eventInviteTokens)
+        .where(eq(eventInviteTokens.token, token))
+        .limit(1);
+
+      if (tokenData.length === 0) {
+        return res.status(404).json({ error: 'Invalid token' });
+      }
+
+      // Check if expired
+      if (isTokenExpired(tokenData[0].expiresAt)) {
+        return res.status(400).json({ error: 'Token expired' });
+      }
+
+      // Check if already used
+      if (tokenData[0].usedAt) {
+        return res.status(400).json({ error: 'Token already used' });
+      }
+
+      // Get seeded profile
+      const profile = await db
+        .select()
+        .from(seededProfiles)
+        .where(and(
+          eq(seededProfiles.eventId, tokenData[0].eventId),
+          eq(seededProfiles.emailHash, tokenData[0].emailHash)
+        ))
+        .limit(1);
+
+      if (profile.length === 0) {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+
+      // Get other attendees from same event
+      const otherProfiles = await db
+        .select()
+        .from(seededProfiles)
+        .where(and(
+          eq(seededProfiles.eventId, tokenData[0].eventId),
+          sql`${seededProfiles.emailHash} != ${tokenData[0].emailHash}`
+        ))
+        .limit(10);
+
+      // Generate anonymized matches
+      const matches = otherProfiles.map(other => {
+        const scoreData = scorePair(
+          {
+            id: profile[0].id,
+            email: '',
+            title: profile[0].attributes?.role,
+            company: profile[0].attributes?.company,
+            tags: profile[0].attributes?.tags || []
+          },
+          {
+            id: other.id,
+            email: '',
+            title: other.attributes?.role,
+            company: other.attributes?.company,
+            tags: other.attributes?.tags || []
+          }
+        );
+
+        const anon = anonymize(other.attributes?.role, other.attributes?.company);
+
+        return {
+          handle: anon.handle,
+          location: anon.location,
+          score: scoreData.score,
+          reasons: scoreData.reasons
+        };
+      }).sort((a, b) => b.score - a.score).slice(0, 5);
+
+      // Get event details
+      const eventData = await db
+        .select()
+        .from(events)
+        .where(eq(events.id, tokenData[0].eventId))
+        .limit(1);
+
+      res.json({
+        event: {
+          title: eventData[0]?.title,
+          date: eventData[0]?.startDate,
+          location: eventData[0]?.location
+        },
+        matches,
+        expiresAt: tokenData[0].expiresAt
+      });
+    } catch (error) {
+      console.error('Teaser fetch error:', error);
+      res.status(500).json({ error: 'Failed to fetch teaser' });
+    }
+  });
+
+  // 4. Activation Endpoint
+  app.post('/api/activate', async (req: any, res) => {
+    try {
+      const { token, password, acceptTerms } = req.body;
+
+      if (!token || !acceptTerms) {
+        return res.status(400).json({ error: 'token and acceptTerms are required' });
+      }
+
+      // Get token data
+      const tokenData = await db
+        .select()
+        .from(eventInviteTokens)
+        .where(eq(eventInviteTokens.token, token))
+        .limit(1);
+
+      if (tokenData.length === 0) {
+        return res.status(404).json({ error: 'Invalid token' });
+      }
+
+      // Check if expired
+      if (isTokenExpired(tokenData[0].expiresAt)) {
+        return res.status(400).json({ error: 'Token expired' });
+      }
+
+      // Check if already used
+      if (tokenData[0].usedAt) {
+        return res.status(400).json({ error: 'Token already used' });
+      }
+
+      // Get seeded profile
+      const profile = await db
+        .select()
+        .from(seededProfiles)
+        .where(and(
+          eq(seededProfiles.eventId, tokenData[0].eventId),
+          eq(seededProfiles.emailHash, tokenData[0].emailHash)
+        ))
+        .limit(1);
+
+      if (profile.length === 0) {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+
+      // Create or update user
+      let userId: string;
+      const attributes = profile[0].attributes || {};
+      const email = attributes.email;
+
+      if (!email) {
+        return res.status(400).json({ error: 'Email not found in profile' });
+      }
+
+      // Check if user exists
+      const existingUser = await storage.getUserByEmail(email);
+
+      if (existingUser) {
+        // Update existing user
+        userId = existingUser.id;
+        
+        const updates: any = {
+          firstName: attributes.firstName || existingUser.firstName,
+          lastName: attributes.lastName || existingUser.lastName,
+          title: attributes.role || existingUser.title,
+          company: attributes.company || existingUser.company
+        };
+
+        await storage.updateUser(userId, updates);
+      } else {
+        // Create new user
+        const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+        
+        const newUser = await storage.createUser({
+          email,
+          password: hashedPassword,
+          firstName: attributes.firstName,
+          lastName: attributes.lastName,
+          title: attributes.role,
+          company: attributes.company,
+          emailVerified: true
+        });
+        
+        userId = newUser.id;
+      }
+
+      // Register for event
+      await storage.registerForEvent({
+        eventId: tokenData[0].eventId,
+        userId,
+        status: 'confirmed'
+      });
+
+      // Mark token as used
+      await db
+        .update(eventInviteTokens)
+        .set({ 
+          status: 'used',
+          usedAt: new Date()
+        })
+        .where(eq(eventInviteTokens.token, token));
+
+      // Log consent
+      await db.insert(consentLogs).values({
+        subjectRef: userId,
+        eventType: 'activation',
+        granted: true,
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+        metadata: { eventId: tokenData[0].eventId }
+      });
+
+      // Create redirect URL for event deep-linking
+      const redirectUrl = `/events/${tokenData[0].eventId}/preparation`;
+
+      res.json({ userId, redirectUrl });
+    } catch (error) {
+      console.error('Activation error:', error);
+      res.status(500).json({ error: 'Failed to activate' });
+    }
+  });
+
+  // 5. Opt-Out Endpoint
+  app.post('/api/opt-out', async (req: any, res) => {
+    try {
+      const { token, email } = req.body;
+
+      if (!token && !email) {
+        return res.status(400).json({ error: 'token or email is required' });
+      }
+
+      let emailHash: string;
+      let subjectRef: string;
+
+      if (token) {
+        // Get token data
+        const tokenData = await db
+          .select()
+          .from(eventInviteTokens)
+          .where(eq(eventInviteTokens.token, token))
+          .limit(1);
+
+        if (tokenData.length === 0) {
+          return res.status(404).json({ error: 'Invalid token' });
+        }
+
+        emailHash = tokenData[0].emailHash;
+        subjectRef = tokenData[0].emailHash;
+      } else {
+        // Hash the provided email
+        emailHash = hashEmail(email);
+        subjectRef = emailHash;
+      }
+
+      // Add to suppression list
+      await db
+        .insert(emailSuppression)
+        .values({
+          emailHash,
+          reason: 'opt_out'
+        })
+        .onConflictDoNothing();
+
+      // Log consent event
+      await db.insert(consentLogs).values({
+        subjectRef,
+        eventType: 'opt_out',
+        granted: false,
+        ip: req.ip,
+        userAgent: req.get('user-agent')
+      });
+
+      // Delete/anonymize seeded profile data
+      await db
+        .delete(seededProfiles)
+        .where(eq(seededProfiles.emailHash, emailHash));
+
+      // Send confirmation email if we have it
+      if (email) {
+        const emailContent = optOutConfirmEmail();
+        await sendEmail(email, emailContent.subject, emailContent.html);
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Opt-out error:', error);
+      res.status(500).json({ error: 'Failed to opt out' });
+    }
+  });
+
+  // ============ END SEEDED PROFILES API ENDPOINTS ============
 
   return httpServer;
 }

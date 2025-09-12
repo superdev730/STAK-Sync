@@ -34,13 +34,16 @@ export function anonymize(title?: string | null, company?: string | null) {
 
 // Check if email is suppressed
 export async function isEmailSuppressed(emailHash: string, db: any): Promise<boolean> {
+  const { emailSuppression } = await import("@shared/schema");
+  const { eq } = await import("drizzle-orm");
+  
   const suppressed = await db
     .select()
-    .from("email_suppression")
-    .where("email_hash", emailHash)
-    .first();
+    .from(emailSuppression)
+    .where(eq(emailSuppression.emailHash, emailHash))
+    .limit(1);
   
-  return !!suppressed;
+  return suppressed.length > 0;
 }
 
 // Hash email with salt for privacy
