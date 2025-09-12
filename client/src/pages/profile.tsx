@@ -32,7 +32,8 @@ import {
   MapPin,
   Target,
   Info,
-  X
+  X,
+  Pencil
 } from "lucide-react";
 
 // Provenance Badge Component
@@ -303,27 +304,30 @@ export default function Profile() {
                 <div className="mb-4">
                   <h1 className="text-3xl font-bold text-stak-black mb-2">
                     {isOwnProfile ? (
-                      <Input
-                        value={fullName}
-                        onChange={(e) => {
-                          try {
-                            const [firstNameInput, ...lastNameParts] = e.target.value.split(' ');
-                            const lastNameInput = lastNameParts.join(' ');
-                            updateProfile({ 
-                              identity: {
-                                ...(profile?.identity || {}),
-                                first_name: firstNameInput || null,
-                                last_name: lastNameInput || null
-                              }
-                            });
-                          } catch (error) {
-                            console.error('Profile ERROR: Name update failed', error);
-                          }
-                        }}
-                        className="text-3xl font-bold border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
-                        placeholder="Enter your name"
-                        data-testid="input-user-name"
-                      />
+                      <div className="group relative inline-flex items-center">
+                        <Input
+                          value={fullName}
+                          onChange={(e) => {
+                            try {
+                              const [firstNameInput, ...lastNameParts] = e.target.value.split(' ');
+                              const lastNameInput = lastNameParts.join(' ');
+                              updateProfile({ 
+                                identity: {
+                                  ...(profile?.identity || {}),
+                                  first_name: firstNameInput || null,
+                                  last_name: lastNameInput || null
+                                }
+                              });
+                            } catch (error) {
+                              console.error('Profile ERROR: Name update failed', error);
+                            }
+                          }}
+                          className="text-3xl font-bold border-b-2 border-dashed border-gray-300 hover:border-gray-500 focus:border-blue-500 transition-colors px-2 py-1 bg-transparent"
+                          placeholder="Enter your name"
+                          data-testid="input-user-name"
+                        />
+                        <Pencil className="w-4 h-4 text-gray-400 ml-2 group-hover:text-gray-600 transition-colors" />
+                      </div>
                     ) : (
                       fullName
                     )}
@@ -331,7 +335,7 @@ export default function Profile() {
                   
                   <div className="text-xl text-gray-700 mb-2">
                     {isOwnProfile ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 group">
                         <Input
                           value={jobTitle}
                           onChange={(e) => updateProfile({ 
@@ -340,10 +344,11 @@ export default function Profile() {
                               role_title: e.target.value
                             }
                           })}
-                          className="text-xl border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                          className="text-xl border-b-2 border-dashed border-gray-300 hover:border-gray-500 focus:border-blue-500 transition-colors px-2 py-1 bg-transparent"
                           placeholder="Your Job Title"
                           data-testid="input-job-title"
                         />
+                        <Pencil className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
                         <ProvenanceBadge
                           fieldName="title"
                           getFieldProvenance={getFieldProvenance}
@@ -366,7 +371,7 @@ export default function Profile() {
                     <div className="flex items-center gap-2">
                       <Building2 className="w-4 h-4" />
                       {isOwnProfile ? (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 group">
                           <Input
                             value={userCompany}
                             onChange={(e) => updateProfile({ 
@@ -375,10 +380,11 @@ export default function Profile() {
                                 company: e.target.value
                               }
                             })}
-                            className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                            className="border-b border-dashed border-gray-300 hover:border-gray-500 focus:border-blue-500 transition-colors px-1 py-0.5 bg-transparent"
                             placeholder="Company"
                             data-testid="input-company"
                           />
+                          <Pencil className="w-3 h-3 text-gray-400 group-hover:text-gray-600 transition-colors" />
                         </div>
                       ) : (
                         <span>{userCompany || 'No company specified'}</span>
@@ -388,7 +394,7 @@ export default function Profile() {
                     <div className="flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
                       {isOwnProfile ? (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 group">
                           <Input
                             value={userLocation}
                             onChange={(e) => updateProfile({ 
@@ -397,10 +403,11 @@ export default function Profile() {
                                 location: e.target.value
                               }
                             })}
-                            className="border-none shadow-none p-0 bg-transparent focus-visible:ring-0"
+                            className="border-b border-dashed border-gray-300 hover:border-gray-500 focus:border-blue-500 transition-colors px-1 py-0.5 bg-transparent"
                             placeholder="Location"
                             data-testid="input-location"
                           />
+                          <Pencil className="w-3 h-3 text-gray-400 group-hover:text-gray-600 transition-colors" />
                         </div>
                       ) : (
                         <span>{userLocation || 'No location specified'}</span>
