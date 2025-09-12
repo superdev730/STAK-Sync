@@ -312,6 +312,24 @@ export default function Interview() {
   }
   
   const progress = currentStage === 0 ? 0 : ((currentStage) / (showStage4 ? 4 : 3)) * 100;
+  
+  // Prepare initial data with user information for Stage1
+  const getInitialDataWithUserInfo = () => {
+    const baseData = formData[`stage${currentStage}`] || {};
+    
+    // For Stage1Identity, merge in user data
+    if (currentStage === 1 && user) {
+      return {
+        ...baseData,
+        email: baseData.email || user.email || "",
+        firstName: baseData.firstName || user.firstName || "",
+        lastName: baseData.lastName || user.lastName || "",
+        phone: baseData.phone || user.phone || "",
+      };
+    }
+    
+    return baseData;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -383,7 +401,8 @@ export default function Interview() {
               <CurrentStageComponent
                 onNext={currentStage === 0 ? () => setCurrentStage(1) : handleStageComplete}
                 onBack={handleBack}
-                initialData={formData[`stage${currentStage}`]}
+                initialData={getInitialDataWithUserInfo()}
+                userEmail={user?.email}
                 interviewStatus={interviewStatus}
                 onResume={handleResumeInterview}
                 onUpdate={handleUpdateProfile}

@@ -29,7 +29,7 @@ const TIMEZONES = [
 ];
 
 const stage1Schema = z.object({
-  email: z.string().email().optional(), // Pre-filled from user account
+  email: z.string().email("Please enter a valid email address").min(1, "Email is required"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   preferredDisplayName: z.string().min(1, "Display name is required"),
@@ -114,25 +114,25 @@ export default function Stage1Identity({
 
         {/* Personal Information */}
         <div className="space-y-4">
-          {/* Email Field - Disabled and Pre-filled */}
+          {/* Email Field - Editable and Pre-filled */}
           <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Email *</FormLabel>
                 <FormControl>
                   <Input 
                     {...field} 
                     type="email"
-                    disabled
-                    className="bg-gray-50"
+                    placeholder="you@example.com"
                     data-testid="input-email" 
                   />
                 </FormControl>
                 <FormDescription>
-                  This is your account email and cannot be changed here
+                  Your email address for networking communications
                 </FormDescription>
+                <FormMessage />
               </FormItem>
             )}
           />
