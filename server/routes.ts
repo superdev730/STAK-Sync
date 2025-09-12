@@ -360,6 +360,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============ Interview Flow Endpoints ============
+
+  // Helper function to calculate completion percentage
+  const calculateCompletionPercentage = (user: any): number => {
+    let totalScore = 0;
+    
+    // Identity fields: 30%
+    if (user.identity) {
+      const identityFields = ['first_name', 'last_name', 'headline', 'city_region', 'email'];
+      const filledIdentity = identityFields.filter(field => user.identity[field]).length;
+      totalScore += (filledIdentity / identityFields.length) * 30;
+    }
+    
+    // Persona: 20%
+    if (user.persona?.primary) {
+      totalScore += 20;
+    }
+    
+    // Goals: 20%
+    if (user.goals) {
+      const goalsFields = ['statement', 'objectives', 'timeline'];
+      const filledGoals = goalsFields.filter(field => {
+        const value = user.goals[field];
+        return value && (Array.isArray(value) ? value.length > 0 : true);
+      }).length;
+      totalScore += (filledGoals / goalsFields.length) * 20;
+    }
+    
+    // Persona-specific block: 30%
+    const personaBlocks = ['vc_block', 'founder_block', 'talent_block', 'provider_block', 'student_block', 'creator_block'];
+    const hasPersonaBlock = personaBlocks.some(block => {
+      const blockData = user[block];
+      return blockData && Object.keys(blockData).some(key => blockData[key]);
+    });
+    if (hasPersonaBlock) {
+      totalScore += 30;
+    }
+    
+    return Math.round(totalScore);
+  };
   
   // 1. GET /api/interview/status - Get user's interview status and progress
   app.get('/api/interview/status', isAuthenticatedGeneral, async (req: any, res) => {
@@ -374,15 +413,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      // Calculate completion percentage
+      const completionPct = calculateCompletionPercentage(user);
+      
+      // Determine profile status based on completion
+      let profileStatus = user.profileStatus || 'new';
+      if (completionPct === 100) {
+        profileStatus = 'complete';
+      } else if (completionPct > 0) {
+        profileStatus = 'incomplete';
+      }
+
       // Return interview status fields
       res.json({
-        profileStatus: user.profileStatus || 'new',
+        profileStatus,
         lastInterviewStage: user.lastInterviewStage || null,
+        completionPercentage: completionPct,
         completedSections: {
-          stage1: Boolean(user.firstName && user.lastName),
-          stage2: Boolean(user.personas && user.personas.length > 0),
-          stage3: Boolean(user.goalStatement && user.goals && user.goals.length > 0),
-          stage4: user.profileStatus === 'complete'
+          stage1: Boolean(user.identity?.first_name && user.identity?.last_name),
+          stage2: Boolean(user.persona?.primary),
+          stage3: Boolean(user.goals?.statement && user.goals?.objectives?.length > 0),
+          stage4: completionPct === 100
         }
       });
     } catch (error) {
@@ -429,28 +480,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         portfolioVisible
       } = validationResult.data;
 
-      // Update user record
-      const updatedUser = await storage.updateUser(userId, {
-        firstName,
-        lastName,
-        preferredDisplayName,
-        headline,
-        city,
-        region,
-        timezone,
-        phone,
-        linkedinUrl,
-        linkedinVisible: linkedinVisible !== undefined ? linkedinVisible : true,
-        twitterUrl,
-        twitterVisible: twitterVisible !== undefined ? twitterVisible : true,
-        githubUrl,
-        githubVisible: githubVisible !== undefined ? githubVisible : true,
-        personalWebsite,
-        personalWebsiteVisible: personalWebsiteVisible !== undefined ? personalWebsiteVisible : true,
-        portfolioUrl,
-        portfolioVisible: portfolioVisible !== undefined ? portfolioVisible : true,
+      // Get existing user to preserve their email and merge data
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Prepare nested data structure
+      const identityData = {
+        identity: {
+          first_name: firstName,
+          last_name: lastName,
+          display_name: preferredDisplayName,
+          headline: headline,
+          city_region: city && region ? `${city}, ${region}` : city || region || existingUser.identity?.city_region,
+          timezone: timezone || existingUser.identity?.timezone,
+          email: existingUser.email || existingUser.identity?.email,
+          phone: phone || existingUser.identity?.phone
+        },
+        links: {
+          linkedin: linkedinUrl,
+          twitter: twitterUrl,
+          github: githubUrl,
+          website: personalWebsite,
+          portfolio: portfolioUrl
+        },
+        visibility: {
+          email: existingUser.visibility?.email || 'members',
+          phone: existingUser.visibility?.phone || 'private',
+          links: existingUser.visibility?.links || 'members'
+        },
         profileStatus: 'incomplete',
         lastInterviewStage: 'stage1'
+      };
+
+      // Add audit tracking
+      const audit = existingUser.audit || {};
+      audit.updated_iso = new Date().toISOString();
+      if (!audit.created_iso) {
+        audit.created_iso = audit.updated_iso;
+      }
+      audit.completion_pct = calculateCompletionPercentage({...existingUser, ...identityData});
+
+      // Update user record with nested structure
+      const updatedUser = await storage.updateUser(userId, {
+        ...identityData,
+        audit
       });
 
       res.json({
@@ -484,11 +559,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { personas, primaryPersona } = validationResult.data;
 
-      // Update user record
-      const updatedUser = await storage.updateUser(userId, {
-        personas,
-        primaryPersona,
+      // Get existing user to preserve data
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Prepare nested persona data
+      const personaData = {
+        persona: {
+          primary: primaryPersona,
+          secondary: personas?.filter(p => p !== primaryPersona) || [],
+          bio: existingUser.persona?.bio,
+          industries: existingUser.persona?.industries,
+          skills: existingUser.persona?.skills
+        },
         lastInterviewStage: 'stage2'
+      };
+
+      // Add audit tracking
+      const audit = existingUser.audit || {};
+      audit.updated_iso = new Date().toISOString();
+      if (!audit.created_iso) {
+        audit.created_iso = audit.updated_iso;
+      }
+      audit.completion_pct = calculateCompletionPercentage({...existingUser, ...personaData});
+
+      // Update user record with nested structure
+      const updatedUser = await storage.updateUser(userId, {
+        ...personaData,
+        audit
       });
 
       res.json({
@@ -521,12 +621,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { goalStatement, goals, timelineUrgency } = validationResult.data;
 
-      // Update user record
-      const updatedUser = await storage.updateUser(userId, {
-        goalStatement,
-        goals,
-        timelineUrgency,
+      // Get existing user to preserve data
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Prepare nested goals data
+      const goalsData = {
+        goals: {
+          statement: goalStatement,
+          objectives: goals,
+          timeline: timelineUrgency,
+          networking: existingUser.goals?.networking
+        },
         lastInterviewStage: 'stage3'
+      };
+
+      // Add audit tracking
+      const audit = existingUser.audit || {};
+      audit.updated_iso = new Date().toISOString();
+      if (!audit.created_iso) {
+        audit.created_iso = audit.updated_iso;
+      }
+      audit.completion_pct = calculateCompletionPercentage({...existingUser, ...goalsData});
+
+      // Update user record with nested structure
+      const updatedUser = await storage.updateUser(userId, {
+        ...goalsData,
+        audit
       });
 
       res.json({
@@ -571,26 +694,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         diligenceStyle
       } = validationResult.data;
 
-      // Update user record - store VC data in JSON fields
-      const updatedUser = await storage.updateUser(userId, {
-        // Store VC data in related fields and metadata
-        industries: sectors, // Map sectors to industries
-        investmentInterests: sectors,
-        bio: investmentThesis,
-        // Store additional VC data in profile metadata
-        profileMetadata: {
-          aum,
-          fundStage,
-          checkSizeMin,
-          checkSizeMax,
-          geography,
-          stages,
-          portfolioCount,
-          notableWins,
-          diligenceStyle
+      // Get existing user to preserve data
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Prepare VC block data in nested structure
+      const vcBlockData = {
+        vc_block: {
+          firm: existingUser.vc_block?.firm,
+          role: existingUser.vc_block?.role,
+          aum: aum,
+          fund_stage: fundStage,
+          check_size_min: checkSizeMin ? parseInt(checkSizeMin) : undefined,
+          check_size_max: checkSizeMax ? parseInt(checkSizeMax) : undefined,
+          investment_thesis: investmentThesis,
+          investment_sectors: sectors,
+          investment_geography: geography,
+          investment_stages: stages,
+          portfolio_count: portfolioCount,
+          notable_wins: notableWins,
+          diligence_style: diligenceStyle
         },
-        // Don't mark as complete here - client should call /api/interview/complete
+        profileStatus: 'complete',
         lastInterviewStage: 'stage4vc'
+      };
+
+      // Update persona with industry data if provided
+      const personaUpdate = existingUser.persona || {};
+      if (sectors && sectors.length > 0) {
+        personaUpdate.industries = sectors;
+      }
+
+      // Add audit tracking
+      const audit = existingUser.audit || {};
+      audit.updated_iso = new Date().toISOString();
+      if (!audit.created_iso) {
+        audit.created_iso = audit.updated_iso;
+      }
+      audit.completion_pct = calculateCompletionPercentage({...existingUser, ...vcBlockData});
+
+      // Update user record with nested structure
+      const updatedUser = await storage.updateUser(userId, {
+        ...vcBlockData,
+        persona: personaUpdate,
+        audit
       });
 
       res.json({
@@ -641,31 +790,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         biggestChallenge
       } = validationResult.data;
 
-      // Update user record - store founder data
-      const updatedUser = await storage.updateUser(userId, {
-        company: companyName,
-        jobTitle: `Founder at ${companyName}`,
-        industries: [industry],
-        bio: companyDescription,
-        // Store additional founder data in profile metadata
-        profileMetadata: {
-          companyStage,
-          companyWebsite,
-          targetMarket,
-          teamSize,
-          foundingTeam,
-          revenueStatus,
-          monthlyRevenue,
-          previousFunding,
-          currentRunway,
-          burnRate,
-          pitchDeck,
-          fundingNeeds,
-          supportNeeds,
-          biggestChallenge
+      // Get existing user to preserve data
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Prepare founder block data in nested structure
+      const founderBlockData = {
+        founder_block: {
+          company: companyName,
+          role: 'Founder',
+          stage: companyStage,
+          funding_raised: previousFunding,
+          team_size: teamSize ? parseInt(teamSize) : undefined,
+          industry: industry,
+          problem_solving: companyDescription,
+          looking_for: supportNeeds || [],
+          pitch_deck_url: pitchDeck
         },
-        // Don't mark as complete here - client should call /api/interview/complete
+        profileStatus: 'complete',
         lastInterviewStage: 'stage4founder'
+      };
+
+      // Update persona with company and industry data
+      const personaUpdate = existingUser.persona || {};
+      personaUpdate.bio = companyDescription;
+      if (industry) {
+        personaUpdate.industries = [industry];
+      }
+
+      // Add audit tracking
+      const audit = existingUser.audit || {};
+      audit.updated_iso = new Date().toISOString();
+      if (!audit.created_iso) {
+        audit.created_iso = audit.updated_iso;
+      }
+      audit.completion_pct = calculateCompletionPercentage({...existingUser, ...founderBlockData});
+
+      // Update user record with nested structure
+      const updatedUser = await storage.updateUser(userId, {
+        ...founderBlockData,
+        persona: personaUpdate,
+        audit
       });
 
       res.json({
@@ -715,29 +882,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredWorkStyle
       } = validationResult.data;
 
-      // Update user record - store operator data
-      const updatedUser = await storage.updateUser(userId, {
-        company: currentCompany,
-        jobTitle: currentRole,
-        industries: industries || [],
-        skills: expertiseAreas,
-        bio: notableAchievements,
-        linkedinUrl: githubUrl, // Store GitHub in LinkedIn field as social link
-        // Store additional operator data in profile metadata
-        profileMetadata: {
-          careerStage,
-          yearsExperience,
-          skillset,
-          lookingFor,
-          idealNextRole,
-          portfolioUrl,
-          personalWebsite,
-          availableForMentoring,
-          openToRelocation,
-          preferredWorkStyle
+      // Get existing user to preserve data
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Prepare talent/operator block data in nested structure
+      const talentBlockData = {
+        talent_block: {
+          current_role: currentRole,
+          current_company: currentCompany,
+          years_experience: yearsExperience ? parseInt(yearsExperience) : undefined,
+          expertise: expertiseAreas || [],
+          achievements: notableAchievements,
+          looking_for: lookingFor || [],
+          ideal_role: idealNextRole,
+          career_stage: careerStage,
+          available_mentoring: availableForMentoring,
+          open_to_relocation: openToRelocation,
+          work_style: preferredWorkStyle
         },
-        // Don't mark as complete here - client should call /api/interview/complete
+        profileStatus: 'complete',
         lastInterviewStage: 'stage4operator'
+      };
+
+      // Update persona with skills and industries
+      const personaUpdate = existingUser.persona || {};
+      if (notableAchievements) {
+        personaUpdate.bio = notableAchievements;
+      }
+      if (expertiseAreas && expertiseAreas.length > 0) {
+        personaUpdate.skills = expertiseAreas;
+      }
+      if (industries && industries.length > 0) {
+        personaUpdate.industries = industries;
+      }
+
+      // Update links if provided
+      const linksUpdate = existingUser.links || {};
+      if (githubUrl) linksUpdate.github = githubUrl;
+      if (personalWebsite) linksUpdate.website = personalWebsite;
+      if (portfolioUrl) linksUpdate.portfolio = portfolioUrl;
+
+      // Add audit tracking
+      const audit = existingUser.audit || {};
+      audit.updated_iso = new Date().toISOString();
+      if (!audit.created_iso) {
+        audit.created_iso = audit.updated_iso;
+      }
+      audit.completion_pct = calculateCompletionPercentage({...existingUser, ...talentBlockData});
+
+      // Update user record with nested structure
+      const updatedUser = await storage.updateUser(userId, {
+        ...talentBlockData,
+        persona: personaUpdate,
+        links: linksUpdate,
+        audit
       });
 
       res.json({
@@ -786,28 +987,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         publicationUrl
       } = validationResult.data;
 
-      // Update user record - store general persona data
-      const updatedUser = await storage.updateUser(userId, {
-        company: organizationName,
-        jobTitle: currentRole,
-        skills: expertiseAreas || [],
-        bio: professionalSummary,
-        // Store additional data in profile metadata
-        profileMetadata: {
-          organizationType,
-          yearsInField,
-          keyAchievements,
-          offeringToNetwork,
-          seekingFromNetwork,
-          networkingGoals,
-          availableForSpeaking,
-          availableForAdvisory,
-          availableForCollaboration,
-          personalWebsite,
-          publicationUrl
+      // Get existing user to preserve data
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Determine which persona block to use based on primary persona
+      const primaryPersona = existingUser.persona?.primary;
+      let blockKey = 'provider_block'; // Default to provider
+      
+      // Map personas to their blocks
+      if (primaryPersona === 'Advisor' || primaryPersona === 'Consultant') {
+        blockKey = 'provider_block';
+      } else if (primaryPersona === 'Other') {
+        blockKey = 'creator_block';
+      }
+
+      // Prepare general persona block data in nested structure
+      const generalBlockData = {
+        [blockKey]: {
+          organization: organizationName,
+          organization_type: organizationType,
+          role: currentRole,
+          years_experience: yearsInField ? parseInt(yearsInField) : undefined,
+          expertise: expertiseAreas || [],
+          achievements: keyAchievements,
+          offering: offeringToNetwork,
+          seeking: seekingFromNetwork,
+          goals: networkingGoals || [],
+          available_speaking: availableForSpeaking,
+          available_advisory: availableForAdvisory,
+          available_collaboration: availableForCollaboration
         },
-        // Don't mark as complete here - client should call /api/interview/complete
+        profileStatus: 'complete',
         lastInterviewStage: 'stage4general'
+      };
+
+      // Update persona with bio and skills
+      const personaUpdate = existingUser.persona || {};
+      if (professionalSummary) {
+        personaUpdate.bio = professionalSummary;
+      }
+      if (expertiseAreas && expertiseAreas.length > 0) {
+        personaUpdate.skills = expertiseAreas;
+      }
+
+      // Update links if provided
+      const linksUpdate = existingUser.links || {};
+      if (personalWebsite) linksUpdate.website = personalWebsite;
+      if (publicationUrl) linksUpdate.portfolio = publicationUrl;
+
+      // Add audit tracking
+      const audit = existingUser.audit || {};
+      audit.updated_iso = new Date().toISOString();
+      if (!audit.created_iso) {
+        audit.created_iso = audit.updated_iso;
+      }
+      audit.completion_pct = calculateCompletionPercentage({...existingUser, ...generalBlockData});
+
+      // Update user record with nested structure
+      const updatedUser = await storage.updateUser(userId, {
+        ...generalBlockData,
+        persona: personaUpdate,
+        links: linksUpdate,
+        audit
       });
 
       res.json({
@@ -834,45 +1078,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Extract interview-related fields
+      // Calculate completion percentage
+      const completionPct = calculateCompletionPercentage(user);
+
+      // Return nested structure directly from database
       const interviewData = {
-        // Status
-        profileStatus: user.profileStatus,
-        lastInterviewStage: user.lastInterviewStage,
+        // Status and metadata
+        profileStatus: user.profileStatus || 'new',
+        lastInterviewStage: user.lastInterviewStage || null,
+        completionPercentage: completionPct,
         
-        // Stage 1: Identity & Contact
-        firstName: user.firstName,
-        lastName: user.lastName,
-        preferredDisplayName: user.preferredDisplayName,
-        headline: user.headline,
-        city: user.city,
-        region: user.region,
-        timezone: user.timezone,
-        phone: user.phone,
+        // Nested JSON columns
+        identity: user.identity || {},
+        links: user.links || {},
+        visibility: user.visibility || {},
+        persona: user.persona || {},
+        goals: user.goals || {},
         
-        // Social links
-        linkedinUrl: user.linkedinUrl,
-        linkedinVisible: user.linkedinVisible,
-        twitterUrl: user.twitterUrl,
-        twitterVisible: user.twitterVisible,
-        githubUrl: user.githubUrl,
-        githubVisible: user.githubVisible,
-        personalWebsite: user.personalWebsite,
-        personalWebsiteVisible: user.personalWebsiteVisible,
-        portfolioUrl: user.portfolioUrl,
-        portfolioVisible: user.portfolioVisible,
+        // Persona-specific blocks (only include if they exist)
+        ...(user.vc_block && { vc_block: user.vc_block }),
+        ...(user.founder_block && { founder_block: user.founder_block }),
+        ...(user.talent_block && { talent_block: user.talent_block }),
+        ...(user.provider_block && { provider_block: user.provider_block }),
+        ...(user.student_block && { student_block: user.student_block }),
+        ...(user.creator_block && { creator_block: user.creator_block }),
         
-        // Stage 2: Persona & Role
-        personas: user.personas,
-        primaryPersona: user.primaryPersona,
-        
-        // Stage 3: Goals
-        goalStatement: user.goalStatement,
-        goals: user.goals,
-        timelineUrgency: user.timelineUrgency,
-        
-        // Stage 4: VC-specific (if applicable)
-        vcData: user.profileMetadata || null
+        // Audit information
+        audit: user.audit || {}
       };
 
       res.json(interviewData);
@@ -890,17 +1122,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not authenticated" });
       }
 
+      // Get existing user to preserve data
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Add audit tracking with 100% completion
+      const audit = existingUser.audit || {};
+      audit.updated_iso = new Date().toISOString();
+      if (!audit.created_iso) {
+        audit.created_iso = audit.updated_iso;
+      }
+      audit.completion_pct = 100;
+
       // Update user record to mark interview as complete
       const updatedUser = await storage.updateUser(userId, {
         profileStatus: 'complete',
-        lastInterviewStage: 'complete'
+        lastInterviewStage: 'complete',
+        audit
       });
 
       res.json({
         success: true,
         message: "Interview marked as complete",
         profileStatus: updatedUser.profileStatus,
-        lastInterviewStage: updatedUser.lastInterviewStage
+        lastInterviewStage: updatedUser.lastInterviewStage,
+        completionPercentage: 100
       });
     } catch (error) {
       console.error('Error marking interview as complete:', error);
