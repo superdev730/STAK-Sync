@@ -802,9 +802,17 @@ export default function AdminDashboard() {
                   <div className="space-y-4">
                     {users.slice(0, 5).map((user: User) => (
                       <div key={user.id} className="flex items-center space-x-4">
-                        <div className={`w-8 h-8 ${getAvatarColor(getUserInitials(user))} text-white rounded-full flex items-center justify-center text-xs font-semibold`}>
-                          {getUserInitials(user)}
-                        </div>
+                        {user.profileImageUrl ? (
+                          <img 
+                            src={user.profileImageUrl} 
+                            alt={getUserFullName(user)}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className={`w-8 h-8 ${getAvatarColor(getUserInitials(user))} text-white rounded-full flex items-center justify-center text-xs font-semibold`}>
+                            {getUserInitials(user)}
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {getUserFullName(user)}
@@ -900,9 +908,17 @@ export default function AdminDashboard() {
                       .map((user: User) => (
                         <div key={user.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 hover:bg-gray-50">
                           <div className="col-span-3 flex items-center space-x-3">
-                            <div className={`w-8 h-8 ${getAvatarColor(getUserInitials(user))} text-white rounded-full flex items-center justify-center text-xs font-semibold`}>
-                              {getUserInitials(user)}
-                            </div>
+                            {user.profileImageUrl ? (
+                              <img 
+                                src={user.profileImageUrl} 
+                                alt={getUserFullName(user)}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className={`w-8 h-8 ${getAvatarColor(getUserInitials(user))} text-white rounded-full flex items-center justify-center text-xs font-semibold`}>
+                                {getUserInitials(user)}
+                              </div>
+                            )}
                             <div>
                               <div className="font-medium text-gray-900">
                                 {getUserFullName(user)}
