@@ -31,6 +31,12 @@ export default function Header() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
+  // Fetch interview status to show profile completion indicator
+  const { data: interviewStatus } = useQuery({
+    queryKey: ["/api/interview/status"],
+    enabled: isAuthenticated,
+  });
+
   // Get notification counts
   const { data: conversations } = useQuery({
     queryKey: ["/api/conversations"],
@@ -301,15 +307,21 @@ export default function Header() {
                 </Button>
               </Link>
               
-              {/* User dropdown */}
+              {/* User dropdown with profile completion indicator */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Avatar className="h-8 w-8 sm:h-10 sm:w-10 cursor-pointer border-2 border-stak-copper hover:border-stak-light-gray transition-colors">
-                    <AvatarImage src={user?.profileImageUrl || ""} alt={user?.firstName || ""} />
-                    <AvatarFallback className="bg-stak-copper text-stak-black font-medium text-sm">
-                      {user?.firstName?.[0]}{user?.lastName?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="h-8 w-8 sm:h-10 sm:w-10 cursor-pointer border-2 border-stak-copper hover:border-stak-light-gray transition-colors">
+                      <AvatarImage src={user?.profileImageUrl || ""} alt={user?.firstName || ""} />
+                      <AvatarFallback className="bg-stak-copper text-stak-black font-medium text-sm">
+                        {user?.firstName?.[0]}{user?.lastName?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    {/* Profile Completion Indicator */}
+                    {interviewStatus && (interviewStatus.profileStatus === 'new' || interviewStatus.profileStatus === 'incomplete') && (
+                      <div className="absolute -top-1 -right-1 h-3 w-3 bg-amber-500 border-2 border-stak-black rounded-full animate-pulse" title="Profile incomplete" />
+                    )}
+                  </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-white border border-gray-200 shadow-lg">
                   <div className="px-3 py-2">
@@ -320,7 +332,12 @@ export default function Header() {
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="w-full">
                       <User className="mr-2 h-4 w-4" />
-                      Profile
+                      <span className="flex items-center justify-between w-full">
+                        Profile
+                        {interviewStatus && (interviewStatus.profileStatus === 'new' || interviewStatus.profileStatus === 'incomplete') && (
+                          <Badge className="ml-2 bg-amber-500 text-white text-xs px-1.5 py-0.5">Incomplete</Badge>
+                        )}
+                      </span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

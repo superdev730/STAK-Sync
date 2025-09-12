@@ -131,14 +131,18 @@ export default function SignupLogin() {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setAuthError(null);
       toast({
         title: "Account created successfully!",
-        description: "Welcome to STAK Sync. You're now logged in.",
+        description: "Welcome to STAK Sync. Let's set up your profile.",
       });
-      // Reload page to refresh auth state
-      window.location.href = "/";
+      
+      // Wait a moment for auth to update
+      setTimeout(() => {
+        // New users always go to interview
+        window.location.href = "/interview";
+      }, 500);
     },
     onError: (error: any) => {
       console.error('🔍 SIGNUPLOGIN DEBUG: Signup error caught', {
@@ -186,14 +190,43 @@ export default function SignupLogin() {
       console.log('Login attempt with email:', data.email);
       return apiRequest("/api/auth/login", "POST", data);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setAuthError(null);
-      toast({
-        title: "Welcome back!",
-        description: "You're now logged in to STAK Sync.",
-      });
-      // Reload page to refresh auth state
-      window.location.href = "/";
+      
+      // Check profile status to determine where to redirect
+      try {
+        // Wait for auth to be set
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const profileStatus = await apiRequest("/api/interview/status", "GET");
+        console.log('Profile status after login:', profileStatus);
+        
+        if (profileStatus.profileStatus === 'new' || profileStatus.profileStatus === 'incomplete') {
+          toast({
+            title: "Welcome back!",
+            description: profileStatus.profileStatus === 'new' ? 
+              "Let's set up your profile to get started." : 
+              "Let's finish setting up your profile.",
+          });
+          
+          // Redirect to interview
+          setTimeout(() => {
+            window.location.href = "/interview";
+          }, 500);
+        } else {
+          toast({
+            title: "Welcome back!",
+            description: "You're now logged in to STAK Sync.",
+          });
+          
+          // Redirect to home for complete profiles
+          window.location.href = "/";
+        }
+      } catch (error) {
+        console.error('Error checking profile status:', error);
+        // If we can't check status, just go to home
+        window.location.href = "/";
+      }
     },
     onError: (error: any) => {
       console.error('Login error details:', error);

@@ -7,9 +7,12 @@ import { Link } from "wouter";
 import { 
   Brain, MessageSquare, Calendar, Users, TrendingUp, Award, 
   AlertCircle, Clock, Target, Sparkles, CheckCircle, UserPlus,
-  Star, MapPin, ExternalLink, ChevronRight, Plus, Zap
+  Star, MapPin, ExternalLink, ChevronRight, Plus, Zap, ArrowRight
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ProfileCompletion {
   completionPercentage: number;
@@ -61,6 +64,21 @@ interface MatchSuggestion {
 
 export default function Home() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
+
+  // Fetch interview status
+  const { data: interviewStatus } = useQuery({
+    queryKey: ['/api/interview/status'],
+    enabled: !!user
+  });
+
+  // Auto-redirect new users to interview
+  useEffect(() => {
+    if (interviewStatus && interviewStatus.profileStatus === 'new') {
+      console.log('New user detected, redirecting to interview');
+      setLocation('/interview');
+    }
+  }, [interviewStatus, setLocation]);
 
   // Fetch profile completion
   const { data: profileCompletion } = useQuery({
@@ -134,8 +152,29 @@ export default function Home() {
 
         <div className="space-y-8">
           
-          {/* Priority 1: Profile Completion - Only show if under 90% */}
-          {profileCompletion && !profileCompletion.isComplete && (
+          {/* Priority 0: Incomplete Interview Alert */}
+          {interviewStatus && interviewStatus.profileStatus === 'incomplete' && (
+            <Alert className="border-2 border-amber-500 bg-amber-50">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              <AlertDescription className="flex items-center justify-between">
+                <div className="flex-1">
+                  <span className="font-semibold text-amber-900">Welcome back! Let's finish setting up your profile</span>
+                  <p className="text-amber-800 mt-1">
+                    You're almost there! Complete your profile setup to unlock AI-powered matches and personalized networking.
+                  </p>
+                </div>
+                <Button asChild className="ml-4 bg-amber-600 hover:bg-amber-700 text-white">
+                  <Link href="/interview">
+                    <ArrowRight className="w-4 h-4 mr-2" />
+                    Continue Setup
+                  </Link>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {/* Priority 1: Profile Completion - Only show if under 90% and interview is complete */}
+          {profileCompletion && !profileCompletion.isComplete && interviewStatus?.profileStatus === 'complete' && (
             <Card className="border-l-4 border-l-red-500 bg-red-50">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
